@@ -1,0 +1,292 @@
+{% extends 'main/base.html' %}
+
+{% block title %}Employee Registration - Sat Shine{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="text-center mb-0">Employee Registration</h3>
+                </div>
+                <div class="card-body">
+                    {% if form.errors %}
+                        <div class="alert alert-danger">
+                            <strong>Please correct the following errors:</strong>
+                            <ul class="mb-0 mt-2">
+                                {% for field, errors in form.errors.items %}
+                                    {% for error in errors %}
+                                        <li>{{ field|title }}: {{ error }}</li>
+                                    {% endfor %}
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endif %}
+                    
+                    <form method="post" id="signupForm" novalidate>
+                        {% csrf_token %}
+                        
+                        <!-- Employee ID and Email -->
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Employee ID <span class="text-danger">*</span></label>
+                                {{ form.employee_id }}
+                                <div class="invalid-feedback" id="employee_id_error"></div>
+                                <div class="valid-feedback" id="employee_id_success"></div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Email Address <span class="text-danger">*</span></label>
+                                {{ form.email }}
+                                <div class="invalid-feedback" id="email_error"></div>
+                                <div class="valid-feedback" id="email_success"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Name Fields -->
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">First Name <span class="text-danger">*</span></label>
+                                {{ form.first_name }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Last Name <span class="text-danger">*</span></label>
+                                {{ form.last_name }}
+                            </div>
+                        </div>
+                        
+                        <!-- Contact and Role-based Fields -->
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Contact Number <span class="text-danger">*</span></label>
+                                {{ form.contact_number }}
+                                <div class="invalid-feedback" id="contact_error"></div>
+                            </div>
+                            <div class="col-md-6 mb-3" id="adminDesignationField">
+                                <label class="form-label fw-bold">Designation <span class="text-danger">*</span></label>
+                                {{ form.designation }}
+                            </div>
+                        </div>
+                        
+                        <!-- Field Staff Specific Fields -->
+                        <div class="row" id="fieldStaffFields" style="display:none;">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">DCCB <span class="text-danger">*</span></label>
+                                {{ form.dccb }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Reporting Manager <span class="text-danger">*</span></label>
+                                {{ form.reporting_manager }}
+                            </div>
+                        </div>
+                        
+                        <!-- Password Fields -->
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Password <span class="text-danger">*</span></label>
+                                {{ form.password1 }}
+                                <div class="form-text">8+ characters with uppercase, lowercase, digit, and special character</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Confirm Password <span class="text-danger">*</span></label>
+                                {{ form.password2 }}
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">Register Employee</button>
+                        </div>
+                    </form>
+                    
+                    <div class="text-center mt-4">
+                        <p class="mb-0">Already have an account? <a href="{% url 'login' %}" class="text-decoration-none">Login here</a></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const employeeIdField = document.getElementById('id_employee_id');
+    const emailField = document.getElementById('id_email');
+    const contactField = document.getElementById('id_contact_number');
+    const designationField = document.getElementById('id_designation');
+    const fieldStaffFields = document.getElementById('fieldStaffFields');
+    const adminDesignationField = document.getElementById('adminDesignationField');
+    
+    let currentRole = null;
+    let validationState = {
+        employee_id: false,
+        email: false,
+        contact: false
+    };
+    
+    // Employee ID validation with auto-formatting
+    employeeIdField.addEventListener('input', function() {
+        let value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        this.value = value;
+        
+        // Reset role-specific fields when ID changes
+        resetRoleFields();
+        
+        // Validate when we have enough characters
+        if ((value.startsWith('MGJ') && value.length === 8) || 
+            (value.startsWith('MP') && value.length === 6)) {
+            validateEmployeeId(value);
+        } else if (value.length > 0) {
+            showFieldError('employee_id', 'Invalid format. Use MGJ00001 or MP0001.');
+        }
+    });
+    
+    // Email validation
+    emailField.addEventListener('blur', function() {
+        if (this.value && this.value.includes('@') && this.value.includes('.')) {
+            validateField('email', this.value);
+        }
+    });
+    
+    // Contact number formatting and validation
+    contactField.addEventListener('input', function() {
+        let value = this.value.replace(/\D/g, '');
+        if (value.length > 10) value = value.substring(0, 10);
+        this.value = value;
+        
+        if (value.length === 10) {
+            validationState.contact = true;
+            showFieldSuccess('contact_number', 'Valid contact number');
+        } else if (value.length > 0) {
+            validationState.contact = false;
+            showFieldError('contact_number', 'Must be exactly 10 digits');
+        }
+    });
+    
+    function validateEmployeeId(employeeId) {
+        fetch(`/auth/validate-field/?field=employee_id&value=${encodeURIComponent(employeeId)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.valid) {
+                    validationState.employee_id = true;
+                    currentRole = data.role;
+                    showFieldSuccess('employee_id', `Valid ${data.role} Employee ID`);
+                    updateRoleFields(data.role, data.designations);
+                } else {
+                    validationState.employee_id = false;
+                    showFieldError('employee_id', data.error);
+                    resetRoleFields();
+                }
+            })
+            .catch(error => {
+                console.error('Validation error:', error);
+                showFieldError('employee_id', 'Validation failed');
+            });
+    }
+    
+    function validateField(fieldName, value) {
+        fetch(`/auth/validate-field/?field=${fieldName}&value=${encodeURIComponent(value)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.valid) {
+                    validationState[fieldName] = true;
+                    showFieldSuccess(fieldName, 'Valid');
+                } else {
+                    validationState[fieldName] = false;
+                    showFieldError(fieldName, data.error);
+                }
+            });
+    }
+    
+    function updateRoleFields(role, designations) {
+        if (role === 'FIELD') {
+            // Show Field Staff specific fields
+            fieldStaffFields.style.display = 'block';
+            adminDesignationField.style.display = 'none';
+            
+            // Update designation dropdown for Field Staff
+            const designationSelect = document.getElementById('id_designation');
+            designationSelect.innerHTML = '<option value="">Select Designation</option>';
+            designations.forEach(([value, text]) => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = text;
+                designationSelect.appendChild(option);
+            });
+            
+        } else if (role === 'ADMIN') {
+            // Show Admin specific fields
+            fieldStaffFields.style.display = 'none';
+            adminDesignationField.style.display = 'block';
+            
+            // Update designation dropdown for Admin
+            const designationSelect = document.getElementById('id_designation');
+            designationSelect.innerHTML = '<option value="">Select Designation</option>';
+            designations.forEach(([value, text]) => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = text;
+                designationSelect.appendChild(option);
+            });
+        }
+    }
+    
+    function resetRoleFields() {
+        currentRole = null;
+        fieldStaffFields.style.display = 'none';
+        adminDesignationField.style.display = 'block';
+        
+        // Reset designation dropdown
+        const designationSelect = document.getElementById('id_designation');
+        designationSelect.innerHTML = '<option value="">Select Designation</option>';
+    }
+    
+    function showFieldError(fieldName, message) {
+        const field = document.getElementById(`id_${fieldName}`);
+        const errorDiv = document.getElementById(`${fieldName}_error`);
+        const successDiv = document.getElementById(`${fieldName}_success`);
+        
+        field.classList.remove('is-valid');
+        field.classList.add('is-invalid');
+        if (errorDiv) errorDiv.textContent = message;
+        if (successDiv) successDiv.textContent = '';
+    }
+    
+    function showFieldSuccess(fieldName, message) {
+        const field = document.getElementById(`id_${fieldName}`);
+        const errorDiv = document.getElementById(`${fieldName}_error`);
+        const successDiv = document.getElementById(`${fieldName}_success`);
+        
+        field.classList.remove('is-invalid');
+        field.classList.add('is-valid');
+        if (errorDiv) errorDiv.textContent = '';
+        if (successDiv) successDiv.textContent = message;
+    }
+    
+    // Form submission validation
+    document.getElementById('signupForm').addEventListener('submit', function(e) {
+        let isValid = true;
+        
+        // Check required validations
+        if (!validationState.employee_id) {
+            showFieldError('employee_id', 'Valid Employee ID required');
+            isValid = false;
+        }
+        
+        if (!validationState.email) {
+            showFieldError('email', 'Valid email required');
+            isValid = false;
+        }
+        
+        if (!validationState.contact) {
+            showFieldError('contact_number', 'Valid 10-digit contact number required');
+            isValid = false;
+        }
+        
+        if (!isValid) {
+            e.preventDefault();
+            window.scrollTo(0, 0);
+        }
+    });
+});
+</script>
+{% endblock %}

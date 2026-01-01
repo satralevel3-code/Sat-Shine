@@ -1,0 +1,321 @@
+{% extends 'main/base.html' %}
+
+{% block title %}Attendance Location Map - SAT-SHINE{% endblock %}
+
+{% block content %}
+<style>
+.map-header {
+    background: #1e3a8a;
+    color: white;
+    padding: 20px 0;
+    margin-bottom: 20px;
+}
+
+.map-container {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.map-filters {
+    padding: 20px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+#attendanceMap {
+    height: 70vh;
+    width: 100%;
+}
+
+.map-legend {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    z-index: 1000;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 12px;
+}
+
+.legend-color {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.marker-present { background: #059669; }
+.marker-absent { background: #dc2626; }
+.marker-half-day { background: #f59e0b; }
+.marker-late { background: #7c3aed; }
+
+.stats-panel {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    z-index: 1000;
+    min-width: 200px;
+}
+</style>
+
+<div class="map-header">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="mb-0">Attendance Location Map</h1>
+                <p class="mb-0 opacity-75">Real-time geo-location tracking of field officers</p>
+            </div>
+            <a href="{% url 'admin_dashboard' %}" class="btn btn-outline-light">
+                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <div class="map-container">
+        <!-- Filters -->
+        <div class="map-filters">
+            <form method="get" class="row g-3">
+                <div class="col-md-2">
+                    <label class="form-label">Date</label>
+                    <input type="date" class="form-control" name="date" 
+                           value="{{ selected_date|date:'Y-m-d' }}" onchange="this.form.submit()">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">DCCB</label>
+                    <select class="form-select" name="dccb" onchange="this.form.submit()">
+                        <option value="">All DCCBs</option>
+                        {% for value, label in dccb_choices %}
+                        <option value="{{ value }}" {% if dccb_filter == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Designation</label>
+                    <select class="form-select" name="designation" onchange="this.form.submit()">
+                        <option value="">All Designations</option>
+                        {% for value, label in designation_choices %}
+                        <option value="{{ value }}" {% if designation_filter == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Status</label>
+                    <select class="form-select" name="status" onchange="this.form.submit()">
+                        <option value="">All Status</option>
+                        {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="button" class="btn btn-primary me-2" onclick="refreshMap()">
+                        <i class="fas fa-sync-alt me-1"></i>Refresh
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="centerMap()">
+                        <i class="fas fa-crosshairs me-1"></i>Center Map
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Map -->
+        <div style="position: relative;">
+            <div id="attendanceMap"></div>
+            
+            <!-- Legend -->
+            <div class="map-legend">
+                <h6 class="mb-2">Legend</h6>
+                <div class="legend-item">
+                    <div class="legend-color marker-present"></div>
+                    <span>Present</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color marker-absent"></div>
+                    <span>Absent</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color marker-half-day"></div>
+                    <span>Half Day</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color marker-late"></div>
+                    <span>Late Arrival</span>
+                </div>
+            </div>
+
+            <!-- Stats Panel -->
+            <div class="stats-panel">
+                <h6 class="mb-2">Statistics</h6>
+                <div class="small">
+                    <div>Total Locations: <span id="totalLocations">0</span></div>
+                    <div>Present: <span id="presentCount">0</span></div>
+                    <div>Late Arrivals: <span id="lateCount">0</span></div>
+                    <div>Date: {{ selected_date|date:"d M Y" }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=initMap" async defer></script>
+
+<script>
+let map;
+let markers = [];
+const geoData = {{ geo_data|safe }};
+
+function initMap() {
+    // Initialize map centered on Gujarat, India
+    map = new google.maps.Map(document.getElementById('attendanceMap'), {
+        zoom: 7,
+        center: { lat: 23.0225, lng: 72.5714 }, // Gujarat center
+        mapTypeId: 'roadmap'
+    });
+
+    // Add markers for attendance locations
+    addAttendanceMarkers();
+    
+    // Update statistics
+    updateStats();
+}
+
+function addAttendanceMarkers() {
+    // Clear existing markers
+    markers.forEach(marker => marker.setMap(null));
+    markers = [];
+
+    geoData.forEach(record => {
+        if (record.latitude && record.longitude) {
+            const position = {
+                lat: parseFloat(record.latitude),
+                lng: parseFloat(record.longitude)
+            };
+
+            // Determine marker color based on status
+            let markerColor = '#6b7280'; // default gray
+            if (record.status === 'present') {
+                markerColor = record.is_late ? '#7c3aed' : '#059669'; // purple for late, green for on-time
+            } else if (record.status === 'absent') {
+                markerColor = '#dc2626'; // red
+            } else if (record.status === 'half_day') {
+                markerColor = '#f59e0b'; // yellow
+            }
+
+            const marker = new google.maps.Marker({
+                position: position,
+                map: map,
+                title: `${record.name} (${record.employee_id})`,
+                icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    scale: 8,
+                    fillColor: markerColor,
+                    fillOpacity: 0.8,
+                    strokeColor: '#ffffff',
+                    strokeWeight: 2
+                }
+            });
+
+            // Info window content
+            const infoContent = `
+                <div style="padding: 10px; min-width: 200px;">
+                    <h6 style="margin: 0 0 10px 0; color: #1e3a8a;">${record.name}</h6>
+                    <div style="font-size: 12px;">
+                        <div><strong>Employee ID:</strong> ${record.employee_id}</div>
+                        <div><strong>DCCB:</strong> ${record.dccb || 'N/A'}</div>
+                        <div><strong>Designation:</strong> ${record.designation}</div>
+                        <div><strong>Status:</strong> ${record.status_display}</div>
+                        <div><strong>Time:</strong> ${record.marked_at || 'N/A'}</div>
+                        ${record.is_late ? '<div style="color: #7c3aed;"><strong>⏰ Late Arrival</strong></div>' : ''}
+                        ${record.address ? `<div><strong>Location:</strong> ${record.address}</div>` : ''}
+                    </div>
+                </div>
+            `;
+
+            const infoWindow = new google.maps.InfoWindow({
+                content: infoContent
+            });
+
+            marker.addListener('click', () => {
+                // Close all other info windows
+                markers.forEach(m => {
+                    if (m.infoWindow) {
+                        m.infoWindow.close();
+                    }
+                });
+                
+                infoWindow.open(map, marker);
+                marker.infoWindow = infoWindow;
+            });
+
+            markers.push(marker);
+        }
+    });
+
+    // Fit map to show all markers
+    if (markers.length > 0) {
+        const bounds = new google.maps.LatLngBounds();
+        markers.forEach(marker => bounds.extend(marker.getPosition()));
+        map.fitBounds(bounds);
+        
+        // Don't zoom in too much for single markers
+        if (markers.length === 1) {
+            map.setZoom(15);
+        }
+    }
+}
+
+function updateStats() {
+    const totalLocations = geoData.length;
+    const presentCount = geoData.filter(r => r.status === 'present').length;
+    const lateCount = geoData.filter(r => r.is_late).length;
+
+    document.getElementById('totalLocations').textContent = totalLocations;
+    document.getElementById('presentCount').textContent = presentCount;
+    document.getElementById('lateCount').textContent = lateCount;
+}
+
+function refreshMap() {
+    location.reload();
+}
+
+function centerMap() {
+    if (markers.length > 0) {
+        const bounds = new google.maps.LatLngBounds();
+        markers.forEach(marker => bounds.extend(marker.getPosition()));
+        map.fitBounds(bounds);
+    } else {
+        map.setCenter({ lat: 23.0225, lng: 72.5714 });
+        map.setZoom(7);
+    }
+}
+
+// Initialize map when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof google === 'undefined') {
+        console.error('Google Maps API not loaded');
+        document.getElementById('attendanceMap').innerHTML = 
+            '<div class="d-flex align-items-center justify-content-center h-100">' +
+            '<div class="text-center">' +
+            '<i class="fas fa-map-marked-alt fa-3x text-muted mb-3"></i>' +
+            '<h5 class="text-muted">Google Maps API Required</h5>' +
+            '<p class="text-muted">Please configure Google Maps API key to view location data.</p>' +
+            '</div></div>';
+    }
+});
+</script>
+{% endblock %}

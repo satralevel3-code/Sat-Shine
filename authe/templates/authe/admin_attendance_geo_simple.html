@@ -1,0 +1,192 @@
+{% extends 'main/base.html' %}
+
+{% block title %}Attendance Location Map - SAT-SHINE{% endblock %}
+
+{% block content %}
+<style>
+.geo-header {
+    background: #1e3a8a;
+    color: white;
+    padding: 20px 0;
+    margin-bottom: 0;
+}
+
+.map-container {
+    height: calc(100vh - 150px);
+    position: relative;
+    background: white;
+}
+
+#map {
+    width: 100%;
+    height: 100%;
+}
+
+.map-controls {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 1000;
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.map-stats {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 1000;
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+</style>
+
+<div class="geo-header">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="mb-0">Attendance Location Map</h1>
+                <p class="mb-0 opacity-75">Showing exact lat/long coordinates</p>
+            </div>
+            <a href="{% url 'admin_dashboard' %}" class="btn btn-outline-light">
+                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid p-0">
+    <div class="map-container">
+        <div class="map-controls">
+            <form method="get">
+                <div class="mb-2">
+                    <label class="form-label">Date</label>
+                    <input type="date" class="form-control" name="date" value="{{ selected_date|date:'Y-m-d' }}" onchange="this.form.submit()">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Status</label>
+                    <select class="form-select" name="status" onchange="this.form.submit()">
+                        <option value="">All Status</option>
+                        <option value="present" {% if status_filter == 'present' %}selected{% endif %}>Present</option>
+                    </select>
+                </div>
+            </form>
+        </div>
+
+        <div class="map-stats">
+            <h6>Statistics</h6>
+            <div>Total Locations: <span id="totalCount">0</span></div>
+            <div>Present: <span id="presentCount">0</span></div>
+        </div>
+
+        <div id="map"></div>
+    </div>
+</div>
+
+<script>
+let map;
+let markers = [];
+
+function initMap() {
+    // Initialize map centered on Gujarat
+    map = new google.maps.Map(document.getElementById('map'), {
+        zoom: 7,
+        center: { lat: 23.0225, lng: 72.5714 }
+    });
+
+    // Load attendance data
+    loadAttendanceData();
+}
+
+function loadAttendanceData() {
+    const params = new URLSearchParams(window.location.search);
+    
+    fetch(`{% url 'admin_attendance_geo_data' %}?${params}`)
+        .then(response => response.json())
+        .then(data => {
+            console.log('Loaded data:', data);
+            
+            // Clear existing markers
+            markers.forEach(marker => marker.setMap(null));
+            markers = [];
+            
+            let presentCount = 0;
+            
+            data.forEach(item => {
+                if (item.latitude && item.longitude) {
+                    // Create marker
+                    const marker = new google.maps.Marker({
+                        position: { lat: item.latitude, lng: item.longitude },
+                        map: map,
+                        title: `${item.employee_id} - ${item.name}`,
+                        icon: {
+                            path: google.maps.SymbolPath.CIRCLE,
+                            scale: 8,
+                            fillColor: item.status === 'present' ? '#059669' : '#6b7280',
+                            fillOpacity: 0.8,
+                            strokeColor: 'white',
+                            strokeWeight: 2
+                        }
+                    });
+
+                    // Info window
+                    const infoWindow = new google.maps.InfoWindow({
+                        content: `
+                            <div>
+                                <h6>${item.employee_id}</h6>
+                                <p><strong>Name:</strong> ${item.name}</p>
+                                <p><strong>Status:</strong> ${item.status}</p>
+                                <p><strong>Time:</strong> ${item.marked_at}</p>
+                                <p><strong>Lat:</strong> ${item.latitude}</p>
+                                <p><strong>Lng:</strong> ${item.longitude}</p>
+                            </div>
+                        `
+                    });
+
+                    marker.addListener('click', () => {
+                        infoWindow.open(map, marker);
+                    });
+
+                    markers.push(marker);
+                    
+                    if (item.status === 'present') {
+                        presentCount++;
+                    }
+                }
+            });
+
+            // Update stats
+            document.getElementById('totalCount').textContent = data.length;
+            document.getElementById('presentCount').textContent = presentCount;
+
+            // Fit map to markers
+            if (markers.length > 0) {
+                const bounds = new google.maps.LatLngBounds();
+                markers.forEach(marker => bounds.extend(marker.getPosition()));
+                map.fitBounds(bounds);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading data:', error);
+        });
+}
+
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof google === 'undefined') {
+        document.getElementById('map').innerHTML = 
+            '<div class="d-flex align-items-center justify-content-center h-100">' +
+            '<div class="text-center">' +
+            '<h5>Loading Map...</h5>' +
+            '<p>If map doesn\'t load, check console for errors.</p>' +
+            '</div></div>';
+    }
+});
+</script>
+
+<script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBOti4mM-6x9WDnZIjIeyEU21OpBXqWBgw&callback=initMap"></script>
+{% endblock %}

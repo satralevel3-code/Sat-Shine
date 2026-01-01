@@ -1,0 +1,559 @@
+{% extends 'main/base.html' %}
+
+{% block title %}Analytics Dashboard - SAT-SHINE{% endblock %}
+
+{% block content %}
+<style>
+:root {
+    --primary-navy: #1e3a8a;
+    --accent-blue: #2563EB;
+    --accent-teal: #38BDF8;
+    --success-green: #059669;
+    --warning-amber: #f59e0b;
+    --error-red: #dc2626;
+    --bg-light: #f8fafc;
+    --text-primary: #374151;
+    --text-secondary: #6b7280;
+    --card-white: #ffffff;
+    --border-light: #e5e7eb;
+    --grey-not-marked: #9ca3af;
+}
+
+body {
+    background-color: var(--bg-light);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.5;
+    color: var(--text-primary);
+    overflow: hidden;
+}
+
+/* TOP HEADER */
+.top-header {
+    background: var(--primary-navy);
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+}
+
+.logo-text {
+    font-family: 'Poppins', sans-serif;
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    color: white;
+}
+
+.logo-shine {
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-teal));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.header-nav {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.header-nav a {
+    color: white;
+    text-decoration: none;
+    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.header-nav a:hover {
+    background-color: rgba(255,255,255,0.1);
+}
+
+/* MAIN CONTENT */
+.main-content {
+    margin-top: 56px;
+    padding: 20px 24px;
+    height: calc(100vh - 56px);
+    overflow: hidden;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.page-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--primary-navy);
+}
+
+.date-display {
+    font-size: 14px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+/* ANALYTICS GRID */
+.analytics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 20px;
+    height: calc(100vh - 140px);
+}
+
+.chart-card {
+    background: var(--card-white);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    border: 1px solid var(--border-light);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.chart-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.chart-subtitle {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.chart-container {
+    flex: 1;
+    position: relative;
+    min-height: 0;
+    max-height: 300px;
+}
+
+.chart-canvas {
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 280px !important;
+}
+
+/* LOADING STATE */
+.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    color: var(--text-secondary);
+}
+
+@media (max-width: 1200px) {
+    .analytics-grid {
+        grid-template-columns: 1fr;
+        grid-template-rows: repeat(4, 1fr);
+        height: auto;
+        overflow-y: auto;
+    }
+    
+    .main-content {
+        height: auto;
+        overflow: visible;
+    }
+    
+    body {
+        overflow: visible;
+    }
+}
+</style>
+
+<!-- TOP HEADER -->
+<div class="top-header">
+    <div class="logo-text">
+        SAT<span class="logo-shine">-SHINE</span>
+    </div>
+    <div class="header-nav">
+        <a href="{% url 'admin_dashboard' %}">Dashboard</a>
+        <a href="{% url 'admin_employee_list' %}">Employees</a>
+        <a href="{% url 'admin_attendance_daily' %}">Attendance</a>
+        <a href="{% url 'admin_leave_requests' %}">Leaves</a>
+        <a href="#" style="background-color: rgba(255,255,255,0.1);">Analytics</a>
+        <a href="{% url 'logout' %}">Logout</a>
+    </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="main-content">
+    <div class="page-header">
+        <h1 class="page-title">Analytics Dashboard</h1>
+        <div class="date-display" id="currentDate">Loading...</div>
+    </div>
+    
+    <div class="analytics-grid">
+        <!-- DCCB-Wise Attendance Status -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <div>
+                    <div class="chart-title">DCCB-Wise Attendance</div>
+                    <div class="chart-subtitle">Workforce strength vs actual attendance</div>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="dccbChart" class="chart-canvas"></canvas>
+            </div>
+        </div>
+        
+        <!-- Daily Attendance Summary -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <div>
+                    <div class="chart-title">Daily Summary</div>
+                    <div class="chart-subtitle">Overall attendance distribution</div>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="summaryChart" class="chart-canvas"></canvas>
+            </div>
+        </div>
+        
+        <!-- Late vs On-Time Analysis -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <div>
+                    <div class="chart-title">Punctuality Analysis</div>
+                    <div class="chart-subtitle">On-time vs late arrivals</div>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="punctualityChart" class="chart-canvas"></canvas>
+            </div>
+        </div>
+        
+        <!-- Attendance Marking Completion -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <div>
+                    <div class="chart-title">Marking Completion</div>
+                    <div class="chart-subtitle">Operational completeness tracking</div>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="completionChart" class="chart-canvas"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Chart.js default configuration
+Chart.defaults.font.family = 'Inter, -apple-system, BlinkMacSystemFont, sans-serif';
+Chart.defaults.font.size = 11;
+Chart.defaults.color = '#6b7280';
+
+// Color palette
+const colors = {
+    present: '#059669',
+    absent: '#dc2626',
+    halfDay: '#f59e0b',
+    late: '#2563EB',
+    notMarked: '#9ca3af',
+    onTime: '#059669'
+};
+
+let charts = {};
+
+// Initialize charts
+function initCharts() {
+    // DCCB-Wise Stacked Bar Chart
+    charts.dccb = new Chart(document.getElementById('dccbChart'), {
+        type: 'bar',
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: 'Present',
+                    data: [],
+                    backgroundColor: colors.present,
+                    borderWidth: 0
+                },
+                {
+                    label: 'Half Day',
+                    data: [],
+                    backgroundColor: colors.halfDay,
+                    borderWidth: 0
+                },
+                {
+                    label: 'Absent',
+                    data: [],
+                    backgroundColor: colors.absent,
+                    borderWidth: 0
+                },
+                {
+                    label: 'Not Marked',
+                    data: [],
+                    backgroundColor: colors.notMarked,
+                    borderWidth: 0
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    stacked: true,
+                    grid: { display: false },
+                    ticks: { maxRotation: 45, font: { size: 10 } }
+                },
+                y: {
+                    stacked: true,
+                    grid: { color: '#f3f4f6' },
+                    beginAtZero: true,
+                    ticks: { font: { size: 10 } }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    align: 'end',
+                    labels: { boxWidth: 12, padding: 8, font: { size: 10 } }
+                },
+                tooltip: {
+                    callbacks: {
+                        afterLabel: function(context) {
+                            const datasetIndex = context.datasetIndex;
+                            const dataIndex = context.dataIndex;
+                            let total = 0;
+                            context.chart.data.datasets.forEach(dataset => {
+                                total += dataset.data[dataIndex] || 0;
+                            });
+                            const percentage = ((context.raw / total) * 100).toFixed(1);
+                            return `${percentage}% of DCCB total`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Daily Summary Donut Chart
+    charts.summary = new Chart(document.getElementById('summaryChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Present', 'Absent', 'Half Day', 'Not Marked'],
+            datasets: [{
+                data: [],
+                backgroundColor: [colors.present, colors.absent, colors.halfDay, colors.notMarked],
+                borderWidth: 0,
+                cutout: '60%'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { boxWidth: 12, padding: 8, font: { size: 10 } }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((context.raw / total) * 100).toFixed(1);
+                            return `${context.label}: ${context.raw} (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        },
+        plugins: [{
+            beforeDraw: function(chart) {
+                const ctx = chart.ctx;
+                const centerX = (chart.chartArea.left + chart.chartArea.right) / 2;
+                const centerY = (chart.chartArea.top + chart.chartArea.bottom) / 2;
+                
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.font = 'bold 16px Inter';
+                ctx.fillStyle = '#1e3a8a';
+                
+                const total = chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                const present = chart.data.datasets[0].data[0] || 0;
+                const percentage = total > 0 ? Math.round((present / total) * 100) : 0;
+                
+                ctx.fillText(`${percentage}%`, centerX, centerY - 8);
+                ctx.font = '12px Inter';
+                ctx.fillStyle = '#6b7280';
+                ctx.fillText('Present', centerX, centerY + 8);
+                ctx.restore();
+            }
+        }]
+    });
+
+    // Punctuality Horizontal Bar Chart
+    charts.punctuality = new Chart(document.getElementById('punctualityChart'), {
+        type: 'bar',
+        data: {
+            labels: ['On-Time', 'Late Arrival'],
+            datasets: [{
+                data: [],
+                backgroundColor: [colors.onTime, colors.late],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            scales: {
+                x: {
+                    grid: { color: '#f3f4f6' },
+                    beginAtZero: true,
+                    ticks: { font: { size: 10 } }
+                },
+                y: {
+                    grid: { display: false },
+                    ticks: { font: { size: 10 } }
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = total > 0 ? ((context.raw / total) * 100).toFixed(1) : 0;
+                            return `${context.label}: ${context.raw} (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Completion Progress Chart
+    charts.completion = new Chart(document.getElementById('completionChart'), {
+        type: 'bar',
+        data: {
+            labels: ['Marked', 'Not Marked'],
+            datasets: [{
+                data: [],
+                backgroundColor: [colors.present, colors.notMarked],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            scales: {
+                x: {
+                    grid: { color: '#f3f4f6' },
+                    beginAtZero: true,
+                    ticks: { font: { size: 10 } }
+                },
+                y: {
+                    grid: { display: false },
+                    ticks: { font: { size: 10 } }
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = total > 0 ? ((context.raw / total) * 100).toFixed(1) : 0;
+                            return `${context.label}: ${context.raw} (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Load analytics data
+async function loadAnalyticsData() {
+    try {
+        const response = await fetch('{% url "compact_analytics_api" %}');
+        const data = await response.json();
+        
+        // Update date display
+        const today = new Date();
+        document.getElementById('currentDate').textContent = today.toLocaleDateString('en-GB', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+        
+        // Update DCCB chart
+        const dccbLabels = data.dccb_data.map(d => d.name);
+        const dccbPresent = data.dccb_data.map(d => d.present);
+        const dccbHalfDay = data.dccb_data.map(d => d.half_day);
+        const dccbAbsent = data.dccb_data.map(d => d.absent);
+        const dccbNotMarked = data.dccb_data.map(d => d.not_marked);
+        
+        charts.dccb.data.labels = dccbLabels;
+        charts.dccb.data.datasets[0].data = dccbPresent;
+        charts.dccb.data.datasets[1].data = dccbHalfDay;
+        charts.dccb.data.datasets[2].data = dccbAbsent;
+        charts.dccb.data.datasets[3].data = dccbNotMarked;
+        charts.dccb.update();
+        
+        // Update summary chart
+        charts.summary.data.datasets[0].data = [
+            data.summary.present,
+            data.summary.absent,
+            data.summary.half_day,
+            data.summary.not_marked
+        ];
+        charts.summary.update();
+        
+        // Update punctuality chart
+        charts.punctuality.data.datasets[0].data = [
+            data.punctuality.on_time,
+            data.punctuality.late
+        ];
+        charts.punctuality.update();
+        
+        // Update completion chart
+        charts.completion.data.datasets[0].data = [
+            data.completion.marked,
+            data.completion.not_marked
+        ];
+        charts.completion.update();
+        
+    } catch (error) {
+        console.error('Error loading analytics data:', error);
+    }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    initCharts();
+    loadAnalyticsData();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,317 @@
+{% extends 'main/base.html' %}
+
+{% block title %}Attendance History - {{ employee.employee_id }} - SAT-SHINE{% endblock %}
+
+{% block content %}
+<style>
+:root {
+    --primary-navy: #1e3a8a;
+    --success-green: #10b981;
+    --warning-amber: #f59e0b;
+    --error-red: #ef4444;
+    --bg-light: #f8fafc;
+    --card-white: #ffffff;
+    --text-primary: #374151;
+    --text-secondary: #6b7280;
+    --border-light: #e5e7eb;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.breadcrumb {
+    background: none;
+    padding: 0;
+    margin-bottom: 20px;
+    font-size: 14px;
+}
+
+.breadcrumb a {
+    color: var(--primary-navy);
+    text-decoration: none;
+}
+
+.breadcrumb a:hover {
+    text-decoration: underline;
+}
+
+.employee-header {
+    background: var(--card-white);
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.employee-info {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+}
+
+.info-label {
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.info-value {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.filters-section {
+    background: var(--card-white);
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.filters-row {
+    display: flex;
+    gap: 15px;
+    align-items: end;
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.filter-group label {
+    font-weight: 600;
+    margin-bottom: 5px;
+    font-size: 14px;
+}
+
+.filter-group input {
+    padding: 8px;
+    border: 1px solid var(--border-light);
+    border-radius: 4px;
+}
+
+.btn-apply {
+    padding: 10px 20px;
+    background: var(--primary-navy);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-apply:hover {
+    background: #1e40af;
+}
+
+.attendance-table {
+    background: var(--card-white);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.table {
+    width: 100%;
+    margin: 0;
+}
+
+.table th {
+    background: var(--bg-light);
+    padding: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-light);
+}
+
+.table td {
+    padding: 12px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-present { background: #dcfce7; color: var(--success-green); }
+.status-absent { background: #fee2e2; color: var(--error-red); }
+.status-half-day { background: #fef3c7; color: var(--warning-amber); }
+
+.late-flag {
+    color: var(--warning-amber);
+    font-weight: 600;
+}
+
+.location-link {
+    color: var(--primary-navy);
+    text-decoration: none;
+    font-size: 12px;
+}
+
+.location-link:hover {
+    text-decoration: underline;
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.pagination a, .pagination span {
+    padding: 8px 12px;
+    margin: 0 2px;
+    border: 1px solid var(--border-light);
+    text-decoration: none;
+    color: var(--text-primary);
+}
+
+.pagination .current {
+    background: var(--primary-navy);
+    color: white;
+}
+
+.no-records {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-secondary);
+}
+</style>
+
+<div class="container">
+    <!-- Breadcrumb -->
+    <nav class="breadcrumb">
+        <a href="{% url 'admin_dashboard' %}">Admin Dashboard</a> &gt; 
+        <a href="{% url 'admin_attendance_daily' %}">Daily Attendance</a> &gt; 
+        <span>{{ employee.employee_id }} Attendance History</span>
+    </nav>
+
+    <!-- Employee Header -->
+    <div class="employee-header">
+        <h2>Attendance History - {{ employee.employee_id }}</h2>
+        <div class="employee-info">
+            <div class="info-item">
+                <span class="info-label">Name:</span>
+                <span class="info-value">{{ employee.full_name }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Designation:</span>
+                <span class="info-value">{{ employee.designation }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">DCCB:</span>
+                <span class="info-value">{{ employee.dccb|default:"Not Assigned" }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Total Records:</span>
+                <span class="info-value">{{ total_records }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters-section">
+        <form method="GET">
+            <div class="filters-row">
+                <div class="filter-group">
+                    <label>From Date</label>
+                    <input type="date" name="start_date" value="{{ start_date|date:'Y-m-d' }}">
+                </div>
+                <div class="filter-group">
+                    <label>To Date</label>
+                    <input type="date" name="end_date" value="{{ end_date|date:'Y-m-d' }}">
+                </div>
+                <div class="filter-group">
+                    <button type="submit" class="btn-apply">Apply Filters</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Attendance Table -->
+    <div class="attendance-table">
+        {% if page_obj %}
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Check-In Time</th>
+                        <th>Check-Out Time</th>
+                        <th>Location</th>
+                        <th>Late Flag</th>
+                        <th>Source</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in page_obj %}
+                    <tr>
+                        <td>{{ record.date|date:"d M Y" }}</td>
+                        <td>
+                            <span class="status-badge status-{{ record.status }}">
+                                {{ record.get_status_display }}
+                            </span>
+                        </td>
+                        <td>{{ record.check_in_time|time:"H:i"|default:"-" }}</td>
+                        <td>{{ record.check_out_time|time:"H:i"|default:"-" }}</td>
+                        <td>
+                            {% if record.latitude and record.longitude %}
+                                <a href="https://maps.google.com/?q={{ record.latitude }},{{ record.longitude }}" 
+                                   target="_blank" class="location-link">
+                                    {{ record.latitude|floatformat:4 }}, {{ record.longitude|floatformat:4 }}
+                                </a>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if record.is_late %}
+                                <span class="late-flag">Late</span>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>Field Officer Dashboard</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <!-- Pagination -->
+            {% if page_obj.has_other_pages %}
+            <div class="pagination">
+                {% if page_obj.has_previous %}
+                    <a href="?page=1&start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}">&laquo; First</a>
+                    <a href="?page={{ page_obj.previous_page_number }}&start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}">&lsaquo; Previous</a>
+                {% endif %}
+
+                <span class="current">
+                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                </span>
+
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}&start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}">Next &rsaquo;</a>
+                    <a href="?page={{ page_obj.paginator.num_pages }}&start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}">Last &raquo;</a>
+                {% endif %}
+            </div>
+            {% endif %}
+        {% else %}
+            <div class="no-records">
+                <p>No attendance records found for the selected date range.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

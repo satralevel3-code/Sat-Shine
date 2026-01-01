@@ -1,0 +1,249 @@
+{% extends 'main/base.html' %}
+
+{% block title %}Leave Approval Management - SAT-SHINE{% endblock %}
+
+{% block content %}
+<style>
+.leave-header {
+    background: #1e3a8a;
+    color: white;
+    padding: 20px 0;
+    margin-bottom: 20px;
+}
+
+.leave-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.leave-item {
+    padding: 20px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.leave-item:last-child {
+    border-bottom: none;
+}
+
+.status-pending {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.status-approved {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.status-rejected {
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+.leave-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.btn-approve {
+    background: #059669;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.btn-reject {
+    background: #dc2626;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.remarks-section {
+    margin-top: 15px;
+    padding: 15px;
+    background: #f8fafc;
+    border-radius: 6px;
+}
+</style>
+
+<div class="leave-header">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="mb-0">Leave Approval Management</h1>
+                <p class="mb-0 opacity-75">Review and approve field officer leave requests</p>
+            </div>
+            <a href="{% url 'admin_dashboard' %}" class="btn btn-outline-light">
+                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <!-- Status Filter -->
+    <div class="leave-card">
+        <div class="p-3">
+            <form method="get" class="d-flex gap-3 align-items-center">
+                <label class="form-label mb-0">Filter by Status:</label>
+                <select class="form-select" name="status" onchange="this.form.submit()" style="width: auto;">
+                    {% for value, label in status_choices %}
+                    <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
+    </div>
+
+    <!-- Leave Requests -->
+    <div class="leave-card">
+        {% for leave in page_obj %}
+        <div class="leave-item">
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h6 class="mb-0">{{ leave.user.full_name }} ({{ leave.user.employee_id }})</h6>
+                        <span class="badge status-{{ leave.status }}">{{ leave.get_status_display }}</span>
+                    </div>
+                    
+                    <div class="row text-sm">
+                        <div class="col-md-6">
+                            <p class="mb-1"><strong>Leave Type:</strong> {{ leave.get_leave_type_display }}</p>
+                            <p class="mb-1"><strong>Duration:</strong> {{ leave.get_duration_display }}</p>
+                            <p class="mb-1"><strong>Days:</strong> {{ leave.days_requested }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-1"><strong>From:</strong> {{ leave.start_date|date:"d M Y" }}</p>
+                            <p class="mb-1"><strong>To:</strong> {{ leave.end_date|date:"d M Y" }}</p>
+                            <p class="mb-1"><strong>Applied:</strong> {{ leave.applied_at|date:"d M Y, H:i" }}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-2">
+                        <strong>Reason:</strong>
+                        <p class="text-muted mb-0">{{ leave.reason }}</p>
+                    </div>
+                    
+                    {% if leave.status != 'pending' %}
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            {{ leave.get_status_display }} by {{ leave.approved_by.full_name }} 
+                            on {{ leave.approved_at|date:"d M Y, H:i" }}
+                        </small>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="col-md-4">
+                    {% if leave.status == 'pending' %}
+                    <div class="remarks-section">
+                        <label class="form-label">Admin Remarks:</label>
+                        <textarea class="form-control form-control-sm" id="remarks-{{ leave.id }}" 
+                                  placeholder="Add your remarks here..." rows="3"></textarea>
+                        
+                        <div class="leave-actions">
+                            <button class="btn-approve" onclick="processLeave({{ leave.id }}, 'approve')">
+                                <i class="fas fa-check me-1"></i>Approve
+                            </button>
+                            <button class="btn-reject" onclick="processLeave({{ leave.id }}, 'reject')">
+                                <i class="fas fa-times me-1"></i>Reject
+                            </button>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-center">
+                        {% if leave.status == 'approved' %}
+                            <i class="fas fa-check-circle text-success fa-3x mb-2"></i>
+                        {% else %}
+                            <i class="fas fa-times-circle text-danger fa-3x mb-2"></i>
+                        {% endif %}
+                        <p class="mb-0 small text-muted">{{ leave.get_status_display }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="leave-item text-center py-5">
+            <i class="fas fa-clipboard-list fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">No {{ status_filter }} leave requests found</h5>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <nav>
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&status={{ status_filter }}">Previous</a>
+            </li>
+            {% endif %}
+            
+            {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+            <li class="page-item active">
+                <span class="page-link">{{ num }}</span>
+            </li>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ num }}&status={{ status_filter }}">{{ num }}</a>
+            </li>
+            {% endif %}
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}&status={{ status_filter }}">Next</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+<script>
+function processLeave(leaveId, action) {
+    const remarks = document.getElementById(`remarks-${leaveId}`).value;
+    
+    if (!confirm(`Are you sure you want to ${action} this leave request?`)) {
+        return;
+    }
+    
+    fetch(`{% url 'admin_decide_leave' 0 %}`.replace('0', leaveId), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            action: action,
+            admin_remarks: remarks
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Network error occurred');
+    });
+}
+</script>
+{% endblock %}

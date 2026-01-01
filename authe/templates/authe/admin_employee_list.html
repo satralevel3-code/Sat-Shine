@@ -1,0 +1,494 @@
+{% extends 'main/base.html' %}
+
+{% block title %}Employee Master List - SAT-SHINE{% endblock %}
+
+{% block content %}
+<style>
+.employee-header {
+    background: #1e3a8a;
+    color: white;
+    padding: 20px 0;
+    margin-bottom: 20px;
+}
+
+.filters-card {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.table-container {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.table-header {
+    background: #f8fafc;
+    padding: 20px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.table-responsive {
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.table thead th {
+    position: sticky;
+    top: 0;
+    background: #1e3a8a;
+    color: white;
+    border: none;
+    font-weight: 600;
+    z-index: 10;
+}
+
+.table tbody tr:hover {
+    background-color: #f8fafc;
+}
+
+.employee-id-link {
+    color: #1e3a8a;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.employee-id-link:hover {
+    text-decoration: underline;
+}
+
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-active {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.status-inactive {
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+.btn-edit {
+    background: #059669;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.btn-deactivate {
+    background: #dc2626;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.modal-content {
+    border-radius: 12px;
+}
+
+.modal-header {
+    background: #1e3a8a;
+    color: white;
+    border-radius: 12px 12px 0 0;
+}
+
+.export-section {
+    padding: 20px;
+    background: #f8fafc;
+    border-top: 1px solid #e5e7eb;
+}
+</style>
+
+<div class="employee-header">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="mb-0">Employee Master List</h1>
+                <p class="mb-0 opacity-75">Manage field officer records and access</p>
+            </div>
+            <a href="{% url 'admin_dashboard' %}" class="btn btn-outline-light">
+                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <!-- Filters -->
+    <div class="filters-card">
+        <form method="get" class="row g-3" id="filterForm">
+            {% csrf_token %}
+            <div class="col-md-3">
+                <label class="form-label">Search</label>
+                <input type="text" class="form-control" name="search" value="{{ search }}" 
+                       placeholder="Employee ID, Name, Contact, Email...">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">DCCB</label>
+                <select class="form-select" name="dccb">
+                    <option value="">All DCCBs</option>
+                    {% for value, label in dccb_choices %}
+                    <option value="{{ value }}" {% if dccb_filter == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Designation</label>
+                <select class="form-select" name="designation">
+                    <option value="">All Designations</option>
+                    {% for value, label in designation_choices %}
+                    <option value="{{ value }}" {% if designation_filter == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Status</label>
+                <select class="form-select" name="status">
+                    <option value="">All Status</option>
+                    {% for value, label in status_choices %}
+                    <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary me-2">
+                    <i class="fas fa-search me-1"></i>Filter
+                </button>
+                <a href="{% url 'admin_employee_list' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-times me-1"></i>Clear
+                </a>
+            </div>
+        </form>
+        
+        <!-- Filter Summary -->
+        {% if False %}
+        <div class="mt-3 p-2 bg-light rounded">
+            <small class="text-muted">
+                <strong>Active Filters:</strong>
+                {% if search %}<span class="badge bg-primary me-1">Search: "{{ search }}"</span>{% endif %}
+                {% if dccb_filter %}<span class="badge bg-info me-1">DCCB: {{ dccb_filter }}</span>{% endif %}
+                {% if designation_filter %}<span class="badge bg-success me-1">Designation: {{ designation_filter }}</span>{% endif %}
+                {% if status_filter %}<span class="badge bg-warning me-1">Status: {{ status_filter }}</span>{% endif %}
+                <span class="badge bg-secondary">Results: {{ page_obj.paginator.count }}</span>
+            </small>
+        </div>
+        {% endif %}
+        
+        <!-- Debug Info (remove in production) -->
+        {% if False %}
+        <div class="mt-2 p-2 bg-warning bg-opacity-10 rounded">
+            <small class="text-warning">
+                <strong>Debug:</strong> 
+                Search="{{ search }}", DCCB="{{ dccb_filter }}", Designation="{{ designation_filter }}", Status="{{ status_filter }}"
+            </small>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Employee Table -->
+    <div class="table-container">
+        <div class="table-header">
+            <h5 class="mb-0">
+                <i class="fas fa-users me-2"></i>
+                {% if search or dccb_filter or designation_filter or status_filter %}
+                    {{ page_obj.paginator.count }} Employees (Filtered)
+                {% else %}
+                    {{ page_obj.paginator.count }} Employees
+                {% endif %}
+            </h5>
+            {% if page_obj.paginator.count > 0 %}
+            <div class="text-muted small">
+                Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} entries
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Employee ID</th>
+                        <th>Full Name</th>
+                        <th>Designation</th>
+                        <th>Contact Number</th>
+                        <th>DCCB</th>
+                        <th>Reporting Manager</th>
+                        <th>Registration Date</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for employee in page_obj %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'admin_employee_detail' employee.employee_id %}" class="employee-id-link">
+                                {{ employee.employee_id }}
+                            </a>
+                        </td>
+                        <td>{{ employee.full_name }}</td>
+                        <td>{{ employee.designation }}</td>
+                        <td>{{ employee.contact_number }}</td>
+                        <td>{{ employee.dccb|default:"-" }}</td>
+                        <td>{{ employee.reporting_manager|default:"-" }}</td>
+                        <td>{{ employee.registration_at|date:"d M Y, H:i" }}</td>
+                        <td>
+                            <span class="status-badge status-{{ employee.status }}">
+                                {{ employee.get_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn-edit me-1" onclick="editEmployee('{{ employee.employee_id }}')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            {% if employee.status == 'active' %}
+                            <button class="btn-deactivate" onclick="deactivateEmployee('{{ employee.employee_id }}')">
+                                <i class="fas fa-ban"></i>
+                            </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center py-4">
+                            <i class="fas fa-users fa-2x text-muted mb-2"></i>
+                            <p class="text-muted mb-0">No employees found matching the criteria.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if page_obj.has_other_pages %}
+        <div class="d-flex justify-content-between align-items-center p-3 border-top">
+            <div class="text-muted">
+                Showing {{ page_obj.start_index }} to {{ page_obj.end_index }} of {{ page_obj.paginator.count }} entries
+            </div>
+            <nav>
+                <ul class="pagination mb-0">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if dccb_filter %}&dccb={{ dccb_filter }}{% endif %}{% if designation_filter %}&designation={{ designation_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">Previous</a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ num }}</span>
+                    </li>
+                    {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}{% if search %}&search={{ search }}{% endif %}{% if dccb_filter %}&dccb={{ dccb_filter }}{% endif %}{% if designation_filter %}&designation={{ designation_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">{{ num }}</a>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+                    
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if dccb_filter %}&dccb={{ dccb_filter }}{% endif %}{% if designation_filter %}&designation={{ designation_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">Next</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        <!-- Export Section -->
+        <div class="export-section">
+            <h6 class="mb-3">Employee MIS Download</h6>
+            <div class="d-flex gap-2">
+                <a href="{% url 'export_employees' %}?format=csv{% if search %}&search={{ search }}{% endif %}{% if dccb_filter %}&dccb={{ dccb_filter }}{% endif %}{% if designation_filter %}&designation={{ designation_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" 
+                   class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-file-csv me-1"></i>CSV
+                </a>
+                <a href="{% url 'export_employees' %}?format=xlsx{% if search %}&search={{ search }}{% endif %}{% if dccb_filter %}&dccb={{ dccb_filter }}{% endif %}{% if designation_filter %}&designation={{ designation_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" 
+                   class="btn btn-outline-success btn-sm">
+                    <i class="fas fa-file-excel me-1"></i>Excel
+                </a>
+                <a href="{% url 'export_employees' %}?format=pdf{% if search %}&search={{ search }}{% endif %}{% if dccb_filter %}&dccb={{ dccb_filter }}{% endif %}{% if designation_filter %}&designation={{ designation_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" 
+                   class="btn btn-outline-danger btn-sm">
+                    <i class="fas fa-file-pdf me-1"></i>PDF
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Employee Modal -->
+<div class="modal fade" id="editEmployeeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Employee</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editEmployeeForm">
+                    <div class="mb-3">
+                        <label class="form-label">Employee ID</label>
+                        <input type="text" class="form-control" id="editEmployeeId" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">First Name</label>
+                        <input type="text" class="form-control" id="editFirstName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Last Name</label>
+                        <input type="text" class="form-control" id="editLastName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Date of Joining</label>
+                        <input type="date" class="form-control" id="editDateOfJoining">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveEmployee()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentEmployeeId = null;
+
+// Auto-submit form on filter change
+document.addEventListener('DOMContentLoaded', function() {
+    const filterForm = document.getElementById('filterForm');
+    const selectElements = filterForm.querySelectorAll('select');
+    
+    // Auto-submit on select change
+    selectElements.forEach(select => {
+        select.addEventListener('change', function() {
+            filterForm.submit();
+        });
+    });
+    
+    // Submit on Enter key in search field
+    const searchInput = filterForm.querySelector('input[name="search"]');
+    searchInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            filterForm.submit();
+        }
+    });
+    
+    // Real-time search with debounce
+    let searchTimeout;
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            if (this.value.length >= 3 || this.value.length === 0) {
+                filterForm.submit();
+            }
+        }, 500); // 500ms debounce
+    });
+});
+
+function editEmployee(employeeId) {
+    currentEmployeeId = employeeId;
+    
+    // Find employee data from table
+    const row = document.querySelector(`a[onclick="viewEmployee('${employeeId}')"]`).closest('tr');
+    const cells = row.querySelectorAll('td');
+    
+    document.getElementById('editEmployeeId').value = employeeId;
+    
+    // Parse full name
+    const fullName = cells[1].textContent.trim().split(' ');
+    document.getElementById('editFirstName').value = fullName[0] || '';
+    document.getElementById('editLastName').value = fullName.slice(1).join(' ') || '';
+    
+    // Show modal
+    new bootstrap.Modal(document.getElementById('editEmployeeModal')).show();
+}
+
+function saveEmployee() {
+    if (!currentEmployeeId) return;
+    
+    const data = {
+        first_name: document.getElementById('editFirstName').value,
+        last_name: document.getElementById('editLastName').value,
+        date_of_joining: document.getElementById('editDateOfJoining').value
+    };
+    
+    fetch(`/auth/admin/employees/${currentEmployeeId}/update/`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Employee updated successfully');
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Network error occurred');
+    });
+}
+
+function deactivateEmployee(employeeId) {
+    if (!confirm(`Are you sure you want to deactivate employee ${employeeId}? This will block their login and attendance marking.`)) {
+        return;
+    }
+    
+    fetch(`/auth/admin/employees/${employeeId}/deactivate/`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Network error occurred');
+    });
+}
+
+function viewEmployee(employeeId) {
+    // Navigate to employee detail page
+    window.location.href = `/auth/admin/employees/${employeeId}/`;
+}
+</script>
+{% endblock %}

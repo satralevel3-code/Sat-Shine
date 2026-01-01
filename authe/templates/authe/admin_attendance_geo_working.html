@@ -1,0 +1,189 @@
+{% extends 'main/base.html' %}
+
+{% block title %}Attendance Map - SAT-SHINE{% endblock %}
+
+{% block content %}
+<div style="padding: 20px;">
+    <h2>Attendance Location Map</h2>
+    
+    <!-- Filter Controls -->
+    <div style="display: flex; gap: 15px; margin-bottom: 20px; align-items: center; background: #f8f9fa; padding: 15px; border-radius: 8px;">
+        <div>
+            <label for="dateFilter" style="font-weight: 600; margin-right: 5px;">Date:</label>
+            <input type="date" id="dateFilter" value="{{ selected_date|date:'Y-m-d' }}" style="padding: 5px; border: 1px solid #ccc; border-radius: 4px;">
+        </div>
+        <div>
+            <label for="statusFilter" style="font-weight: 600; margin-right: 5px;">Status:</label>
+            <select id="statusFilter" style="padding: 5px; border: 1px solid #ccc; border-radius: 4px;">
+                <option value="">All Status</option>
+                <option value="present">Present</option>
+                <option value="absent">Absent</option>
+                <option value="half_day">Half Day</option>
+            </select>
+        </div>
+        <button onclick="applyFilters()" style="padding: 6px 12px; background: #1e3a8a; color: white; border: none; border-radius: 4px; cursor: pointer;">Apply Filters</button>
+    </div>
+    
+    <div id="map" style="height: 500px; width: 100%; border: 1px solid #ccc;"></div>
+    
+    <div id="legend" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px;">
+        <h5>Legend</h5>
+        <div style="display: flex; gap: 20px;">
+            <div><span style="color: green;">●</span> Present (On Time)</div>
+            <div><span style="color: orange;">●</span> Present (Late)</div>
+            <div><span style="color: red;">●</span> Absent</div>
+            <div><span style="color: blue;">●</span> Half Day</div>
+        </div>
+    </div>
+</div>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.2.2/ol.css" type="text/css">
+<script src="https://cdn.jsdelivr.net/npm/ol@v7.2.2/dist/ol.js"></script>
+
+<script>
+// Initialize map with higher zoom for accuracy
+const map = new ol.Map({
+    target: 'map',
+    layers: [
+        new ol.layer.Tile({
+            source: new ol.source.OSM()
+        })
+    ],
+    view: new ol.View({
+        center: ol.proj.fromLonLat([72.5714, 23.0225]), // Ahmedabad center
+        zoom: 12, // Higher zoom for better accuracy
+        maxZoom: 18 // Allow very high zoom
+    })
+});
+
+// Create vector source for markers
+const vectorSource = new ol.source.Vector();
+const vectorLayer = new ol.layer.Vector({
+    source: vectorSource
+});
+map.addLayer(vectorLayer);
+
+// Load and display markers
+function loadMarkers() {
+    const dateFilter = document.getElementById('dateFilter').value;
+    const statusFilter = document.getElementById('statusFilter').value;
+    
+    let url = '{% url "admin_attendance_geo_data" %}';
+    const params = new URLSearchParams();
+    if (dateFilter) params.append('date', dateFilter);
+    if (statusFilter) params.append('status', statusFilter);
+    if (params.toString()) url += '?' + params.toString();
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            // Clear existing markers
+            vectorSource.clear();
+            
+            if (data.length === 0) {
+                return;
+            }
+            
+            data.forEach(record => {
+                // Create marker feature
+                const feature = new ol.Feature({
+                    geometry: new ol.geom.Point(ol.proj.fromLonLat([record.lng, record.lat]))
+                });
+                
+                // Set marker properties
+                feature.setProperties({
+                    employee_id: record.employee_id,
+                    name: record.name,
+                    designation: record.designation,
+                    dccb: record.dccb,
+                    status: record.status,
+                    is_late: record.is_late,
+                    marked_at: record.marked_at
+                });
+                
+                // Set marker style based on status
+                let color = 'green';
+                if (record.status === 'absent') color = 'red';
+                else if (record.status === 'half_day') color = 'blue';
+                else if (record.is_late) color = 'orange';
+                
+                // Set marker style with higher precision
+                feature.setStyle(new ol.style.Style({
+                    image: new ol.style.Circle({
+                        radius: 10, // Larger marker for better visibility
+                        fill: new ol.style.Fill({color: color}),
+                        stroke: new ol.style.Stroke({color: 'white', width: 3})
+                    }),
+                    text: new ol.style.Text({
+                        text: record.employee_id,
+                        font: '12px Arial',
+                        fill: new ol.style.Fill({color: 'white'}),
+                        stroke: new ol.style.Stroke({color: 'black', width: 2}),
+                        offsetY: -25
+                    })
+                }));
+                
+                vectorSource.addFeature(feature);
+            });
+            
+            // Fit map to show all markers with better padding
+            if (vectorSource.getFeatures().length > 0) {
+                map.getView().fit(vectorSource.getExtent(), {
+                    padding: [50, 50, 50, 50],
+                    maxZoom: 16 // Ensure good detail level
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error loading geo data:', error);
+        });
+}
+
+// Apply filters function
+function applyFilters() {
+    loadMarkers();
+}
+
+// Load initial markers
+loadMarkers();
+
+// Add click handler for marker info
+map.on('click', function(event) {
+    const feature = map.forEachFeatureAtPixel(event.pixel, function(feature) {
+        return feature;
+    });
+    
+    if (feature) {
+        const props = feature.getProperties();
+        let info = `
+            <strong>${props.name}</strong><br>
+            Employee ID: ${props.employee_id}<br>
+            Designation: ${props.designation}<br>
+            DCCB: ${props.dccb}<br>
+            Status: ${props.status}<br>
+            Marked At: ${props.marked_at}
+        `;
+        
+        // Create popup
+        const popup = document.createElement('div');
+        popup.innerHTML = info;
+        popup.style.cssText = 'background: white; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);';
+        
+        const overlay = new ol.Overlay({
+            element: popup,
+            positioning: 'bottom-center',
+            stopEvent: false,
+            offset: [0, -10]
+        });
+        
+        map.addOverlay(overlay);
+        overlay.setPosition(feature.getGeometry().getCoordinates());
+        
+        // Remove popup after 3 seconds
+        setTimeout(() => {
+            map.removeOverlay(overlay);
+        }, 3000);
+    }
+});
+</script>
+{% endblock %}
