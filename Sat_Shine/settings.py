@@ -27,27 +27,6 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
-# Custom User Model
-AUTH_USER_MODEL = 'authe.CustomUser'
-
-# Login URL for @login_required decorator
-LOGIN_URL = '/auth/login/'
-
-# Session settings for auto logout
-SESSION_COOKIE_AGE = 1800  # 30 minutes in seconds
-SESSION_EXPIRE_AT_BROWSER_CLOSE = True
-SESSION_SAVE_EVERY_REQUEST = True
-
-# Custom User Model
-AUTH_USER_MODEL = 'authe.CustomUser'
-
-# Login URL for @login_required decorator
-LOGIN_URL = '/auth/login/'
-
-# Session settings for auto logout
-SESSION_COOKIE_AGE = 1800  # 30 minutes in seconds
-SESSION_EXPIRE_AT_BROWSER_CLOSE = True
-SESSION_SAVE_EVERY_REQUEST = True
 
 # Application definition
 
@@ -58,8 +37,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'authe',
-    'main',
+    'django.contrib.gis'
+
+    #Installed Apps
+    'Main',
+    'authe'
 ]
 
 MIDDLEWARE = [
@@ -68,7 +50,6 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'authe.middleware.SessionTimeoutMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -98,12 +79,12 @@ WSGI_APPLICATION = 'Sat_Shine.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
+        'ENGINE': 'django.contrib.gis.db.backends.postgis',
         'NAME': 'Sat Shine',
         'USER': 'postgres',
         'PASSWORD': 'Vicky@1265',
-        'HOST': 'localhost',
-        'PORT': '5432',
+	'HOST': 'localhost',
+	'PORT': '5432'
     }
 }
 
@@ -132,7 +113,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'Asia/Kolkata'
+TIME_ZONE = 'UTC'
 
 USE_I18N = True
 
@@ -143,6 +124,3 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
-
-# Default primary key field type
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

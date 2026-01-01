@@ -2,8 +2,6 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.core.validators import RegexValidator
 from django.utils import timezone
-from django.db.models.signals import post_save
-from django.dispatch import receiver
 import re
 
 class CustomUser(AbstractUser):
@@ -42,11 +40,6 @@ class CustomUser(AbstractUser):
         ('SURAT', 'SURAT'),
     ]
     
-    STATUS_CHOICES = [
-        ('active', 'Active'),
-        ('inactive', 'Inactive'),
-    ]
-    
     employee_id = models.CharField(
         max_length=8, 
         unique=True,
@@ -63,8 +56,6 @@ class CustomUser(AbstractUser):
     designation = models.CharField(max_length=20, choices=DESIGNATION_CHOICES)
     dccb = models.CharField(max_length=20, choices=DCCB_CHOICES, blank=True, null=True)
     reporting_manager = models.CharField(max_length=100, blank=True, null=True)
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='active')
-    registration_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     
     USERNAME_FIELD = 'employee_id'
     REQUIRED_FIELDS = ['email', 'first_name', 'last_name']
@@ -95,10 +86,6 @@ class CustomUser(AbstractUser):
     
     def __str__(self):
         return f"{self.employee_id} - {self.first_name} {self.last_name}"
-    
-    @property
-    def full_name(self):
-        return f"{self.first_name} {self.last_name}"
 
 class AuditLog(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
@@ -122,7 +109,7 @@ class Attendance(models.Model):
     ]
     
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
-    date = models.DateField(default=timezone.localdate)
+    date = models.DateField(default=timezone.now)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES)
     check_in_time = models.TimeField(null=True, blank=True)
     check_out_time = models.TimeField(null=True, blank=True)
@@ -169,85 +156,9 @@ class LeaveRequest(models.Model):
     class Meta:
         ordering = ['-applied_at']
     
-    def save(self, *args, **kwargs):
-        # Auto-calculate days_requested if not provided
-        if not self.days_requested:
-            total_days = (self.end_date - self.start_date).days + 1
-            self.days_requested = 0.5 if self.duration == 'half_day' else float(total_days)
-        super().save(*args, **kwargs)
-    
-    def save(self, *args, **kwargs):
-        # Auto-calculate days_requested if not provided
-        if not self.days_requested:
-            total_days = (self.end_date - self.start_date).days + 1
-            self.days_requested = 0.5 if self.duration == 'half_day' else float(total_days)
-        super().save(*args, **kwargs)
-    
     def __str__(self):
         return f"{self.user.employee_id} - {self.leave_type} - {self.start_date} to {self.end_date}"
     
     @property
     def days_count(self):
         return float(self.days_requested)
-
-class Holiday(models.Model):
-    name = models.CharField(max_length=100)
-    date = models.DateField()
-    is_optional = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    class Meta:
-        ordering = ['date']
-        unique_together = ['name', 'date']
-    
-    def __str__(self):
-        return f"{self.name} - {self.date}"
-
-class Notification(models.Model):
-    EVENT_TYPES = [
-        ('LEAVE_REQUEST', 'Leave Request'),
-        ('ATTENDANCE_MARKED', 'Attendance Marked'),
-    ]
-    
-    recipient = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='notifications')
-    actor = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='triggered_notifications')
-    event_type = models.CharField(max_length=20, choices=EVENT_TYPES)
-    reference_id = models.IntegerField()
-    message = models.CharField(max_length=255)
-    is_read = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-    
-    class Meta:
-        ordering = ['-created_at']
-    
-    def __str__(self):
-        return f"{self.actor.employee_id} - {self.event_type} - {self.created_at}"
-
-# Signal handlers for automatic notification creation
-@receiver(post_save, sender=LeaveRequest)
-def create_leave_notification(sender, instance, created, **kwargs):
-    if created:
-        # Create notification for all admin users
-        admin_users = CustomUser.objects.filter(role='admin')
-        for admin in admin_users:
-            Notification.objects.create(
-                recipient=admin,
-                actor=instance.user,
-                event_type='LEAVE_REQUEST',
-                reference_id=instance.id,
-                message=f"{instance.user.employee_id} submitted {instance.leave_type} leave request"
-            )
-
-@receiver(post_save, sender=Attendance)
-def create_attendance_notification(sender, instance, created, **kwargs):
-    if created and instance.status in ['present', 'half_day']:
-        # Create notification for all admin users
-        admin_users = CustomUser.objects.filter(role='admin')
-        for admin in admin_users:
-            Notification.objects.create(
-                recipient=admin,
-                actor=instance.user,
-                event_type='ATTENDANCE_MARKED',
-                reference_id=instance.id,
-                message=f"{instance.user.employee_id} marked attendance as {instance.get_status_display()}"
-            )
