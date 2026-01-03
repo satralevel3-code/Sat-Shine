@@ -15,9 +15,9 @@ keepalive = 2
 max_requests = 1000
 max_requests_jitter = 100
 
-# Logging
-accesslog = "/var/log/sat_shine/gunicorn_access.log"
-errorlog = "/var/log/sat_shine/gunicorn_error.log"
+# Logging - Use stdout/stderr for cloud deployments
+accesslog = "-"
+errorlog = "-"
 loglevel = "info"
 access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"'
 
@@ -26,17 +26,18 @@ proc_name = "sat_shine_gunicorn"
 
 # Server mechanics
 daemon = False
-pidfile = "/var/run/sat_shine/gunicorn.pid"
-user = "www-data"
-group = "www-data"
+# Remove pidfile, user, group for cloud deployments
+# pidfile = "/var/run/sat_shine/gunicorn.pid"
+# user = "www-data"
+# group = "www-data"
 tmp_upload_dir = None
 
 # SSL (if needed)
 # keyfile = "/path/to/keyfile"
 # certfile = "/path/to/certfile"
 
-# Environment
-raw_env = [
-    'DJANGO_SETTINGS_MODULE=Sat_Shine.settings.production',
-    'DJANGO_ENVIRONMENT=production',
-]
+# Environment - Remove specific settings module reference
+# raw_env = [
+#     'DJANGO_SETTINGS_MODULE=Sat_Shine.settings.production',
+#     'DJANGO_ENVIRONMENT=production',
+# ]

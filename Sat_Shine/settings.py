@@ -41,6 +41,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Add WhiteNoise for static files
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -73,7 +75,13 @@ WSGI_APPLICATION = 'Sat_Shine.wsgi.application'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 # Database - Development (SQLite) / Production (PostgreSQL)
-if os.environ.get('USE_POSTGRESQL', 'False').lower() == 'true':
+# Check for DATABASE_URL first (Railway, Heroku style)
+if os.environ.get('DATABASE_URL'):
+    import dj_database_url
+    DATABASES = {
+        'default': dj_database_url.parse(os.environ.get('DATABASE_URL'))
+    }
+elif os.environ.get('USE_POSTGRESQL', 'False').lower() == 'true':
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -84,8 +92,6 @@ if os.environ.get('USE_POSTGRESQL', 'False').lower() == 'true':
             'PORT': os.environ.get('DB_PORT', '5432'),
         }
     }
-    # if 'django.contrib.gis' not in INSTALLED_APPS:
-    #     INSTALLED_APPS.append('django.contrib.gis')
 else:
     # Development SQLite database
     DATABASES = {
@@ -132,6 +138,10 @@ AUTH_USER_MODEL = 'authe.CustomUser'
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# WhiteNoise configuration for static files
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -159,7 +169,9 @@ LOGOUT_REDIRECT_URL = '/login/'
 
 # GIS Configuration (only when PostgreSQL is enabled)
 if os.environ.get('USE_POSTGRESQL', 'False').lower() == 'true':
-    GDAL_LIBRARY_PATH = r'C:\Users\admin\AppData\Local\Programs\OSGeo4W\bin\gdal312.dll'
-    GEOS_LIBRARY_PATH = r'C:\Users\admin\AppData\Local\Programs\OSGeo4W\bin\geos_c.dll'
-    os.environ['GDAL_DATA'] = r'C:\Users\admin\AppData\Local\Programs\OSGeo4W\share\gdal'
-    os.environ['PROJ_LIB'] = r'C:\Users\admin\AppData\Local\Programs\OSGeo4W\share\proj'
+    # Only set GDAL/GEOS paths for local development
+    if os.path.exists(r'C:\Users\admin\AppData\Local\Programs\OSGeo4W\bin\gdal312.dll'):
+        GDAL_LIBRARY_PATH = r'C:\Users\admin\AppData\Local\Programs\OSGeo4W\bin\gdal312.dll'
+        GEOS_LIBRARY_PATH = r'C:\Users\admin\AppData\Local\Programs\OSGeo4W\bin\geos_c.dll'
+        os.environ['GDAL_DATA'] = r'C:\Users\admin\AppData\Local\Programs\OSGeo4W\share\gdal'
+        os.environ['PROJ_LIB'] = r'C:\Users\admin\AppData\Local\Programs\OSGeo4W\share\proj'
