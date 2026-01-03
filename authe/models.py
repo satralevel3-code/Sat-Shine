@@ -3,6 +3,19 @@ from django.db import models
 from django.core.validators import RegexValidator
 from django.utils import timezone
 import re
+import os
+
+# Conditional GIS imports based on environment
+if os.getenv('USE_POSTGRESQL', 'false').lower() == 'true':
+    try:
+        from django.contrib.gis.db import models as gis_models
+        from django.contrib.gis.geos import Point
+        from django.contrib.gis.measure import Distance
+        GIS_ENABLED = True
+    except ImportError:
+        GIS_ENABLED = False
+else:
+    GIS_ENABLED = False
 
 class CustomUser(AbstractUser):
     ROLE_CHOICES = [
@@ -43,22 +56,39 @@ class CustomUser(AbstractUser):
     employee_id = models.CharField(
         max_length=8, 
         unique=True,
-        validators=[RegexValidator(r'^(MGJ[0-9]{5}|MP[0-9]{4})$', 'Invalid Employee ID format')]
+        validators=[RegexValidator(r'^(MGJ[0-9]{5}|MP[0-9]{4})$', 'Invalid Employee ID format')],
+        db_index=True
     )
-    first_name = models.CharField(max_length=50)
-    last_name = models.CharField(max_length=50)
+    first_name = models.CharField(max_length=50, db_index=True)
+    last_name = models.CharField(max_length=50, db_index=True)
     contact_number = models.CharField(
         max_length=10,
         unique=True,
         validators=[RegexValidator(r'^\d{10}$', 'Contact number must be 10 digits')]
     )
-    role = models.CharField(max_length=15, choices=ROLE_CHOICES)
-    designation = models.CharField(max_length=20, choices=DESIGNATION_CHOICES)
-    dccb = models.CharField(max_length=20, choices=DCCB_CHOICES, blank=True, null=True)
+    role = models.CharField(max_length=15, choices=ROLE_CHOICES, db_index=True)
+    designation = models.CharField(max_length=20, choices=DESIGNATION_CHOICES, db_index=True)
+    dccb = models.CharField(max_length=20, choices=DCCB_CHOICES, blank=True, null=True, db_index=True)
     reporting_manager = models.CharField(max_length=100, blank=True, null=True)
+    
+    # GIS Fields for office location (conditional)
+    if GIS_ENABLED:
+        office_location = gis_models.PointField(srid=4326, null=True, blank=True, help_text="Office location coordinates")
+    else:
+        office_location = models.CharField(max_length=100, null=True, blank=True, help_text="Office location (lat,lng)")
+    
+    office_address = models.CharField(max_length=300, blank=True, null=True)
+    attendance_radius = models.FloatField(default=500.0, help_text="Allowed attendance radius in meters")
     
     USERNAME_FIELD = 'employee_id'
     REQUIRED_FIELDS = ['email', 'first_name', 'last_name']
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['employee_id']),
+            models.Index(fields=['role', 'is_active']),
+            models.Index(fields=['dccb', 'designation']),
+        ]
     
     def save(self, *args, **kwargs):
         # Auto-normalize Employee ID
@@ -84,6 +114,36 @@ class CustomUser(AbstractUser):
         
         super().save(*args, **kwargs)
     
+    def set_office_location(self, latitude, longitude):
+        """Set office location from coordinates"""
+        if GIS_ENABLED:
+            self.office_location = Point(longitude, latitude, srid=4326)
+        else:
+            self.office_location = f"{latitude},{longitude}"
+    
+    def is_within_attendance_radius(self, latitude, longitude):
+        """Check if given coordinates are within attendance radius"""
+        if not self.office_location:
+            return True  # Allow if no office location set
+        
+        if GIS_ENABLED:
+            user_point = Point(longitude, latitude, srid=4326)
+            distance = self.office_location.distance(user_point) * 111000  # Convert to meters
+            return distance <= self.attendance_radius
+        else:
+            # Simple distance calculation for SQLite
+            if ',' in str(self.office_location):
+                office_lat, office_lng = map(float, str(self.office_location).split(','))
+                # Haversine formula approximation
+                import math
+                lat_diff = math.radians(latitude - office_lat)
+                lng_diff = math.radians(longitude - office_lng)
+                a = math.sin(lat_diff/2)**2 + math.cos(math.radians(office_lat)) * math.cos(math.radians(latitude)) * math.sin(lng_diff/2)**2
+                c = 2 * math.asin(math.sqrt(a))
+                distance = 6371000 * c  # Earth radius in meters
+                return distance <= self.attendance_radius
+            return True
+    
     def __str__(self):
         return f"{self.employee_id} - {self.first_name} {self.last_name}"
 
@@ -108,21 +168,92 @@ class Attendance(models.Model):
         ('auto_not_marked', 'Auto Not Marked'),
     ]
     
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
-    date = models.DateField(default=timezone.now)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, db_index=True)
+    date = models.DateField(default=timezone.now, db_index=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, db_index=True)
     check_in_time = models.TimeField(null=True, blank=True)
     check_out_time = models.TimeField(null=True, blank=True)
-    location = models.CharField(max_length=200, null=True, blank=True)
+    
+    # GIS Fields (conditional)
+    if GIS_ENABLED:
+        check_in_location = gis_models.PointField(srid=4326, null=True, blank=True)
+        check_out_location = gis_models.PointField(srid=4326, null=True, blank=True)
+    else:
+        check_in_location = models.CharField(max_length=100, null=True, blank=True, help_text="Check-in location (lat,lng)")
+        check_out_location = models.CharField(max_length=100, null=True, blank=True, help_text="Check-out location (lat,lng)")
+    
+    location_address = models.CharField(max_length=300, null=True, blank=True)
+    is_location_valid = models.BooleanField(default=True)
+    distance_from_office = models.FloatField(null=True, blank=True, help_text="Distance in meters")
+    
     remarks = models.TextField(null=True, blank=True)
-    marked_at = models.DateTimeField(auto_now_add=True)
+    marked_at = models.DateTimeField(auto_now_add=True, db_index=True)
     
     class Meta:
         unique_together = ['user', 'date']
         ordering = ['-date']
+        indexes = [
+            models.Index(fields=['date', 'user']),
+            models.Index(fields=['user', 'status']),
+            models.Index(fields=['date', 'status']),
+            models.Index(fields=['marked_at']),
+        ]
+    
+    def set_check_in_location(self, latitude, longitude):
+        """Set check-in location and validate distance"""
+        if GIS_ENABLED:
+            self.check_in_location = Point(longitude, latitude, srid=4326)
+            if self.user.office_location:
+                distance = self.user.office_location.distance(self.check_in_location) * 111000
+                self.distance_from_office = distance
+                self.is_location_valid = distance <= self.user.attendance_radius
+        else:
+            self.check_in_location = f"{latitude},{longitude}"
+            # Simple distance validation for SQLite
+            if self.user.office_location and ',' in str(self.user.office_location):
+                office_lat, office_lng = map(float, str(self.user.office_location).split(','))
+                import math
+                lat_diff = math.radians(latitude - office_lat)
+                lng_diff = math.radians(longitude - office_lng)
+                a = math.sin(lat_diff/2)**2 + math.cos(math.radians(office_lat)) * math.cos(math.radians(latitude)) * math.sin(lng_diff/2)**2
+                c = 2 * math.asin(math.sqrt(a))
+                distance = 6371000 * c
+                self.distance_from_office = distance
+                self.is_location_valid = distance <= self.user.attendance_radius
+    
+    def set_check_out_location(self, latitude, longitude):
+        """Set check-out location"""
+        if GIS_ENABLED:
+            self.check_out_location = Point(longitude, latitude, srid=4326)
+        else:
+            self.check_out_location = f"{latitude},{longitude}"
+    
+    @property
+    def is_late(self):
+        """Check if attendance was marked late (after 9:30 AM)"""
+        if self.check_in_time:
+            from datetime import time
+            return self.check_in_time > time(9, 30)
+        return False
     
     def __str__(self):
         return f"{self.user.employee_id} - {self.date} - {self.status}"
+
+class Holiday(models.Model):
+    date = models.DateField(unique=True, db_index=True)
+    name = models.CharField(max_length=100)
+    dccb = models.CharField(max_length=20, choices=CustomUser.DCCB_CHOICES, blank=True, null=True, db_index=True)
+    is_national = models.BooleanField(default=False, db_index=True)
+    
+    class Meta:
+        ordering = ['date']
+        indexes = [
+            models.Index(fields=['date']),
+            models.Index(fields=['dccb', 'date']),
+        ]
+    
+    def __str__(self):
+        return f"{self.date} - {self.name}"
 
 class LeaveRequest(models.Model):
     STATUS_CHOICES = [
@@ -141,20 +272,26 @@ class LeaveRequest(models.Model):
         ('half_day', 'Half Day'),
     ]
     
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
-    leave_type = models.CharField(max_length=20, choices=LEAVE_TYPES)
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, db_index=True)
+    leave_type = models.CharField(max_length=20, choices=LEAVE_TYPES, db_index=True)
     duration = models.CharField(max_length=10, choices=DURATION_CHOICES, default='full_day')
-    start_date = models.DateField()
-    end_date = models.DateField()
+    start_date = models.DateField(db_index=True)
+    end_date = models.DateField(db_index=True)
     days_requested = models.DecimalField(max_digits=4, decimal_places=1)
     reason = models.TextField()
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    applied_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending', db_index=True)
+    applied_at = models.DateTimeField(auto_now_add=True, db_index=True)
     approved_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_leaves')
     approved_at = models.DateTimeField(null=True, blank=True)
+    admin_remarks = models.TextField(blank=True, null=True)
     
     class Meta:
         ordering = ['-applied_at']
+        indexes = [
+            models.Index(fields=['user', 'status']),
+            models.Index(fields=['status', 'applied_at']),
+            models.Index(fields=['start_date', 'end_date']),
+        ]
     
     def __str__(self):
         return f"{self.user.employee_id} - {self.leave_type} - {self.start_date} to {self.end_date}"

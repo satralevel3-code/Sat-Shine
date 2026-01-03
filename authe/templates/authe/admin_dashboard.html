@@ -73,6 +73,21 @@ body {
     background-color: rgba(255,255,255,0.1);
 }
 
+.datetime-display {
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 8px 12px;
+    background-color: rgba(255,255,255,0.1);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.datetime-display:hover {
+    background-color: rgba(255,255,255,0.2);
+}
+
 /* NOTIFICATION BELL */
 .notification-bell {
     position: relative;
@@ -425,6 +440,7 @@ body {
         SAT<span class="logo-shine">-SHINE</span>
     </div>
     <div class="header-nav">
+        <div class="datetime-display" id="datetimeDisplay"></div>
         <div class="notification-bell" onclick="toggleNotifications()">
             <i class="fas fa-bell"></i>
             <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
@@ -567,23 +583,24 @@ body {
             <div class="kpi-subtitle">Daily attendance tracking</div>
         </div>
 
+        <!-- Leave Management -->
+        <div class="kpi-card" onclick="window.location.href='{% url 'admin_leave_requests' %}'">
+            <div class="kpi-header">
+                <div class="kpi-icon" style="background: var(--warning-amber);">
+                    <i class="fas fa-clipboard-list"></i>
+                </div>
+                <div>
+                    <h3 class="kpi-title">Leave Management</h3>
+                </div>
+            </div>
+            <div class="kpi-value">{{ pending_leaves }}</div>
+            <div class="kpi-subtitle">Pending leave requests</div>
+        </div>
+
     </div>
 
     <!-- Action Cards -->
     <div class="action-grid">
-        <!-- Leave Management -->
-        <div class="action-card">
-            <div class="action-header">
-                <h3 class="action-title">Leave Management</h3>
-            </div>
-            <p class="text-secondary mb-3">Review and approve leave requests from field officers.</p>
-            <div class="d-flex gap-2">
-                <a href="{% url 'admin_leave_requests' %}" class="btn btn-warning">
-                    <i class="fas fa-clipboard-list"></i> Pending Requests ({{ pending_leaves }})
-                </a>
-            </div>
-        </div>
-
         <!-- Reports & Analytics -->
         <div class="action-card">
             <div class="action-header">
@@ -591,12 +608,6 @@ body {
             </div>
             <p class="text-secondary mb-3">Advanced analytics with dynamic charts and KPI insights.</p>
             <div class="d-flex gap-2 flex-wrap">
-                <a href="{% url 'admin_compact_analytics' %}" class="btn btn-primary">
-                    <i class="fas fa-chart-bar"></i> Analytics Dashboard
-                </a>
-                <a href="{% url 'admin_reports_analytics' %}" class="btn btn-primary">
-                    <i class="fas fa-chart-line"></i> Reports Dashboard
-                </a>
                 <a href="{% url 'export_employees' %}?format=csv" class="btn btn-success">
                     <i class="fas fa-download"></i> Export Data
                 </a>
@@ -638,12 +649,35 @@ function refreshProgress() {
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
     updateProgressCircle({{ progress_percentage }});
+    updateDateTime();
+    setInterval(updateDateTime, 1000);
 });
+
+// Update date and time display
+function updateDateTime() {
+    const now = new Date();
+    const options = {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+    };
+    
+    const formatted = now.toLocaleDateString('en-GB', options)
+        .replace(/,/g, '')
+        .replace(/\b(\d{2})\s+(\w{3})\s+(\d{4})\b/, '$1 $2 $3')
+        .toUpperCase();
+    
+    document.getElementById('datetimeDisplay').textContent = formatted;
+}
 
 // Auto-refresh progress every 30 seconds
 setInterval(refreshProgress, 30000);
 
-// NOTIFICATION SYSTEM
+// NOTIFICATION SYSTEM - Simplified for base version
 let notificationDropdownOpen = false;
 
 function toggleNotifications() {
@@ -652,87 +686,17 @@ function toggleNotifications() {
     
     if (notificationDropdownOpen) {
         dropdown.style.display = 'block';
-        loadNotifications();
+        // Simple notification display
+        document.getElementById('notificationList').innerHTML = 
+            '<div class="notification-empty">No new notifications</div>';
     } else {
         dropdown.style.display = 'none';
     }
 }
 
-function loadNotifications() {
-    fetch('{% url "admin_notifications_api" %}')
-        .then(response => response.json())
-        .then(data => {
-            updateNotificationBadge(data.unread_count);
-            renderNotifications(data.notifications);
-        })
-        .catch(error => {
-            console.error('Error loading notifications:', error);
-            document.getElementById('notificationList').innerHTML = 
-                '<div class="notification-empty">Error loading notifications</div>';
-        });
-}
-
-function updateNotificationBadge(count) {
-    const badge = document.getElementById('notificationBadge');
-    if (count > 0) {
-        badge.textContent = count > 99 ? '99+' : count;
-        badge.style.display = 'flex';
-    } else {
-        badge.style.display = 'none';
-    }
-}
-
-function renderNotifications(notifications) {
-    const list = document.getElementById('notificationList');
-    
-    if (notifications.length === 0) {
-        list.innerHTML = '<div class="notification-empty">No notifications</div>';
-        return;
-    }
-    
-    list.innerHTML = notifications.map(notification => `
-        <div class="notification-item ${!notification.is_read ? 'unread' : ''}" 
-             onclick="handleNotificationClick(${notification.id})">
-            <div class="notification-content">
-                <strong>${notification.actor_id}</strong> - ${notification.message}
-            </div>
-            <div class="notification-time">${notification.created_at}</div>
-        </div>
-    `).join('');
-}
-
-function handleNotificationClick(notificationId) {
-    fetch(`/admin/notifications/${notificationId}/read/`, {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            window.location.href = data.redirect_url;
-        }
-    })
-    .catch(error => console.error('Error marking notification as read:', error));
-}
-
 function markAllRead() {
-    fetch('{% url "mark_all_notifications_read" %}', {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            loadNotifications();
-        }
-    })
-    .catch(error => console.error('Error marking all notifications as read:', error));
+    // Placeholder function
+    console.log('Mark all read clicked');
 }
 
 function getCookie(name) {
@@ -759,12 +723,6 @@ document.addEventListener('click', function(event) {
         dropdown.style.display = 'none';
         notificationDropdownOpen = false;
     }
-});
-
-// Load notifications on page load and poll every 30 seconds
-document.addEventListener('DOMContentLoaded', function() {
-    loadNotifications();
-    setInterval(loadNotifications, 30000);
 });
 </script>
 {% endblock %}

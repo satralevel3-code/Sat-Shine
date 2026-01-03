@@ -1,0 +1,25 @@
+# Systemd service file for SAT-SHINE
+# Place this file at /etc/systemd/system/sat-shine.service
+
+[Unit]
+Description=SAT-SHINE Gunicorn Application Server
+After=network.target postgresql.service redis.service
+
+[Service]
+Type=notify
+User=www-data
+Group=www-data
+RuntimeDirectory=sat_shine
+WorkingDirectory=/var/www/sat-shine
+Environment=DJANGO_SETTINGS_MODULE=Sat_Shine.settings.production
+Environment=DJANGO_ENVIRONMENT=production
+ExecStart=/var/www/sat-shine/venv/bin/gunicorn --config /var/www/sat-shine/gunicorn.conf.py Sat_Shine.wsgi:application
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -10,22 +10,19 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
-
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-2d5wxnc0n8-e2c#tdaqiqtl&2$p)_b(2_6h6r!xuj%yzgvo15a'
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-key-change-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 
 # Application definition
@@ -37,11 +34,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django.contrib.gis'
-
-    #Installed Apps
-    'Main',
-    'authe'
+    # 'django.contrib.gis',  # Only enable for PostGIS
+    'main',
+    'authe',
 ]
 
 MIDDLEWARE = [
@@ -77,16 +72,28 @@ WSGI_APPLICATION = 'Sat_Shine.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.contrib.gis.db.backends.postgis',
-        'NAME': 'Sat Shine',
-        'USER': 'postgres',
-        'PASSWORD': 'Vicky@1265',
-	'HOST': 'localhost',
-	'PORT': '5432'
+# Database - Development (SQLite) / Production (PostgreSQL)
+if os.environ.get('USE_POSTGRESQL', 'False').lower() == 'true':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('DB_NAME', 'sat_shine_db'),
+            'USER': os.environ.get('DB_USER', 'sat_shine_user'),
+            'PASSWORD': os.environ.get('DB_PASSWORD', 'your_password'),
+            'HOST': os.environ.get('DB_HOST', 'localhost'),
+            'PORT': os.environ.get('DB_PORT', '5432'),
+        }
     }
-}
+    # if 'django.contrib.gis' not in INSTALLED_APPS:
+    #     INSTALLED_APPS.append('django.contrib.gis')
+else:
+    # Development SQLite database
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 # Password validation
@@ -113,14 +120,46 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Asia/Kolkata'
 
 USE_I18N = True
 
 USE_TZ = True
 
+# Custom User Model
+AUTH_USER_MODEL = 'authe.CustomUser'
 
 # Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/6.0/howto/static-files/
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-STATIC_URL = 'static/'
+# Default primary key field type
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Security Settings for Production
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+# Session Configuration
+SESSION_COOKIE_AGE = 900  # 15 minutes
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_SAVE_EVERY_REQUEST = True
+
+# Login URLs
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/login/'
+
+# GIS Configuration (only when PostgreSQL is enabled)
+if os.environ.get('USE_POSTGRESQL', 'False').lower() == 'true':
+    GDAL_LIBRARY_PATH = r'C:\Users\admin\AppData\Local\Programs\OSGeo4W\bin\gdal312.dll'
+    GEOS_LIBRARY_PATH = r'C:\Users\admin\AppData\Local\Programs\OSGeo4W\bin\geos_c.dll'
+    os.environ['GDAL_DATA'] = r'C:\Users\admin\AppData\Local\Programs\OSGeo4W\share\gdal'
+    os.environ['PROJ_LIB'] = r'C:\Users\admin\AppData\Local\Programs\OSGeo4W\share\proj'

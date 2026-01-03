@@ -117,6 +117,8 @@ def login_view(request):
                     return redirect('admin_dashboard')
                 else:
                     return redirect('field_dashboard')
+            elif user and not user.is_active:
+                messages.error(request, 'Your ID has been deactivated. Please contact Admin.')
             else:
                 messages.error(request, 'Invalid employee ID or password.')
                 # Log failed attempt

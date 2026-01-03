@@ -509,6 +509,65 @@ body {
         </div>
     </div>
 
+    <!-- Recent Leave Requests -->
+    {% if recent_leaves %}
+    <div class="team-section">
+        <div class="team-header">
+            <h2 class="team-title">Recent Leave Requests</h2>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Leave Type</th>
+                        <th>Dates</th>
+                        <th>Days</th>
+                        <th>Status</th>
+                        <th>Applied On</th>
+                        <th>Admin Remarks</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for leave in recent_leaves %}
+                    <tr>
+                        <td>
+                            <span class="badge bg-{% if leave.leave_type == 'planned' %}primary{% else %}warning{% endif %}">
+                                {{ leave.get_leave_type_display }}
+                            </span>
+                        </td>
+                        <td>
+                            {{ leave.start_date|date:"d M Y" }}
+                            {% if leave.start_date != leave.end_date %}
+                            to {{ leave.end_date|date:"d M Y" }}
+                            {% endif %}
+                        </td>
+                        <td>{{ leave.days_requested }}</td>
+                        <td>
+                            {% if leave.status == 'pending' %}
+                                <span class="badge bg-warning">Pending</span>
+                            {% elif leave.status == 'approved' %}
+                                <span class="badge bg-success">Approved</span>
+                            {% else %}
+                                <span class="badge bg-danger">Rejected</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ leave.applied_at|date:"d M Y" }}</td>
+                        <td>
+                            {% if leave.admin_remarks %}
+                                <small>{{ leave.admin_remarks|truncatechars:30 }}</small>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Team Section (DC Only) -->
     {% if can_view_team %}
     <div class="team-section">

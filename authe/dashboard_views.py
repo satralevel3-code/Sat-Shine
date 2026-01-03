@@ -5,9 +5,21 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.db.models import Q, Count
 from datetime import datetime, timedelta, time
-from .models import CustomUser, Attendance, LeaveRequest
+from .models import CustomUser, Attendance, LeaveRequest, Holiday
 from .views import create_audit_log
 import json
+import os
+
+# Conditional GIS imports
+if os.getenv('USE_POSTGRESQL', 'false').lower() == 'true':
+    try:
+        from django.contrib.gis.geos import Point
+        from django.contrib.gis.measure import Distance
+        GIS_ENABLED = True
+    except ImportError:
+        GIS_ENABLED = False
+else:
+    GIS_ENABLED = False
 
 @login_required
 def field_dashboard(request):
@@ -33,9 +45,15 @@ def field_dashboard(request):
         status='pending'
     ).count()
     
+    # Get recent leave requests for display
+    recent_leaves = LeaveRequest.objects.filter(
+        user=request.user
+    ).order_by('-applied_at')[:5]
+    
     # Check if user can view team data (DC only)
     can_view_team = request.user.designation == 'DC'
     team_data = None
+    team_members = []  # Initialize team_members
     
     if can_view_team:
         # Get team attendance for DC
@@ -67,9 +85,10 @@ def field_dashboard(request):
         'today_attendance': today_attendance,
         'recent_attendance': recent_attendance,
         'pending_leaves': pending_leaves,
+        'recent_leaves': recent_leaves,
         'can_view_team': can_view_team,
         'team_data': team_data,
-        'team_members': team_members if can_view_team else [],
+        'team_members': team_members,
         'current_time': timezone.now(),
     }
     
@@ -77,11 +96,21 @@ def field_dashboard(request):
 
 @login_required
 def mark_attendance(request):
-    """Mark attendance for field officers"""
+    """Mark attendance for field officers with GIS validation"""
     if request.user.role != 'field_officer':
         return JsonResponse({'error': 'Access denied'}, status=403)
     
+    # Check if today is Sunday - restrict attendance marking
+    today = timezone.localdate()
+    is_sunday_today = today.weekday() == 6
+    
     if request.method == 'POST':
+        if is_sunday_today:
+            return JsonResponse({
+                'success': False, 
+                'error': 'Attendance marking is not allowed on Sundays. Sundays are automatically marked as holidays.'
+            }, status=400)
+            
         data = json.loads(request.body)
         status = data.get('status')
         latitude = data.get('latitude')
@@ -90,7 +119,6 @@ def mark_attendance(request):
         if status not in ['present', 'half_day', 'absent']:
             return JsonResponse({'error': 'Invalid status'}, status=400)
         
-        today = timezone.localdate()
         current_time = timezone.localtime().time()
         
         # Check if already marked
@@ -102,49 +130,64 @@ def mark_attendance(request):
         late_cutoff = time(9, 30)
         is_late = current_time > late_cutoff
         
-        # Create location string in lat,lng format for map compatibility
-        location = f"{latitude},{longitude}" if latitude and longitude else None
-        
-        # Create attendance record
+        # Create attendance record with GIS location
         attendance = Attendance.objects.create(
             user=request.user,
             date=today,
             status=status,
             check_in_time=current_time if status in ['present', 'half_day'] else None,
-            location=location
+            location_address=data.get('address', '')
         )
+        
+        # Set GIS location if coordinates provided
+        if latitude and longitude:
+            attendance.set_check_in_location(float(latitude), float(longitude))
+            attendance.save()
+        
+        # Validate location if office location is set
+        location_valid = True
+        distance_msg = ''
+        if request.user.office_location and latitude and longitude:
+            if not attendance.is_location_valid:
+                location_valid = False
+                distance_msg = f' (Distance: {attendance.distance_from_office:.0f}m from office)'
         
         # Create audit log
         timing_status = 'Late' if is_late else 'On Time'
+        location_status = 'Valid' if location_valid else 'Outside Range'
         create_audit_log(
             request.user,
             'Attendance Marked',
             request,
-            f'Status: {status}, Timing: {timing_status}'
+            f'Status: {status}, Timing: {timing_status}, Location: {location_status}'
         )
         
         message = 'Attendance marked successfully.'
         if is_late and status in ['present', 'half_day']:
             message = f'Marked late at {current_time.strftime("%I:%M %p")} — recorded as Late.'
+        if not location_valid:
+            message += f' Warning: Location outside allowed radius{distance_msg}'
         
         return JsonResponse({
             'success': True,
             'message': message,
+            'location_valid': location_valid,
             'attendance': {
                 'status': attendance.status,
                 'check_in_time': attendance.check_in_time.strftime('%I:%M %p') if attendance.check_in_time else None,
-                'marked_at': attendance.marked_at.strftime('%I:%M %p')
+                'marked_at': attendance.marked_at.strftime('%I:%M %p'),
+                'distance_from_office': attendance.distance_from_office
             }
         })
     
     # GET request - show the mark attendance page
-    today = timezone.localdate()
     today_attendance = Attendance.objects.filter(user=request.user, date=today).first()
     
     context = {
         'user': request.user,
         'today_attendance': today_attendance,
         'current_time': timezone.now(),
+        'is_sunday': is_sunday_today,
     }
     
     return render(request, 'authe/mark_attendance.html', context)
