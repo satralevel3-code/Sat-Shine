@@ -79,6 +79,7 @@ class CustomUser(AbstractUser):
     
     office_address = models.CharField(max_length=300, blank=True, null=True)
     attendance_radius = models.FloatField(default=500.0, help_text="Allowed attendance radius in meters")
+    is_demo_user = models.BooleanField(default=False, help_text="Protected demo user - cannot be deleted")
     
     USERNAME_FIELD = 'employee_id'
     REQUIRED_FIELDS = ['email', 'first_name', 'last_name']

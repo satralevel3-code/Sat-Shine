@@ -195,6 +195,13 @@ def deactivate_employee(request, employee_id):
     """Deactivate employee account"""
     employee = get_object_or_404(CustomUser, employee_id=employee_id, role='field_officer')
     
+    # Protect demo users from deactivation
+    if getattr(employee, 'is_demo_user', False):
+        return JsonResponse({
+            'success': False, 
+            'error': 'Demo users cannot be deactivated. These are protected system accounts.'
+        }, status=403)
+    
     if not employee.is_active:
         return JsonResponse({'success': False, 'error': 'Employee already inactive'}, status=400)
     
