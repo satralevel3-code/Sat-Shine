@@ -41,8 +41,7 @@ class SignUpForm(UserCreationForm):
         choices=[('', 'Enter Employee ID first')],
         widget=forms.Select(attrs={
             'class': 'form-control', 
-            'id': 'id_designation',
-            'disabled': 'disabled'
+            'id': 'id_designation'
         })
     )
     contact_number = forms.CharField(

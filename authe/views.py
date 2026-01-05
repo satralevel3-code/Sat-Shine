@@ -101,9 +101,11 @@ def register_view(request):
                 messages.success(request, 'Profile created successfully. You may now log in.')
                 return redirect('login')
             except Exception as e:
+                print(f"Registration error: {str(e)}")  # Debug print
                 messages.error(request, f'Registration failed: {str(e)}')
         else:
             # Show specific form errors
+            print(f"Form errors: {form.errors}")  # Debug print
             for field, errors in form.errors.items():
                 for error in errors:
                     messages.error(request, f'{field.replace("_", " ").title()}: {error}')

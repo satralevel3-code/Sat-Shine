@@ -50,6 +50,14 @@
     width: 100%;
 }
 
+.form-control:disabled,
+.form-control.disabled {
+    background-color: #f3f4f6;
+    color: #6b7280;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 .btn-primary:disabled {
     background: #6b7280;
     cursor: not-allowed;
@@ -137,7 +145,9 @@
 
         <div class="form-group">
             <label for="id_designation" class="form-label">Designation <span class="required-indicator">*</span></label>
-            {{ form.designation }}
+            <select name="designation" class="form-control disabled" id="id_designation">
+                <option value="">Enter Employee ID first</option>
+            </select>
             <div id="designation-error" class="field-error" style="display: none;"></div>
         </div>
 
@@ -441,7 +451,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
             
             // Enable the designation field
-            designationField.disabled = false;
+            designationField.classList.remove('disabled');
             
             const dccbGroup = document.getElementById('dccb-group');
             const managerGroup = document.getElementById('manager-group');
@@ -455,7 +465,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } else {
             // Disable and reset designation field if Employee ID is invalid
-            designationField.disabled = true;
+            designationField.classList.add('disabled');
             designationField.innerHTML = '<option value="">Enter Employee ID first</option>';
         }
     }
@@ -547,6 +557,11 @@ document.addEventListener('DOMContentLoaded', function() {
             showFormAlert('Registration failed. Please fix the highlighted fields and try again.');
             return false;
         }
+        
+        // If validation passes, show loading state and allow form submission
+        submitBtn.innerHTML = 'Creating Profile...';
+        submitBtn.disabled = true;
+        return true;
     });
     
     updateSubmitButton();
