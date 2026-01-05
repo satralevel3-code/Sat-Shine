@@ -114,6 +114,24 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Focus on Employee ID field
     employeeIdField.focus();
+    
+    // Auto-dismiss success messages after 4 seconds
+    const successMessages = document.querySelectorAll('.alert-success');
+    successMessages.forEach(function(message) {
+        setTimeout(function() {
+            const alert = new bootstrap.Alert(message);
+            alert.close();
+        }, 4000);
+    });
+    
+    // Auto-dismiss error messages after 6 seconds
+    const errorMessages = document.querySelectorAll('.alert-danger, .alert-error');
+    errorMessages.forEach(function(message) {
+        setTimeout(function() {
+            const alert = new bootstrap.Alert(message);
+            alert.close();
+        }, 6000);
+    });
 });
 </script>
 {% endblock %}

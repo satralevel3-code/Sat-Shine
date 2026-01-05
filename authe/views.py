@@ -97,7 +97,8 @@ def register_view(request):
                     request, 
                     f'Role: {user.role}, Designation: {user.designation}'
                 )
-                messages.success(request, 'Profile created successfully')
+                # Add success message for login page only
+                messages.success(request, 'Profile created successfully. You may now log in.')
                 return redirect('login')
             except Exception as e:
                 messages.error(request, f'Registration failed: {str(e)}')

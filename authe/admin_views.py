@@ -31,11 +31,9 @@ def admin_required(view_func):
 @admin_required
 def admin_dashboard(request):
     """Main admin dashboard with KPIs"""
-    # Clear any logout success messages
+    # Clear all messages on dashboard load to prevent persistence
     storage = messages.get_messages(request)
-    for message in storage:
-        if "logged out successfully" in str(message):
-            pass  # This consumes and removes the message
+    storage.used = True
     
     today = timezone.localdate()
     

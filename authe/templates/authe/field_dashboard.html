@@ -254,12 +254,12 @@
         </div>
     </div>
 
-    <!-- Messages -->
+    <!-- Messages with auto-dismiss -->
     {% if messages %}
         {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show message-auto-dismiss" role="alert">
                 {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         {% endfor %}
     {% endif %}
@@ -486,5 +486,18 @@ function updateTime() {
 
 updateTime();
 setInterval(updateTime, 60000);
+
+// Auto-dismiss messages on dashboard
+document.addEventListener('DOMContentLoaded', function() {
+    // Remove any persistent messages immediately on dashboard load
+    const messages = document.querySelectorAll('.alert');
+    messages.forEach(function(message) {
+        setTimeout(function() {
+            if (message && message.parentNode) {
+                message.remove();
+            }
+        }, 100); // Remove almost immediately
+    });
+});
 </script>
 {% endblock %}
