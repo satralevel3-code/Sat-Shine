@@ -9,16 +9,19 @@ class CustomUserAdmin(UserAdmin):
     search_fields = ['employee_id', 'first_name', 'last_name', 'email']
     ordering = ['employee_id']
     
-    fieldsets = UserAdmin.fieldsets + (
-        ('Employee Information', {
-            'fields': ('employee_id', 'contact_number', 'role', 'designation', 'dccb', 'reporting_manager')
-        }),
+    fieldsets = (
+        (None, {'fields': ('employee_id', 'password')}),
+        ('Personal info', {'fields': ('first_name', 'last_name', 'email', 'contact_number')}),
+        ('Employee Information', {'fields': ('role', 'designation', 'dccb', 'reporting_manager')}),
+        ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+        ('Important dates', {'fields': ('last_login', 'date_joined')}),
     )
     
-    add_fieldsets = UserAdmin.add_fieldsets + (
-        ('Employee Information', {
-            'fields': ('employee_id', 'first_name', 'last_name', 'email', 'contact_number', 
-                      'role', 'designation', 'dccb', 'reporting_manager')
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('employee_id', 'password1', 'password2', 'first_name', 'last_name', 
+                      'email', 'contact_number', 'role', 'designation', 'dccb', 'reporting_manager'),
         }),
     )
     
