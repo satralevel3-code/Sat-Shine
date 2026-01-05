@@ -208,8 +208,7 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(data => {
                 if (data.valid) {
-                    const roleText = data.role === 'field_officer' ? 'Field Officer ID' : 'Admin ID';
-                    showValidation('employeeId', `Valid ${roleText}`, true);
+                    showValidation('employeeId', 'Valid ID', true);
                     updateDesignationOptions(data.role, data.designations);
                 } else {
                     showValidation('employeeId', data.error, false);
@@ -223,10 +222,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 const mp = /^MP[0-9]{4}$/.test(employeeId);
                 
                 if (mgj) {
-                    showValidation('employeeId', 'Valid Field Officer ID', true);
+                    showValidation('employeeId', 'Valid ID', true);
                     updateDesignationOptions('field_officer', [['MT', 'MT'], ['DC', 'DC'], ['Support', 'Support']]);
                 } else if (mp) {
-                    showValidation('employeeId', 'Valid Admin ID', true);
+                    showValidation('employeeId', 'Valid ID', true);
                     updateDesignationOptions('admin', [['Manager', 'Manager'], ['HR', 'HR'], ['Delivery Head', 'Delivery Head']]);
                 } else {
                     showValidation('employeeId', 'Invalid format. Use MGJ00001 or MP0001', false);
