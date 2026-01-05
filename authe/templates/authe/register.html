@@ -145,9 +145,7 @@
 
         <div class="form-group">
             <label for="id_designation" class="form-label">Designation <span class="required-indicator">*</span></label>
-            <select name="designation" class="form-control disabled" id="id_designation">
-                <option value="">Enter Employee ID first</option>
-            </select>
+            {{ form.designation }}
             <div id="designation-error" class="field-error" style="display: none;"></div>
         </div>
 
@@ -440,9 +438,12 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function updateDesignationOptions(role, designations) {
         const designationField = fields.designation;
+        
+        // Clear all options first
         designationField.innerHTML = '<option value="">Select Designation</option>';
         
         if (role && designations) {
+            // Add role-specific options
             designations.forEach(([value, text]) => {
                 const option = document.createElement('option');
                 option.value = value;
@@ -452,6 +453,9 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Enable the designation field
             designationField.classList.remove('disabled');
+            designationField.style.pointerEvents = 'auto';
+            designationField.style.backgroundColor = '';
+            designationField.style.color = '';
             
             const dccbGroup = document.getElementById('dccb-group');
             const managerGroup = document.getElementById('manager-group');
@@ -466,6 +470,9 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             // Disable and reset designation field if Employee ID is invalid
             designationField.classList.add('disabled');
+            designationField.style.pointerEvents = 'none';
+            designationField.style.backgroundColor = '#f3f4f6';
+            designationField.style.color = '#6b7280';
             designationField.innerHTML = '<option value="">Enter Employee ID first</option>';
         }
     }
@@ -565,6 +572,9 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     updateSubmitButton();
+    
+    // Initialize designation field as disabled
+    updateDesignationOptions(null, null);
 });
 </script>
 {% endblock %}

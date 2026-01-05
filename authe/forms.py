@@ -38,7 +38,15 @@ class SignUpForm(UserCreationForm):
         })
     )
     designation = forms.ChoiceField(
-        choices=[('', 'Enter Employee ID first')],
+        choices=[
+            ('', 'Select Designation'),
+            ('MT', 'MT'),
+            ('DC', 'DC'), 
+            ('Support', 'Support'),
+            ('Manager', 'Manager'),
+            ('HR', 'HR'),
+            ('Delivery Head', 'Delivery Head')
+        ],
         widget=forms.Select(attrs={
             'class': 'form-control', 
             'id': 'id_designation'
