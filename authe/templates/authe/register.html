@@ -20,6 +20,7 @@
 .form-control:focus {
     border-color: #2563eb;
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    outline: none;
 }
 
 .card {
@@ -168,6 +169,12 @@ document.addEventListener('DOMContentLoaded', function() {
         email: false
     };
     
+    let fieldTouched = {
+        employeeId: false,
+        contact: false,
+        email: false
+    };
+    
     function updateSubmitButton() {
         const allValid = Object.values(validationState).every(valid => valid);
         submitBtn.disabled = !allValid;
@@ -179,7 +186,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const inputField = field === 'employeeId' ? employeeIdField : 
                           field === 'contact' ? contactField : emailField;
         
-        if (message) {
+        // Only show validation if field has been touched and has content
+        if (fieldTouched[field] && inputField.value.trim()) {
             div.textContent = isValid ? `✓ ${message}` : `✗ ${message}`;
             div.className = `validation-message ${isValid ? 'valid' : 'invalid'}`;
             inputField.classList.remove(isValid ? 'is-invalid' : 'is-valid');
@@ -217,7 +225,6 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(error => {
                 console.error('Validation error:', error);
-                // Fallback to client-side validation
                 const mgj = /^MGJ[0-9]{5}$/.test(employeeId);
                 const mp = /^MP[0-9]{4}$/.test(employeeId);
                 
@@ -240,7 +247,6 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Remove any non-digit characters for validation
         const cleanContact = contact.replace(/\D/g, '');
         
         if (cleanContact.length !== 10) {
@@ -248,7 +254,6 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Check if starts with valid Indian mobile prefixes
         if (!/^[6-9]/.test(cleanContact)) {
             showValidation('contact', 'Invalid mobile number format', false);
             return;
@@ -286,7 +291,6 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        // Check for duplicate email
         fetch(`/validate-email/?email=${encodeURIComponent(email)}`)
             .then(response => response.json())
             .then(data => {
@@ -297,7 +301,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             })
             .catch(() => {
-                // If endpoint doesn't exist, just validate format
                 showValidation('email', 'Valid email format', true);
             });
     }
@@ -326,32 +329,64 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Event listeners with debouncing
     let timeouts = {};
     
+    // Employee ID validation on blur (when user leaves field)
     employeeIdField.addEventListener('input', function() {
         this.value = this.value.toUpperCase();
-        clearTimeout(timeouts.employeeId);
-        timeouts.employeeId = setTimeout(() => {
+    });
+    
+    employeeIdField.addEventListener('blur', function() {
+        if (this.value.trim()) {
+            fieldTouched.employeeId = true;
             validateEmployeeId(this.value);
-        }, 500);
+        }
+    });
+    
+    // Contact validation on blur
+    contactField.addEventListener('blur', function() {
+        if (this.value.trim()) {
+            fieldTouched.contact = true;
+            validateContact(this.value);
+        }
+    });
+    
+    // Email validation on blur
+    emailField.addEventListener('blur', function() {
+        if (this.value.trim()) {
+            fieldTouched.email = true;
+            validateEmail(this.value);
+        }
+    });
+    
+    // Re-validate on input after field has been touched
+    employeeIdField.addEventListener('input', function() {
+        if (fieldTouched.employeeId) {
+            clearTimeout(timeouts.employeeId);
+            timeouts.employeeId = setTimeout(() => {
+                validateEmployeeId(this.value);
+            }, 800);
+        }
     });
     
     contactField.addEventListener('input', function() {
-        clearTimeout(timeouts.contact);
-        timeouts.contact = setTimeout(() => {
-            validateContact(this.value);
-        }, 500);
+        if (fieldTouched.contact) {
+            clearTimeout(timeouts.contact);
+            timeouts.contact = setTimeout(() => {
+                validateContact(this.value);
+            }, 800);
+        }
     });
     
     emailField.addEventListener('input', function() {
-        clearTimeout(timeouts.email);
-        timeouts.email = setTimeout(() => {
-            validateEmail(this.value);
-        }, 500);
+        if (fieldTouched.email) {
+            clearTimeout(timeouts.email);
+            timeouts.email = setTimeout(() => {
+                validateEmail(this.value);
+            }, 800);
+        }
     });
     
-    // Initial state
     updateSubmitButton();
 });
 </script>
