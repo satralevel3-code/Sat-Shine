@@ -43,4 +43,5 @@ urlpatterns = [
     # AJAX validation endpoints
     path('validate-employee-id/', views.validate_employee_id, name='validate_employee_id'),
     path('validate-contact/', views.validate_contact, name='validate_contact'),
+    path('validate-email/', views.validate_email, name='validate_email'),
 ]

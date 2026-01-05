@@ -69,6 +69,21 @@ def validate_contact(request):
     
     return JsonResponse({'valid': True})
 
+@require_http_methods(["GET"])
+def validate_email(request):
+    """AJAX endpoint for Email validation"""
+    email = request.GET.get('email', '').strip().lower()
+    
+    # Validate format
+    if not re.match(r'^[^\s@]+@[^\s@]+\.[^\s@]+$', email):
+        return JsonResponse({'valid': False, 'error': 'Invalid email format'})
+    
+    # Check uniqueness
+    if CustomUser.objects.filter(email=email).exists():
+        return JsonResponse({'valid': False, 'error': 'Email already exists'})
+    
+    return JsonResponse({'valid': True})
+
 def register_view(request):
     """User registration view"""
     if request.method == 'POST':
