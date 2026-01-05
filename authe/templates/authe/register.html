@@ -240,13 +240,27 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        if (!/^\d{10}$/.test(contact)) {
+        // Remove any non-digit characters for validation
+        const cleanContact = contact.replace(/\D/g, '');
+        
+        if (cleanContact.length !== 10) {
             showValidation('contact', 'Must be exactly 10 digits', false);
             return;
         }
         
-        fetch(`/validate-contact/?contact=${encodeURIComponent(contact)}`)
-            .then(response => response.json())
+        // Check if starts with valid Indian mobile prefixes
+        if (!/^[6-9]/.test(cleanContact)) {
+            showValidation('contact', 'Invalid mobile number format', false);
+            return;
+        }
+        
+        fetch(`/validate-contact/?contact=${encodeURIComponent(cleanContact)}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network error');
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.valid) {
                     showValidation('contact', 'Valid contact number', true);
@@ -254,8 +268,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     showValidation('contact', data.error, false);
                 }
             })
-            .catch(() => {
-                showValidation('contact', 'Validation error', false);
+            .catch(error => {
+                console.error('Contact validation error:', error);
+                showValidation('contact', 'Validation error - please try again', false);
             });
     }
     
