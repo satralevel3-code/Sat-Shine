@@ -136,13 +136,13 @@ def mark_attendance(request):
         late_cutoff = time(9, 30)
         is_late = current_time > late_cutoff
         
-        # Create attendance record with GIS location
+        # Create attendance record
         attendance = Attendance.objects.create(
             user=request.user,
             date=today,
             status=status,
             check_in_time=current_time if status in ['present', 'half_day'] else None,
-            location_address=data.get('address', '')
+            location=data.get('address', '')
         )
         
         # Set location if coordinates provided
