@@ -10,6 +10,12 @@ DEBUG = False
 
 ALLOWED_HOSTS = ['*']
 
+# CSRF Settings for Railway
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.up.railway.app',
+    'https://web-production-6396f.up.railway.app'
+]
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
