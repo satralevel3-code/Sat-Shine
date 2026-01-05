@@ -4,17 +4,110 @@
 
 {% block content_class %}centered{% endblock %}
 
-{% block content %}
-<div class="card shadow-lg p-4" style="max-width: 450px; width: 100%;">
-    <h3 class="text-center mb-4">Create Account</h3>
+{% block extra_css %}
+<style>
+.form-group {
+    margin-bottom: 20px;
+}
 
-    <form method="post">
+.form-control {
+    padding: 12px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+.form-control:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.card {
+    background: white;
+    border-radius: 12px;
+    padding: 32px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    border: 1px solid #e5e7eb;
+    max-width: 500px;
+    width: 100%;
+}
+
+.btn-primary {
+    background: #1e3a8a;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+}
+
+.btn-primary:hover {
+    background: #2563eb;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h3 class="text-center mb-4">Employee Registration</h3>
+
+    <form method="post" id="registrationForm">
         {% csrf_token %}
 
-        {{ form.as_p }}
+        <div class="form-group">
+            <label for="id_employee_id" class="form-label">Employee ID</label>
+            {{ form.employee_id }}
+            <div id="employee-id-help" class="text-muted small mt-1">
+                Format: MGJ00001 (Field Officer) or MP0001 (Admin)
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="id_first_name" class="form-label">First Name</label>
+            {{ form.first_name }}
+        </div>
+
+        <div class="form-group">
+            <label for="id_last_name" class="form-label">Last Name</label>
+            {{ form.last_name }}
+        </div>
+
+        <div class="form-group">
+            <label for="id_designation" class="form-label">Designation</label>
+            {{ form.designation }}
+        </div>
+
+        <div class="form-group">
+            <label for="id_contact_number" class="form-label">Contact Number</label>
+            {{ form.contact_number }}
+        </div>
+
+        <div class="form-group" id="dccb-group">
+            <label for="id_dccb" class="form-label">DCCB</label>
+            {{ form.dccb }}
+        </div>
+
+        <div class="form-group" id="manager-group">
+            <label for="id_reporting_manager" class="form-label">Reporting Manager</label>
+            {{ form.reporting_manager }}
+        </div>
+
+        <div class="form-group">
+            <label for="id_email" class="form-label">Email</label>
+            {{ form.email }}
+        </div>
+
+        <div class="form-group">
+            <label for="id_password1" class="form-label">Password</label>
+            {{ form.password1 }}
+        </div>
+
+        <div class="form-group">
+            <label for="id_password2" class="form-label">Confirm Password</label>
+            {{ form.password2 }}
+        </div>
 
         <button type="submit" class="btn btn-primary w-100 mt-3">
-            Register
+            Register Employee
         </button>
     </form>
 
@@ -22,4 +115,68 @@
         <a href="{% url 'login' %}">Already have an account? Login</a>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const employeeIdField = document.getElementById('id_employee_id');
+    const designationField = document.getElementById('id_designation');
+    const dccbGroup = document.getElementById('dccb-group');
+    const managerGroup = document.getElementById('manager-group');
+    
+    function updateDesignationOptions() {
+        const employeeId = employeeIdField.value.toUpperCase();
+        
+        // Clear existing options
+        designationField.innerHTML = '<option value="">Select Designation</option>';
+        
+        if (employeeId.startsWith('MGJ')) {
+            // Field Officer designations
+            const fieldOfficerOptions = [
+                {value: 'MT', text: 'MT'},
+                {value: 'DC', text: 'DC'},
+                {value: 'Support', text: 'Support'}
+            ];
+            
+            fieldOfficerOptions.forEach(option => {
+                const optionElement = document.createElement('option');
+                optionElement.value = option.value;
+                optionElement.textContent = option.text;
+                designationField.appendChild(optionElement);
+            });
+            
+            // Show DCCB and Manager fields (required for field officers)
+            dccbGroup.style.display = 'block';
+            managerGroup.style.display = 'block';
+            
+        } else if (employeeId.startsWith('MP')) {
+            // Admin designations
+            const adminOptions = [
+                {value: 'Manager', text: 'Manager'},
+                {value: 'HR', text: 'HR'},
+                {value: 'Delivery Head', text: 'Delivery Head'}
+            ];
+            
+            adminOptions.forEach(option => {
+                const optionElement = document.createElement('option');
+                optionElement.value = option.value;
+                optionElement.textContent = option.text;
+                designationField.appendChild(optionElement);
+            });
+            
+            // Hide DCCB and Manager fields (not required for admins)
+            dccbGroup.style.display = 'none';
+            managerGroup.style.display = 'none';
+        }
+    }
+    
+    // Update options when employee ID changes
+    employeeIdField.addEventListener('input', function() {
+        this.value = this.value.toUpperCase();
+        updateDesignationOptions();
+    });
+    
+    // Initial update
+    updateDesignationOptions();
+});
+</script>
 {% endblock %}
