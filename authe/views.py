@@ -159,35 +159,6 @@ def logout_view(request):
     return redirect('login')
 
 @login_required
-def field_dashboard(request):
-    """Field Staff dashboard - attendance marking view"""
-    if request.user.role != 'field_officer':
-        messages.error(request, 'Access denied. Field Officer privileges required.')
-        return redirect('admin_dashboard')
-    
-    context = {
-        'user': request.user,
-        'my_activities': AuditLog.objects.filter(user=request.user).order_by('-timestamp')[:10]
-    }
-    return render(request, 'authe/field_dashboard.html', context)
-
-@login_required
-def admin_dashboard(request):
-    """Admin dashboard - monitoring view"""
-    if request.user.role != 'admin':
-        messages.error(request, 'Access denied. Admin privileges required.')
-        return redirect('field_dashboard')
-    
-    context = {
-        'user': request.user,
-        'total_field_officers': CustomUser.objects.filter(role='field_officer').count(),
-        'total_admins': CustomUser.objects.filter(role='admin').count(),
-        'recent_registrations': CustomUser.objects.order_by('-date_joined')[:5],
-        'recent_activities': AuditLog.objects.order_by('-timestamp')[:10]
-    }
-    return render(request, 'authe/admin_dashboard.html', context)
-
-@login_required
 def dashboard_redirect(request):
     """Redirect to appropriate dashboard based on role"""
     if request.user.role == 'admin':

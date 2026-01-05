@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.db.models import Q, Count
 from datetime import datetime, timedelta, time
-from .models import CustomUser, Attendance, LeaveRequest, Holiday
+from .models import CustomUser, Attendance, LeaveRequest
 from .views import create_audit_log
 import json
 import os
