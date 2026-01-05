@@ -38,18 +38,11 @@ class SignUpForm(UserCreationForm):
         })
     )
     designation = forms.ChoiceField(
-        choices=[
-            ('', 'Select Designation'),
-            ('MT', 'MT'),
-            ('DC', 'DC'),
-            ('Support', 'Support'),
-            ('Manager', 'Manager'),
-            ('HR', 'HR'),
-            ('Delivery Head', 'Delivery Head')
-        ],
+        choices=[('', 'Enter Employee ID first')],
         widget=forms.Select(attrs={
             'class': 'form-control', 
-            'id': 'id_designation'
+            'id': 'id_designation',
+            'disabled': 'disabled'
         })
     )
     contact_number = forms.CharField(

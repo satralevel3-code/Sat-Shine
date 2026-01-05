@@ -281,6 +281,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const value = fields.employeeId.value.toUpperCase().trim();
         if (!value) {
             if (fieldTouched.employeeId) showFieldError('employeeId', 'Employee ID is required');
+            updateDesignationOptions(null, null); // Reset designation field
             return;
         }
         
@@ -292,6 +293,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     updateDesignationOptions(data.role, data.designations);
                 } else {
                     showFieldError('employeeId', data.error);
+                    updateDesignationOptions(null, null); // Reset designation field
                 }
             })
             .catch(() => {
@@ -299,8 +301,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 const mp = /^MP[0-9]{4}$/.test(value);
                 if (mgj || mp) {
                     showFieldSuccess('employeeId', 'Valid format');
+                    // Provide fallback designation options
+                    if (mgj) {
+                        updateDesignationOptions('field_officer', [['MT', 'MT'], ['DC', 'DC'], ['Support', 'Support']]);
+                    } else {
+                        updateDesignationOptions('admin', [['Manager', 'Manager'], ['HR', 'HR'], ['Delivery Head', 'Delivery Head']]);
+                    }
                 } else {
                     showFieldError('employeeId', 'Invalid format. Use MGJ00001 or MP0001');
+                    updateDesignationOptions(null, null); // Reset designation field
                 }
             });
     }
@@ -431,6 +440,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 designationField.appendChild(option);
             });
             
+            // Enable the designation field
+            designationField.disabled = false;
+            
             const dccbGroup = document.getElementById('dccb-group');
             const managerGroup = document.getElementById('manager-group');
             
@@ -441,6 +453,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 dccbGroup.style.display = 'none';
                 managerGroup.style.display = 'none';
             }
+        } else {
+            // Disable and reset designation field if Employee ID is invalid
+            designationField.disabled = true;
+            designationField.innerHTML = '<option value="">Enter Employee ID first</option>';
         }
     }
     
