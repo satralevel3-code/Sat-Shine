@@ -200,7 +200,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         fetch(`/validate-employee-id/?employee_id=${encodeURIComponent(employeeId)}`)
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network error');
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data.valid) {
                     const roleText = data.role === 'field_officer' ? 'Field Officer ID' : 'Admin ID';
@@ -211,8 +216,22 @@ document.addEventListener('DOMContentLoaded', function() {
                     updateDesignationOptions(null, []);
                 }
             })
-            .catch(() => {
-                showValidation('employeeId', 'Validation error', false);
+            .catch(error => {
+                console.error('Validation error:', error);
+                // Fallback to client-side validation
+                const mgj = /^MGJ[0-9]{5}$/.test(employeeId);
+                const mp = /^MP[0-9]{4}$/.test(employeeId);
+                
+                if (mgj) {
+                    showValidation('employeeId', 'Valid Field Officer ID', true);
+                    updateDesignationOptions('field_officer', [['MT', 'MT'], ['DC', 'DC'], ['Support', 'Support']]);
+                } else if (mp) {
+                    showValidation('employeeId', 'Valid Admin ID', true);
+                    updateDesignationOptions('admin', [['Manager', 'Manager'], ['HR', 'HR'], ['Delivery Head', 'Delivery Head']]);
+                } else {
+                    showValidation('employeeId', 'Invalid format. Use MGJ00001 or MP0001', false);
+                    updateDesignationOptions(null, []);
+                }
             });
     }
     
