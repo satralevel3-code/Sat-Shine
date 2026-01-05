@@ -31,6 +31,12 @@ def admin_required(view_func):
 @admin_required
 def admin_dashboard(request):
     """Main admin dashboard with KPIs"""
+    # Clear any logout success messages
+    storage = messages.get_messages(request)
+    for message in storage:
+        if "logged out successfully" in str(message):
+            pass  # This consumes and removes the message
+    
     today = timezone.localdate()
     
     # Total Employees KPI
@@ -424,6 +430,85 @@ def decide_leave(request, leave_id):
         
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+@login_required
+@admin_required
+def compact_analytics(request):
+    """Compact analytics dashboard with 4 charts in 2x2 grid"""
+    today = timezone.localdate()
+    
+    # Get attendance data for today
+    attendance_today = Attendance.objects.filter(date=today)
+    total_employees = CustomUser.objects.filter(role='field_officer', is_active=True).count()
+    
+    # 1. Attendance Status Distribution
+    status_counts = attendance_today.aggregate(
+        present=Count(Case(When(status='present', then=1), output_field=IntegerField())),
+        absent=Count(Case(When(status='absent', then=1), output_field=IntegerField())),
+        half_day=Count(Case(When(status='half_day', then=1), output_field=IntegerField()))
+    )
+    not_marked = total_employees - sum(status_counts.values())
+    attendance_percentage = round((status_counts['present'] + status_counts['half_day'] * 0.5) / total_employees * 100, 1) if total_employees > 0 else 0
+    
+    # 2. Late Arrival Distribution
+    late_cutoff = time(9, 30)
+    on_time = attendance_today.filter(status__in=['present', 'half_day'], check_in_time__lte=late_cutoff).count()
+    late = attendance_today.filter(status__in=['present', 'half_day'], check_in_time__gt=late_cutoff).count()
+    
+    # 3. DCCB Attendance Comparison (top 6 DCCBs)
+    dccb_stats = []
+    dccb_attendance = CustomUser.objects.filter(role='field_officer', is_active=True, dccb__isnull=False).values('dccb').annotate(
+        total=Count('id'),
+        present_today=Count(Case(When(attendance__date=today, attendance__status__in=['present', 'half_day'], then=1), output_field=IntegerField()))
+    ).order_by('-total')[:6]
+    
+    for dccb in dccb_attendance:
+        percentage = round(dccb['present_today'] / dccb['total'] * 100, 1) if dccb['total'] > 0 else 0
+        dccb_stats.append({
+            'name': dccb['dccb'],
+            'percentage': percentage,
+            'present': dccb['present_today'],
+            'total': dccb['total']
+        })
+    
+    # 4. Attendance Trend (last 7 days)
+    trend_data = []
+    for i in range(6, -1, -1):
+        date = today - timedelta(days=i)
+        day_attendance = Attendance.objects.filter(date=date)
+        day_total = CustomUser.objects.filter(role='field_officer', is_active=True).count()
+        
+        present_count = day_attendance.filter(status__in=['present', 'half_day']).count()
+        absent_count = day_attendance.filter(status='absent').count()
+        
+        present_pct = round(present_count / day_total * 100, 1) if day_total > 0 else 0
+        absent_pct = round(absent_count / day_total * 100, 1) if day_total > 0 else 0
+        
+        trend_data.append({
+            'date': date.strftime('%m/%d'),
+            'present_pct': present_pct,
+            'absent_pct': absent_pct
+        })
+    
+    context = {
+        'attendance_status': {
+            'present': status_counts['present'],
+            'absent': status_counts['absent'],
+            'half_day': status_counts['half_day'],
+            'not_marked': not_marked,
+            'percentage': attendance_percentage
+        },
+        'late_arrival': {
+            'on_time': on_time,
+            'late': late,
+            'total': on_time + late
+        },
+        'dccb_stats': dccb_stats,
+        'trend_data': trend_data,
+        'today': today
+    }
+    
+    return render(request, 'authe/admin_compact_analytics.html', context)
 
 @login_required
 @admin_required

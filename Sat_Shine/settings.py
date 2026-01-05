@@ -20,9 +20,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-key-change-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
+DEBUG = True  # Force True for local development
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'web-production-6396f.up.railway.app,*.railway.app,localhost,127.0.0.1').split(',')
+# Railway automatically provides RAILWAY_STATIC_URL and other variables
+RAILWAY_ENVIRONMENT = os.environ.get('RAILWAY_ENVIRONMENT')
+if RAILWAY_ENVIRONMENT:
+    ALLOWED_HOSTS = ['*']  # Railway handles domain routing
+else:
+    ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 
 # Application definition
@@ -72,12 +77,15 @@ WSGI_APPLICATION = 'Sat_Shine.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-# Database - Development (SQLite) / Production (PostgreSQL)
-# Check for DATABASE_URL first (Railway, Heroku style)
+# Database - Railway automatically provides DATABASE_URL
 if os.environ.get('DATABASE_URL'):
     import dj_database_url
     DATABASES = {
-        'default': dj_database_url.parse(os.environ.get('DATABASE_URL'))
+        'default': dj_database_url.parse(
+            os.environ.get('DATABASE_URL'),
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
     }
 elif os.environ.get('USE_POSTGRESQL', 'False').lower() == 'true':
     DATABASES = {
@@ -140,9 +148,17 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Security Settings for Production
-if not DEBUG:
-    SECURE_SSL_REDIRECT = True
+# Security Settings - DISABLED for local development
+# All SSL/HTTPS settings are disabled when DEBUG=True
+SECURE_SSL_REDIRECT = False
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
+SECURE_HSTS_SECONDS = 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+SECURE_HSTS_PRELOAD = False
+
+# Only enable security settings in production
+if not DEBUG and os.environ.get('RAILWAY_ENVIRONMENT'):
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_BROWSER_XSS_FILTER = True
@@ -160,6 +176,27 @@ SESSION_SAVE_EVERY_REQUEST = True
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/login/'
+
+# Logging Configuration for Railway
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
+            'propagate': False,
+        },
+    },
+}
 
 # GIS Configuration (only when PostgreSQL is enabled)
 if os.environ.get('USE_POSTGRESQL', 'False').lower() == 'true':

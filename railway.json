@@ -3,7 +3,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn Sat_Shine.wsgi --bind 0.0.0.0:$PORT",
+    "startCommand": "DJANGO_SETTINGS_MODULE=Sat_Shine.settings_production python manage.py collectstatic --noinput && python manage.py migrate && gunicorn Sat_Shine.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --env DJANGO_SETTINGS_MODULE=Sat_Shine.settings_production",
     "restartPolicyType": "ON_FAILURE"
   }
 }
