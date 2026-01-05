@@ -137,7 +137,7 @@
 
         <div class="text-center mt-4">
             <button type="submit" class="btn btn-primary px-5 py-2" id="submitBtn" disabled>
-                Register Employee
+                <span>Register Employee</span>
             </button>
         </div>
     </form>
@@ -275,7 +275,12 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(error => {
                 console.error('Contact validation error:', error);
-                showValidation('contact', 'Validation error - please try again', false);
+                // Fallback to client-side validation for valid format
+                if (cleanContact.length === 10 && /^[6-9]/.test(cleanContact)) {
+                    showValidation('contact', 'Valid contact number', true);
+                } else {
+                    showValidation('contact', 'Invalid contact number', false);
+                }
             });
     }
     
