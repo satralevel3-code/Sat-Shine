@@ -119,6 +119,15 @@ def login_view(request):
             employee_id = form.cleaned_data['employee_id']
             password = form.cleaned_data['password']
             
+            # Debug: Check if user exists
+            try:
+                user_exists = CustomUser.objects.get(employee_id=employee_id)
+                print(f"DEBUG: User {employee_id} exists, active: {user_exists.is_active}, role: {user_exists.role}")
+            except CustomUser.DoesNotExist:
+                print(f"DEBUG: User {employee_id} does not exist")
+                messages.error(request, f'Employee ID {employee_id} not found. Please register first.')
+                return render(request, 'authe/login.html', {'form': form})
+            
             # Authenticate user
             user = authenticate(request, username=employee_id, password=password)
             if user and user.is_active:
