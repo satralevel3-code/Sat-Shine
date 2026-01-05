@@ -145,18 +145,15 @@ def mark_attendance(request):
             location_address=data.get('address', '')
         )
         
-        # Set GIS location if coordinates provided
+        # Set location if coordinates provided
         if latitude and longitude:
-            attendance.set_check_in_location(float(latitude), float(longitude))
+            attendance.location = f"Lat: {latitude}, Lng: {longitude}"
             attendance.save()
         
         # Validate location if office location is set
         location_valid = True
         distance_msg = ''
-        if request.user.office_location and latitude and longitude:
-            if not attendance.is_location_valid:
-                location_valid = False
-                distance_msg = f' (Distance: {attendance.distance_from_office:.0f}m from office)'
+        # Note: Location validation disabled for now
         
         # Create audit log
         timing_status = 'Late' if is_late else 'On Time'
@@ -182,7 +179,7 @@ def mark_attendance(request):
                 'status': attendance.status,
                 'check_in_time': attendance.check_in_time.strftime('%I:%M %p') if attendance.check_in_time else None,
                 'marked_at': attendance.marked_at.strftime('%I:%M %p'),
-                'distance_from_office': attendance.distance_from_office
+                'location': attendance.location
             }
         })
     
