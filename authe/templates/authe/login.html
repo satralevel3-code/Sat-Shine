@@ -106,6 +106,8 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const employeeIdField = document.getElementById('id_employee_id');
+    const passwordField = document.getElementById('id_password');
+    const form = document.getElementById('loginForm');
     
     // Auto-format Employee ID to uppercase
     employeeIdField.addEventListener('input', function() {
@@ -119,8 +121,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const successMessages = document.querySelectorAll('.alert-success');
     successMessages.forEach(function(message) {
         setTimeout(function() {
-            const alert = new bootstrap.Alert(message);
-            alert.close();
+            if (message && message.parentNode) {
+                message.style.transition = 'opacity 0.5s';
+                message.style.opacity = '0';
+                setTimeout(() => {
+                    if (message.parentNode) message.remove();
+                }, 500);
+            }
         }, 4000);
     });
     
@@ -128,10 +135,80 @@ document.addEventListener('DOMContentLoaded', function() {
     const errorMessages = document.querySelectorAll('.alert-danger, .alert-error');
     errorMessages.forEach(function(message) {
         setTimeout(function() {
-            const alert = new bootstrap.Alert(message);
-            alert.close();
+            if (message && message.parentNode) {
+                message.style.transition = 'opacity 0.5s';
+                message.style.opacity = '0';
+                setTimeout(() => {
+                    if (message.parentNode) message.remove();
+                }, 500);
+            }
         }, 6000);
     });
+    
+    // Clear previous error messages on new input
+    [employeeIdField, passwordField].forEach(field => {
+        field.addEventListener('input', function() {
+            const alerts = document.querySelectorAll('.alert-danger, .alert-error');
+            alerts.forEach(alert => {
+                if (alert.textContent.includes('Invalid employee ID') || 
+                    alert.textContent.includes('not found') ||
+                    alert.textContent.includes('Incorrect password')) {
+                    alert.style.transition = 'opacity 0.3s';
+                    alert.style.opacity = '0';
+                    setTimeout(() => {
+                        if (alert.parentNode) alert.remove();
+                    }, 300);
+                }
+            });
+        });
+    });
+    
+    // Form validation before submit
+    form.addEventListener('submit', function(e) {
+        const employeeId = employeeIdField.value.trim();
+        const password = passwordField.value.trim();
+        
+        if (!employeeId || !password) {
+            e.preventDefault();
+            showLoginError('Please enter both Employee ID and password.');
+            return false;
+        }
+        
+        // Show loading state
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging in...';
+        }
+    });
+    
+    function showLoginError(message) {
+        // Remove existing error messages
+        const existingAlerts = document.querySelectorAll('.login-error-alert');
+        existingAlerts.forEach(alert => alert.remove());
+        
+        // Create new error message
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-danger login-error-alert';
+        alertDiv.innerHTML = `
+            <i class="fas fa-exclamation-triangle"></i>
+            ${message}
+        `;
+        
+        // Insert before the form
+        form.parentNode.insertBefore(alertDiv, form);
+        
+        // Auto-dismiss after 6 seconds
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.style.transition = 'opacity 0.5s';
+                alertDiv.style.opacity = '0';
+                setTimeout(() => {
+                    if (alertDiv.parentNode) alertDiv.remove();
+                }, 500);
+            }
+        }, 6000);
+    }
 });
 </script>
 {% endblock %}

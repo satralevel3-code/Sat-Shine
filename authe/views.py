@@ -113,12 +113,22 @@ def register_view(request):
     return render(request, 'authe/register.html', {'form': form})
 
 def login_view(request):
-    """User login view"""
+    """User login view with enhanced error handling"""
     if request.method == 'POST':
         form = LoginForm(request.POST)
         if form.is_valid():
             employee_id = form.cleaned_data['employee_id']
             password = form.cleaned_data['password']
+            
+            # Check if user exists first
+            try:
+                user_exists = CustomUser.objects.get(employee_id=employee_id)
+                if not user_exists.is_active:
+                    messages.error(request, 'Your account is inactive. Contact administrator.')
+                    return render(request, 'authe/login.html', {'form': form})
+            except CustomUser.DoesNotExist:
+                messages.error(request, 'Employee ID not found. Please register or contact admin.')
+                return render(request, 'authe/login.html', {'form': form})
             
             # Authenticate user
             user = authenticate(request, username=employee_id, password=password)
@@ -133,18 +143,12 @@ def login_view(request):
                     return redirect('admin_dashboard')
                 else:
                     return redirect('field_dashboard')
-            elif user and not user.is_active:
-                messages.error(request, 'Your ID has been deactivated. Please contact Admin.')
             else:
-                messages.error(request, 'Invalid employee ID or password.')
+                messages.error(request, 'Incorrect password. Please try again.')
                 # Log failed attempt
-                try:
-                    failed_user = CustomUser.objects.get(employee_id=employee_id)
-                    create_audit_log(failed_user, 'Failed Login Attempt', request, 'Invalid password')
-                except CustomUser.DoesNotExist:
-                    messages.error(request, f'Employee ID {employee_id} not found. Please register first or contact admin.')
+                create_audit_log(user_exists, 'Failed Login Attempt', request, 'Invalid password')
         else:
-            messages.error(request, 'Please fill in all required fields.')
+            messages.error(request, 'Please enter both Employee ID and password.')
     else:
         form = LoginForm()
     
