@@ -43,6 +43,28 @@
 .btn-primary:hover {
     background: #2563eb;
 }
+
+.validation-message {
+    font-size: 12px;
+    margin-top: 4px;
+    min-height: 16px;
+}
+
+.valid {
+    color: #059669;
+}
+
+.invalid {
+    color: #dc2626;
+}
+
+.form-control.is-valid {
+    border-color: #059669;
+}
+
+.form-control.is-invalid {
+    border-color: #dc2626;
+}
 </style>
 {% endblock %}
 
@@ -56,9 +78,7 @@
         <div class="form-group">
             <label for="id_employee_id" class="form-label">Employee ID</label>
             {{ form.employee_id }}
-            <div id="employee-id-help" class="text-muted small mt-1">
-                Format: MGJ00001 (Field Officer) or MP0001 (Admin)
-            </div>
+            <div id="employee-id-validation" class="validation-message"></div>
         </div>
 
         <div class="form-group">
@@ -122,15 +142,46 @@ document.addEventListener('DOMContentLoaded', function() {
     const designationField = document.getElementById('id_designation');
     const dccbGroup = document.getElementById('dccb-group');
     const managerGroup = document.getElementById('manager-group');
+    const validationDiv = document.getElementById('employee-id-validation');
+    
+    function validateEmployeeId(employeeId) {
+        const mgj = /^MGJ[0-9]{5}$/.test(employeeId);
+        const mp = /^MP[0-9]{4}$/.test(employeeId);
+        
+        if (employeeId.length === 0) {
+            validationDiv.textContent = '';
+            employeeIdField.classList.remove('is-valid', 'is-invalid');
+            return null;
+        }
+        
+        if (mgj) {
+            validationDiv.textContent = '✓ Valid Field Officer ID';
+            validationDiv.className = 'validation-message valid';
+            employeeIdField.classList.remove('is-invalid');
+            employeeIdField.classList.add('is-valid');
+            return 'field_officer';
+        } else if (mp) {
+            validationDiv.textContent = '✓ Valid Admin ID';
+            validationDiv.className = 'validation-message valid';
+            employeeIdField.classList.remove('is-invalid');
+            employeeIdField.classList.add('is-valid');
+            return 'admin';
+        } else {
+            validationDiv.textContent = '✗ Invalid format. Use MGJ00001 or MP0001';
+            validationDiv.className = 'validation-message invalid';
+            employeeIdField.classList.remove('is-valid');
+            employeeIdField.classList.add('is-invalid');
+            return null;
+        }
+    }
     
     function updateDesignationOptions() {
         const employeeId = employeeIdField.value.toUpperCase();
+        const role = validateEmployeeId(employeeId);
         
-        // Clear existing options
         designationField.innerHTML = '<option value="">Select Designation</option>';
         
-        if (employeeId.startsWith('MGJ')) {
-            // Field Officer designations
+        if (role === 'field_officer') {
             const fieldOfficerOptions = [
                 {value: 'MT', text: 'MT'},
                 {value: 'DC', text: 'DC'},
@@ -144,12 +195,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 designationField.appendChild(optionElement);
             });
             
-            // Show DCCB and Manager fields (required for field officers)
             dccbGroup.style.display = 'block';
             managerGroup.style.display = 'block';
             
-        } else if (employeeId.startsWith('MP')) {
-            // Admin designations
+        } else if (role === 'admin') {
             const adminOptions = [
                 {value: 'Manager', text: 'Manager'},
                 {value: 'HR', text: 'HR'},
@@ -163,19 +212,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 designationField.appendChild(optionElement);
             });
             
-            // Hide DCCB and Manager fields (not required for admins)
+            dccbGroup.style.display = 'none';
+            managerGroup.style.display = 'none';
+        } else {
             dccbGroup.style.display = 'none';
             managerGroup.style.display = 'none';
         }
     }
     
-    // Update options when employee ID changes
     employeeIdField.addEventListener('input', function() {
         this.value = this.value.toUpperCase();
         updateDesignationOptions();
     });
     
-    // Initial update
     updateDesignationOptions();
 });
 </script>
