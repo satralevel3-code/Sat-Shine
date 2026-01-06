@@ -562,7 +562,7 @@ def attendance_geo(request):
 @login_required
 @admin_required
 def attendance_geo_data(request):
-    """API endpoint to show ALL users with valid location data on map"""
+    """Optimized API endpoint for fast map loading with all attendance data"""
     date_str = request.GET.get('date', timezone.localdate().isoformat())
     status_filter = request.GET.get('status', '')
     
@@ -571,91 +571,45 @@ def attendance_geo_data(request):
     except ValueError:
         selected_date = timezone.localdate()
     
-    # Get ALL attendance records for the date (including those without location initially)
-    attendance_records = Attendance.objects.filter(
+    # Optimized query with select_related for better performance
+    attendance_query = Attendance.objects.filter(
         date=selected_date
-    ).select_related('user')
+    ).select_related('user').only(
+        'user__employee_id', 'user__first_name', 'user__last_name', 
+        'user__designation', 'user__dccb', 'status', 'check_in_time',
+        'latitude', 'longitude', 'location_accuracy', 'location_address',
+        'distance_from_office', 'is_location_valid', 'marked_at'
+    )
     
     # Apply status filter if provided
     if status_filter:
-        attendance_records = attendance_records.filter(status=status_filter)
+        attendance_query = attendance_query.filter(status=status_filter)
     
-    print(f"DEBUG: Found {attendance_records.count()} total attendance records for {selected_date}")
-    
-    # Process ALL records and extract those with valid location data
+    # Process records efficiently
     geo_data = []
-    records_with_location = 0
-    records_without_location = 0
-    
-    for record in attendance_records:
-        print(f"DEBUG: Processing {record.user.employee_id} - Location: '{record.check_in_location}' - Status: {record.status}")
-        
-        if not record.check_in_location:
-            records_without_location += 1
-            print(f"DEBUG: {record.user.employee_id} has NO location data")
-            continue
-            
-        if record.check_in_location.strip() == '':
-            records_without_location += 1
-            print(f"DEBUG: {record.user.employee_id} has EMPTY location data")
-            continue
-        
-        try:
-            # Handle both GIS and string location formats
-            if hasattr(record.check_in_location, 'coords'):
-                # GIS Point field
-                lat, lng = record.check_in_location.coords[1], record.check_in_location.coords[0]
-            elif isinstance(record.check_in_location, str) and ',' in record.check_in_location:
-                # String format "lat,lng" with high precision
-                coords = record.check_in_location.split(',')
-                if len(coords) != 2:
-                    print(f"DEBUG: {record.user.employee_id} has invalid coordinate format: {record.check_in_location}")
-                    records_without_location += 1
-                    continue
-                lat, lng = map(float, coords)
-            else:
-                print(f"DEBUG: {record.user.employee_id} has unrecognized location format: {record.check_in_location}")
-                records_without_location += 1
-                continue
-            
-            # Validate coordinate ranges
-            if not (-90 <= lat <= 90 and -180 <= lng <= 180):
-                print(f"DEBUG: {record.user.employee_id} has invalid coordinates: {lat}, {lng}")
-                records_without_location += 1
-                continue
-            
-            # Ensure high precision (8 decimal places)
-            lat = round(lat, 8)
-            lng = round(lng, 8)
-            
-            records_with_location += 1
-            print(f"DEBUG: ✓ {record.user.employee_id} added to map: LAT={lat}, LNG={lng}")
-            
-            geo_data.append({
-                'employee_id': record.user.employee_id,
-                'name': f"{record.user.first_name} {record.user.last_name}",
-                'designation': record.user.designation,
-                'dccb': record.user.dccb or '',
-                'status': record.status,
-                'is_late': record.is_late,
-                'timing_status': record.timing_status,
-                'lat': lat,
-                'lng': lng,
-                'marked_at': record.marked_at.strftime('%H:%M') if record.marked_at else '',
-                'check_in_time': record.check_in_time.strftime('%H:%M') if record.check_in_time else '',
-                'location_address': record.location_address or '',
-                'location_accuracy': record.location_accuracy,
-                'distance_from_office': record.distance_from_office,
-                'is_location_valid': record.is_location_valid
-            })
-            
-        except (ValueError, AttributeError, TypeError) as e:
-            print(f"DEBUG: Error processing {record.user.employee_id} location: {e}")
-            records_without_location += 1
-            continue
-    
-    print(f"DEBUG: Final results - With location: {records_with_location}, Without location: {records_without_location}")
-    print(f"DEBUG: Returning {len(geo_data)} markers to map")
+    for record in attendance_query:
+        # Use separate latitude/longitude fields for better performance
+        if record.latitude is not None and record.longitude is not None:
+            # Validate coordinates
+            lat, lng = float(record.latitude), float(record.longitude)
+            if -90 <= lat <= 90 and -180 <= lng <= 180:
+                geo_data.append({
+                    'employee_id': record.user.employee_id,
+                    'name': f"{record.user.first_name} {record.user.last_name}",
+                    'designation': record.user.designation,
+                    'dccb': record.user.dccb or '',
+                    'status': record.status,
+                    'is_late': record.check_in_time > time(10, 0) if record.check_in_time else False,
+                    'timing_status': 'On Time' if record.check_in_time and record.check_in_time <= time(10, 0) else 'Late' if record.check_in_time else 'Not Marked',
+                    'lat': round(lat, 8),
+                    'lng': round(lng, 8),
+                    'marked_at': record.marked_at.strftime('%H:%M') if record.marked_at else '',
+                    'check_in_time': record.check_in_time.strftime('%H:%M') if record.check_in_time else '',
+                    'location_address': record.location_address or f'GPS Location ({lat:.6f}, {lng:.6f})',
+                    'location_accuracy': round(record.location_accuracy) if record.location_accuracy else 0,
+                    'distance_from_office': round(record.distance_from_office) if record.distance_from_office else 0,
+                    'is_location_valid': record.is_location_valid
+                })
     
     return JsonResponse(geo_data, safe=False)
 

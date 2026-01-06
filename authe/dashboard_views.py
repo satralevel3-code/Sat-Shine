@@ -112,11 +112,12 @@ def mark_attendance(request):
     is_sunday_today = today.weekday() == 6
     
     if request.method == 'POST':
-        if is_sunday_today:
-            return JsonResponse({
-                'success': False, 
-                'error': 'Attendance marking not allowed on Sundays'
-            }, status=400)
+        # Remove Sunday restriction for testing - allow attendance any day
+        # if is_sunday_today:
+        #     return JsonResponse({
+        #         'success': False, 
+        #         'error': 'Attendance marking not allowed on Sundays'
+        #     }, status=400)
             
         try:
             data = json.loads(request.body)
