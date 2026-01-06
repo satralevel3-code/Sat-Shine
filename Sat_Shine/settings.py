@@ -39,7 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django.contrib.gis',  # Enable GIS for PostGIS
+    # 'django.contrib.gis',  # Disabled - Railway doesn't support GDAL
     'main',
     'authe',
 ]
@@ -77,7 +77,7 @@ WSGI_APPLICATION = 'Sat_Shine.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-# Database - Enable PostgreSQL with PostGIS for production
+# Database - Use PostgreSQL without PostGIS for Railway
 if os.environ.get('DATABASE_URL'):
     import dj_database_url
     DATABASES = {
@@ -87,12 +87,10 @@ if os.environ.get('DATABASE_URL'):
             conn_health_checks=True,
         )
     }
-    # Enable PostGIS for production
-    DATABASES['default']['ENGINE'] = 'django.contrib.gis.db.backends.postgis'
 elif os.environ.get('USE_POSTGRESQL', 'False').lower() == 'true':
     DATABASES = {
         'default': {
-            'ENGINE': 'django.contrib.gis.db.backends.postgis',
+            'ENGINE': 'django.db.backends.postgresql',
             'NAME': os.environ.get('DB_NAME', 'sat_shine_db'),
             'USER': os.environ.get('DB_USER', 'sat_shine_user'),
             'PASSWORD': os.environ.get('DB_PASSWORD', 'your_password'),

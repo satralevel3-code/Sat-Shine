@@ -562,7 +562,7 @@ def attendance_geo(request):
 @login_required
 @admin_required
 def attendance_geo_data(request):
-    """Optimized API endpoint for PostGIS-based map loading"""
+    """API endpoint for map loading with lat/lng fields"""
     date_str = request.GET.get('date', timezone.localdate().isoformat())
     status_filter = request.GET.get('status', '')
     
@@ -571,14 +571,15 @@ def attendance_geo_data(request):
     except ValueError:
         selected_date = timezone.localdate()
     
-    # Optimized query for PostGIS
+    # Query with lat/lng fields
     attendance_query = Attendance.objects.filter(
         date=selected_date,
-        check_in_location__isnull=False
+        latitude__isnull=False,
+        longitude__isnull=False
     ).select_related('user').only(
         'user__employee_id', 'user__first_name', 'user__last_name', 
         'user__designation', 'user__dccb', 'status', 'check_in_time',
-        'check_in_location', 'location_accuracy', 'location_address',
+        'latitude', 'longitude', 'location_accuracy', 'location_address',
         'distance_from_office', 'is_location_valid', 'marked_at'
     )
     
@@ -589,28 +590,26 @@ def attendance_geo_data(request):
     # Process records efficiently
     geo_data = []
     for record in attendance_query:
-        if record.check_in_location:
-            # Extract coordinates from PostGIS Point
-            lat = record.check_in_location.y
-            lng = record.check_in_location.x
-            
-            geo_data.append({
-                'employee_id': record.user.employee_id,
-                'name': f"{record.user.first_name} {record.user.last_name}",
-                'designation': record.user.designation,
-                'dccb': record.user.dccb or '',
-                'status': record.status,
-                'is_late': record.check_in_time > time(10, 0) if record.check_in_time else False,
-                'timing_status': 'On Time' if record.check_in_time and record.check_in_time <= time(10, 0) else 'Late' if record.check_in_time else 'Not Marked',
-                'lat': round(lat, 8),
-                'lng': round(lng, 8),
-                'marked_at': record.marked_at.strftime('%H:%M') if record.marked_at else '',
-                'check_in_time': record.check_in_time.strftime('%H:%M') if record.check_in_time else '',
-                'location_address': record.location_address or f'GPS Location ({lat:.6f}, {lng:.6f})',
-                'location_accuracy': round(record.location_accuracy) if record.location_accuracy else 0,
-                'distance_from_office': round(record.distance_from_office) if record.distance_from_office else 0,
-                'is_location_valid': record.is_location_valid
-            })
+        lat = float(record.latitude)
+        lng = float(record.longitude)
+        
+        geo_data.append({
+            'employee_id': record.user.employee_id,
+            'name': f"{record.user.first_name} {record.user.last_name}",
+            'designation': record.user.designation,
+            'dccb': record.user.dccb or '',
+            'status': record.status,
+            'is_late': record.check_in_time > time(10, 0) if record.check_in_time else False,
+            'timing_status': 'On Time' if record.check_in_time and record.check_in_time <= time(10, 0) else 'Late' if record.check_in_time else 'Not Marked',
+            'lat': round(lat, 8),
+            'lng': round(lng, 8),
+            'marked_at': record.marked_at.strftime('%H:%M') if record.marked_at else '',
+            'check_in_time': record.check_in_time.strftime('%H:%M') if record.check_in_time else '',
+            'location_address': record.location_address or f'GPS Location ({lat:.6f}, {lng:.6f})',
+            'location_accuracy': round(record.location_accuracy) if record.location_accuracy else 0,
+            'distance_from_office': round(record.distance_from_office) if record.distance_from_office else 0,
+            'is_location_valid': record.is_location_valid
+        })
     
     return JsonResponse(geo_data, safe=False)
 

@@ -6,12 +6,11 @@ from django.utils import timezone
 from django.db.models import Q, Count
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
-from django.contrib.gis.geos import Point
-from django.contrib.gis.measure import Distance
 from datetime import datetime, timedelta, time
 from .models import CustomUser, Attendance, LeaveRequest
 from .views import create_audit_log
 import json
+import math
 
 @login_required
 def field_dashboard(request):
@@ -142,15 +141,18 @@ def mark_attendance(request):
                     if not (-90 <= lat_float <= 90 and -180 <= lng_float <= 180):
                         return JsonResponse({'success': False, 'error': 'Invalid GPS coordinates'}, status=400)
                     
-                    # Create GIS Point
-                    location_point = Point(lng_float, lat_float, srid=4326)
-                    
-                    # Office distance calculation
-                    office_point = Point(72.5714, 23.0225, srid=4326)  # Ahmedabad office
-                    distance = office_point.distance(location_point) * 111000  # Convert to meters
+                    # Office distance calculation using Haversine formula
+                    office_lat = 23.0225
+                    office_lng = 72.5714
+                    lat_diff = math.radians(lat_float - office_lat)
+                    lng_diff = math.radians(lng_float - office_lng)
+                    a = math.sin(lat_diff/2)**2 + math.cos(math.radians(office_lat)) * math.cos(math.radians(lat_float)) * math.sin(lng_diff/2)**2
+                    c = 2 * math.asin(math.sqrt(a))
+                    distance = 6371000 * c  # Earth radius in meters
                     
                     location_data = {
-                        'check_in_location': location_point,
+                        'latitude': lat_float,
+                        'longitude': lng_float,
                         'location_accuracy': acc_float,
                         'is_location_valid': True,
                         'location_address': f'GPS: {acc_float:.1f}m accuracy' + (' (Office)' if distance <= 200 else ' (Remote)'),
@@ -162,7 +164,8 @@ def mark_attendance(request):
             else:
                 # For absent, no GPS data needed
                 location_data = {
-                    'check_in_location': None,
+                    'latitude': None,
+                    'longitude': None,
                     'location_accuracy': None,
                     'is_location_valid': False,
                     'location_address': 'Absent - No location required',
