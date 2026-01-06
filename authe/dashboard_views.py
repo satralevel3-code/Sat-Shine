@@ -123,7 +123,6 @@ def mark_attendance(request):
             latitude = data.get('lat')
             longitude = data.get('lng')
             accuracy = data.get('accuracy')
-            timestamp = data.get('timestamp')
             
             current_time = timezone.localtime().time()
             
@@ -132,40 +131,26 @@ def mark_attendance(request):
             if existing:
                 return JsonResponse({'success': False, 'error': 'Attendance already marked for today'}, status=400)
             
-            # Strict backend validation of GPS accuracy
-            is_location_valid = False
-            if latitude is not None and longitude is not None and accuracy is not None:
-                try:
-                    lat_float = float(latitude)
-                    lng_float = float(longitude)
-                    acc_float = float(accuracy)
-                    
-                    # Validate coordinate ranges
-                    if not (-90 <= lat_float <= 90 and -180 <= lng_float <= 180):
-                        return JsonResponse({
-                            'success': False, 
-                            'error': 'Invalid GPS coordinates received'
-                        }, status=400)
-                    
-                    # Strict accuracy validation - reject if > 50m
-                    if acc_float > 50:
-                        return JsonResponse({
-                            'success': False, 
-                            'error': f'GPS accuracy too low ({acc_float:.0f}m). Required: ≤50m accuracy'
-                        }, status=400)
-                    
-                    is_location_valid = True
-                    
-                except (ValueError, TypeError):
+            # Validate GPS data
+            if latitude is None or longitude is None or accuracy is None:
+                return JsonResponse({'success': False, 'error': 'GPS location required'}, status=400)
+            
+            try:
+                lat_float = float(latitude)
+                lng_float = float(longitude)
+                acc_float = float(accuracy)
+                
+                if not (-90 <= lat_float <= 90 and -180 <= lng_float <= 180):
+                    return JsonResponse({'success': False, 'error': 'Invalid GPS coordinates'}, status=400)
+                
+                if acc_float > 50:
                     return JsonResponse({
                         'success': False, 
-                        'error': 'Invalid location data format'
+                        'error': f'GPS accuracy too low ({acc_float:.0f}m). Required: ≤50m'
                     }, status=400)
-            else:
-                return JsonResponse({
-                    'success': False, 
-                    'error': 'GPS location required for attendance marking'
-                }, status=400)
+                    
+            except (ValueError, TypeError):
+                return JsonResponse({'success': False, 'error': 'Invalid location data'}, status=400)
             
             # Time-based attendance rules
             on_time_cutoff = time(10, 0)
@@ -190,7 +175,7 @@ def mark_attendance(request):
                     'error': f'Attendance marking not allowed after 3:00 PM. Current time: {current_time.strftime("%I:%M %p")}'
                 }, status=400)
             
-            # Create attendance record with validated location
+            # Create attendance record
             attendance = Attendance.objects.create(
                 user=request.user,
                 date=today,
@@ -198,28 +183,40 @@ def mark_attendance(request):
                 check_in_time=current_time,
                 check_in_location=f"{lat_float:.8f},{lng_float:.8f}",
                 location_accuracy=acc_float,
-                is_location_valid=is_location_valid,
+                is_location_valid=True,
                 location_address='GPS Location Captured'
             )
             
-            # Optional: Office geofencing validation (200m radius)
-            if request.user.office_location:
-                try:
-                    if hasattr(request.user.office_location, 'coords'):
-                        # GIS Point field
-                        office_lat, office_lng = request.user.office_location.coords[1], request.user.office_location.coords[0]
-                    elif ',' in str(request.user.office_location):
-                        # String format
-                        office_lat, office_lng = map(float, str(request.user.office_location).split(','))
-                    else:
-                        office_lat = office_lng = None
-                    
-                    if office_lat and office_lng:
-                        # Calculate distance using Haversine formula
-                        import math
-                        lat_diff = math.radians(lat_float - office_lat)
-                        lng_diff = math.radians(lng_float - office_lng)
-                        a = math.sin(lat_diff/2)**2 + math.cos(math.radians(office_lat)) * math.cos(math.radians(lat_float)) * math.sin(lng_diff/2)**2
+            # Create audit log
+            create_audit_log(
+                user=request.user,
+                action='ATTENDANCE_MARKED',
+                details=f'Status: {status}, Time: {current_time}, Location: {lat_float:.6f},{lng_float:.6f}'
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': message,
+                'status': status,
+                'timing_status': timing_status,
+                'check_in_time': current_time.strftime('%I:%M %p'),
+                'location': f'{lat_float:.6f},{lng_float:.6f}',
+                'accuracy': f'{acc_float:.1f}m'
+            })
+            
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': f'Server error: {str(e)}'}, status=500)
+    
+    # GET request - return attendance form
+    context = {
+        'user': request.user,
+        'today': today,
+        'is_sunday': is_sunday_today,
+        'current_time': timezone.now()
+    }
+    return render(request, 'authe/mark_attendance.html', context)ians(office_lat)) * math.cos(math.radians(lat_float)) * math.sin(lng_diff/2)**2
                         c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
                         distance = 6371000 * c  # Earth radius in meters
                         
