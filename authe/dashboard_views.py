@@ -123,7 +123,7 @@ def mark_attendance(request):
             latitude = data.get('lat')
             longitude = data.get('lng')
             accuracy = data.get('accuracy')
-            manual_status = data.get('status')  # Get status from frontend
+            timestamp = data.get('timestamp')
             
             current_time = timezone.localtime().time()
             
@@ -132,67 +132,66 @@ def mark_attendance(request):
             if existing:
                 return JsonResponse({'success': False, 'error': 'Attendance already marked for today'}, status=400)
             
-            # Validate GPS data
+            # Strict GPS validation for production
             if latitude is None or longitude is None or accuracy is None:
-                return JsonResponse({'success': False, 'error': 'GPS location required'}, status=400)
+                return JsonResponse({'success': False, 'error': 'GPS location data required'}, status=400)
             
             try:
                 lat_float = float(latitude)
                 lng_float = float(longitude)
                 acc_float = float(accuracy)
                 
+                # Validate coordinate ranges
                 if not (-90 <= lat_float <= 90 and -180 <= lng_float <= 180):
                     return JsonResponse({'success': False, 'error': 'Invalid GPS coordinates'}, status=400)
                 
-                if acc_float > 1000:  # Allow up to 1km for manual locations
+                # Strict accuracy requirement: ≤50 meters
+                if acc_float > 50:
                     return JsonResponse({
                         'success': False, 
-                        'error': f'Location accuracy too low ({acc_float:.0f}m). Maximum allowed: 1000m'
+                        'error': f'GPS accuracy too low ({acc_float:.1f}m). Required: ≤50m. Please move to an open area and try again.'
                     }, status=400)
                     
             except (ValueError, TypeError):
-                return JsonResponse({'success': False, 'error': 'Invalid location data'}, status=400)
+                return JsonResponse({'success': False, 'error': 'Invalid location data format'}, status=400)
             
-            # Use manual status if provided, otherwise determine by time
-            if manual_status and manual_status in ['present', 'absent', 'half_day']:
-                status = manual_status
-                if status == 'present':
-                    timing_status = 'Present (Manual)'
-                    message = 'Attendance marked as Present'
-                elif status == 'half_day':
-                    timing_status = 'Half Day (Manual)'
-                    message = 'Attendance marked as Half Day'
-                else:  # absent
-                    timing_status = 'Absent (Manual)'
-                    message = 'Attendance marked as Absent'
-                    # For absent, don't require location
-                    lat_float = lng_float = 0.0
-                    acc_float = 0
+            # Office geofencing (optional - Ahmedabad office coordinates)
+            office_lat = 23.0225
+            office_lng = 72.5714
+            office_radius = 200  # 200 meters
+            
+            # Calculate distance from office (simple approximation)
+            import math
+            lat_diff = lat_float - office_lat
+            lng_diff = lng_float - office_lng
+            distance = math.sqrt(lat_diff**2 + lng_diff**2) * 111000  # Convert to meters
+            
+            is_within_office = distance <= office_radius
+            
+            # Time-based status determination
+            on_time_cutoff = time(10, 0)
+            late_cutoff = time(13, 30)
+            half_day_cutoff = time(15, 0)
+            
+            if current_time <= on_time_cutoff:
+                status = 'present'
+                timing_status = 'On Time'
+                message = 'Attendance marked successfully - On Time'
+            elif current_time <= late_cutoff:
+                status = 'present'
+                timing_status = 'Late Arrival'
+                message = f'Marked late at {current_time.strftime("%I:%M %p")}'
+            elif current_time <= half_day_cutoff:
+                status = 'half_day'
+                timing_status = 'Half Day'
+                message = f'Marked as Half Day at {current_time.strftime("%I:%M %p")}'
             else:
-                # Time-based attendance rules (original logic)
-                on_time_cutoff = time(10, 0)
-                late_cutoff = time(13, 30)
-                half_day_cutoff = time(15, 0)
-                
-                if current_time <= on_time_cutoff:
-                    status = 'present'
-                    timing_status = 'On Time'
-                    message = 'Attendance marked successfully - On Time'
-                elif current_time <= late_cutoff:
-                    status = 'present'
-                    timing_status = 'Late Arrival'
-                    message = f'Marked late at {current_time.strftime("%I:%M %p")} - Late Arrival'
-                elif current_time <= half_day_cutoff:
-                    status = 'half_day'
-                    timing_status = 'Half Day'
-                    message = f'Marked at {current_time.strftime("%I:%M %p")} - Half Day'
-                else:
-                    return JsonResponse({
-                        'success': False, 
-                        'error': f'Attendance marking not allowed after 3:00 PM. Current time: {current_time.strftime("%I:%M %p")}'
-                    }, status=400)
+                return JsonResponse({
+                    'success': False, 
+                    'error': f'Attendance marking not allowed after 3:00 PM. Current time: {current_time.strftime("%I:%M %p")}'
+                }, status=400)
             
-            # Create attendance record
+            # Create attendance record with validation flags
             attendance = Attendance.objects.create(
                 user=request.user,
                 date=today,
@@ -200,15 +199,16 @@ def mark_attendance(request):
                 check_in_time=current_time,
                 check_in_location=f"{lat_float:.8f},{lng_float:.8f}",
                 location_accuracy=acc_float,
-                is_location_valid=True,
-                location_address='GPS Location Captured'
+                is_location_valid=True,  # Always true since we validated accuracy ≤50m
+                location_address=f'GPS: {acc_float:.1f}m accuracy' + (' (Office)' if is_within_office else ' (Remote)'),
+                distance_from_office=distance
             )
             
             # Create audit log
             create_audit_log(
                 user=request.user,
                 action='ATTENDANCE_MARKED',
-                details=f'Status: {status}, Time: {current_time}, Location: {lat_float:.6f},{lng_float:.6f}'
+                details=f'Status: {status}, Time: {current_time}, Location: {lat_float:.6f},{lng_float:.6f}, Accuracy: {acc_float:.1f}m, Distance: {distance:.0f}m'
             )
             
             return JsonResponse({
@@ -218,7 +218,9 @@ def mark_attendance(request):
                 'timing_status': timing_status,
                 'check_in_time': current_time.strftime('%I:%M %p'),
                 'location': f'{lat_float:.6f},{lng_float:.6f}',
-                'accuracy': f'{acc_float:.1f}m'
+                'accuracy': f'{acc_float:.1f}m',
+                'office_distance': f'{distance:.0f}m',
+                'within_office': is_within_office
             })
             
         except json.JSONDecodeError:
