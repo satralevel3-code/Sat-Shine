@@ -6,22 +6,12 @@ from django.utils import timezone
 from django.db.models import Q, Count
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
+from django.contrib.gis.geos import Point
+from django.contrib.gis.measure import Distance
 from datetime import datetime, timedelta, time
 from .models import CustomUser, Attendance, LeaveRequest
 from .views import create_audit_log
 import json
-import os
-
-# Conditional GIS imports
-if os.getenv('USE_POSTGRESQL', 'false').lower() == 'true':
-    try:
-        from django.contrib.gis.geos import Point
-        from django.contrib.gis.measure import Distance
-        GIS_ENABLED = True
-    except ImportError:
-        GIS_ENABLED = False
-else:
-    GIS_ENABLED = False
 
 @login_required
 def field_dashboard(request):
@@ -141,52 +131,37 @@ def mark_attendance(request):
             # GPS validation only for present and half_day
             if status in ['present', 'half_day']:
                 if latitude is None or longitude is None:
-                    # Allow GPS-less attendance with warning
+                    return JsonResponse({'success': False, 'error': 'GPS location required for Present/Half Day status'}, status=400)
+                
+                try:
+                    lat_float = float(latitude)
+                    lng_float = float(longitude)
+                    acc_float = float(accuracy) if accuracy else 999
+                    
+                    # Validate coordinate ranges
+                    if not (-90 <= lat_float <= 90 and -180 <= lng_float <= 180):
+                        return JsonResponse({'success': False, 'error': 'Invalid GPS coordinates'}, status=400)
+                    
+                    # Create GIS Point
+                    location_point = Point(lng_float, lat_float, srid=4326)
+                    
+                    # Office distance calculation
+                    office_point = Point(72.5714, 23.0225, srid=4326)  # Ahmedabad office
+                    distance = office_point.distance(location_point) * 111000  # Convert to meters
+                    
                     location_data = {
-                        'latitude': None,
-                        'longitude': None,
-                        'check_in_location': None,
-                        'location_accuracy': None,
-                        'is_location_valid': False,
-                        'location_address': f'{status.title()} - GPS unavailable',
-                        'distance_from_office': None
+                        'check_in_location': location_point,
+                        'location_accuracy': acc_float,
+                        'is_location_valid': True,
+                        'location_address': f'GPS: {acc_float:.1f}m accuracy' + (' (Office)' if distance <= 200 else ' (Remote)'),
+                        'distance_from_office': distance
                     }
-                    distance = None
-                else:
-                    try:
-                        lat_float = float(latitude)
-                        lng_float = float(longitude)
-                        acc_float = float(accuracy) if accuracy else 999
-                        
-                        # Validate coordinate ranges
-                        if not (-90 <= lat_float <= 90 and -180 <= lng_float <= 180):
-                            return JsonResponse({'success': False, 'error': 'Invalid GPS coordinates'}, status=400)
-                        
-                        # Office distance calculation
-                        office_lat = 23.0225
-                        office_lng = 72.5714
-                        import math
-                        lat_diff = lat_float - office_lat
-                        lng_diff = lng_float - office_lng
-                        distance = math.sqrt(lat_diff**2 + lng_diff**2) * 111000
-                        
-                        location_data = {
-                            'latitude': lat_float,
-                            'longitude': lng_float,
-                            'check_in_location': f"{lat_float:.8f},{lng_float:.8f}",
-                            'location_accuracy': acc_float,
-                            'is_location_valid': True,
-                            'location_address': f'GPS: {acc_float:.1f}m accuracy' + (' (Office)' if distance <= 200 else ' (Remote)'),
-                            'distance_from_office': distance
-                        }
-                        
-                    except (ValueError, TypeError):
-                        return JsonResponse({'success': False, 'error': 'Invalid location data format'}, status=400)
+                    
+                except (ValueError, TypeError):
+                    return JsonResponse({'success': False, 'error': 'Invalid location data format'}, status=400)
             else:
                 # For absent, no GPS data needed
                 location_data = {
-                    'latitude': None,
-                    'longitude': None,
                     'check_in_location': None,
                     'location_accuracy': None,
                     'is_location_valid': False,
@@ -235,13 +210,6 @@ def mark_attendance(request):
                     'office_distance': f'{distance:.0f}m',
                     'latitude': lat_float,
                     'longitude': lng_float,
-                    'timing_status': 'On Time' if current_time <= time(10, 0) else 'Late Arrival'
-                })
-            elif status != 'absent':
-                response_data.update({
-                    'location': 'GPS unavailable',
-                    'accuracy': 'N/A',
-                    'office_distance': 'Unknown',
                     'timing_status': 'On Time' if current_time <= time(10, 0) else 'Late Arrival'
                 })
             

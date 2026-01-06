@@ -562,7 +562,7 @@ def attendance_geo(request):
 @login_required
 @admin_required
 def attendance_geo_data(request):
-    """Optimized API endpoint for fast map loading with all attendance data"""
+    """Optimized API endpoint for PostGIS-based map loading"""
     date_str = request.GET.get('date', timezone.localdate().isoformat())
     status_filter = request.GET.get('status', '')
     
@@ -571,13 +571,14 @@ def attendance_geo_data(request):
     except ValueError:
         selected_date = timezone.localdate()
     
-    # Optimized query with select_related for better performance
+    # Optimized query for PostGIS
     attendance_query = Attendance.objects.filter(
-        date=selected_date
+        date=selected_date,
+        check_in_location__isnull=False
     ).select_related('user').only(
         'user__employee_id', 'user__first_name', 'user__last_name', 
         'user__designation', 'user__dccb', 'status', 'check_in_time',
-        'latitude', 'longitude', 'location_accuracy', 'location_address',
+        'check_in_location', 'location_accuracy', 'location_address',
         'distance_from_office', 'is_location_valid', 'marked_at'
     )
     
@@ -588,28 +589,28 @@ def attendance_geo_data(request):
     # Process records efficiently
     geo_data = []
     for record in attendance_query:
-        # Use separate latitude/longitude fields for better performance
-        if record.latitude is not None and record.longitude is not None:
-            # Validate coordinates
-            lat, lng = float(record.latitude), float(record.longitude)
-            if -90 <= lat <= 90 and -180 <= lng <= 180:
-                geo_data.append({
-                    'employee_id': record.user.employee_id,
-                    'name': f"{record.user.first_name} {record.user.last_name}",
-                    'designation': record.user.designation,
-                    'dccb': record.user.dccb or '',
-                    'status': record.status,
-                    'is_late': record.check_in_time > time(10, 0) if record.check_in_time else False,
-                    'timing_status': 'On Time' if record.check_in_time and record.check_in_time <= time(10, 0) else 'Late' if record.check_in_time else 'Not Marked',
-                    'lat': round(lat, 8),
-                    'lng': round(lng, 8),
-                    'marked_at': record.marked_at.strftime('%H:%M') if record.marked_at else '',
-                    'check_in_time': record.check_in_time.strftime('%H:%M') if record.check_in_time else '',
-                    'location_address': record.location_address or f'GPS Location ({lat:.6f}, {lng:.6f})',
-                    'location_accuracy': round(record.location_accuracy) if record.location_accuracy else 0,
-                    'distance_from_office': round(record.distance_from_office) if record.distance_from_office else 0,
-                    'is_location_valid': record.is_location_valid
-                })
+        if record.check_in_location:
+            # Extract coordinates from PostGIS Point
+            lat = record.check_in_location.y
+            lng = record.check_in_location.x
+            
+            geo_data.append({
+                'employee_id': record.user.employee_id,
+                'name': f"{record.user.first_name} {record.user.last_name}",
+                'designation': record.user.designation,
+                'dccb': record.user.dccb or '',
+                'status': record.status,
+                'is_late': record.check_in_time > time(10, 0) if record.check_in_time else False,
+                'timing_status': 'On Time' if record.check_in_time and record.check_in_time <= time(10, 0) else 'Late' if record.check_in_time else 'Not Marked',
+                'lat': round(lat, 8),
+                'lng': round(lng, 8),
+                'marked_at': record.marked_at.strftime('%H:%M') if record.marked_at else '',
+                'check_in_time': record.check_in_time.strftime('%H:%M') if record.check_in_time else '',
+                'location_address': record.location_address or f'GPS Location ({lat:.6f}, {lng:.6f})',
+                'location_accuracy': round(record.location_accuracy) if record.location_accuracy else 0,
+                'distance_from_office': round(record.distance_from_office) if record.distance_from_office else 0,
+                'is_location_valid': record.is_location_valid
+            })
     
     return JsonResponse(geo_data, safe=False)
 

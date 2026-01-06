@@ -39,7 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    # 'django.contrib.gis',  # Only enable for PostGIS
+    'django.contrib.gis',  # Enable GIS for PostGIS
     'main',
     'authe',
 ]
@@ -77,7 +77,7 @@ WSGI_APPLICATION = 'Sat_Shine.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-# Database - Railway automatically provides DATABASE_URL
+# Database - Enable PostgreSQL with PostGIS for production
 if os.environ.get('DATABASE_URL'):
     import dj_database_url
     DATABASES = {
@@ -87,10 +87,12 @@ if os.environ.get('DATABASE_URL'):
             conn_health_checks=True,
         )
     }
+    # Enable PostGIS for production
+    DATABASES['default']['ENGINE'] = 'django.contrib.gis.db.backends.postgis'
 elif os.environ.get('USE_POSTGRESQL', 'False').lower() == 'true':
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.postgresql',
+            'ENGINE': 'django.contrib.gis.db.backends.postgis',
             'NAME': os.environ.get('DB_NAME', 'sat_shine_db'),
             'USER': os.environ.get('DB_USER', 'sat_shine_user'),
             'PASSWORD': os.environ.get('DB_PASSWORD', 'your_password'),

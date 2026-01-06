@@ -1,21 +1,11 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.contrib.gis.db import models as gis_models
+from django.contrib.gis.geos import Point
 from django.core.validators import RegexValidator
 from django.utils import timezone
 import re
 import os
-
-# Conditional GIS imports based on environment
-if os.getenv('USE_POSTGRESQL', 'false').lower() == 'true':
-    try:
-        from django.contrib.gis.db import models as gis_models
-        from django.contrib.gis.geos import Point
-        from django.contrib.gis.measure import Distance
-        GIS_ENABLED = True
-    except ImportError:
-        GIS_ENABLED = False
-else:
-    GIS_ENABLED = False
 
 class CustomUser(AbstractUser):
     ROLE_CHOICES = [
@@ -71,11 +61,8 @@ class CustomUser(AbstractUser):
     dccb = models.CharField(max_length=20, choices=DCCB_CHOICES, blank=True, null=True, db_index=True)
     reporting_manager = models.CharField(max_length=100, blank=True, null=True)
     
-    # GIS Fields for office location (conditional)
-    if GIS_ENABLED:
-        office_location = gis_models.PointField(srid=4326, null=True, blank=True, help_text="Office location coordinates")
-    else:
-        office_location = models.CharField(max_length=100, null=True, blank=True, help_text="Office location (lat,lng)")
+    # GIS Fields for office location
+    office_location = gis_models.PointField(srid=4326, null=True, blank=True, help_text="Office location coordinates")
     
     office_address = models.CharField(max_length=300, blank=True, null=True)
     attendance_radius = models.FloatField(default=500.0, help_text="Allowed attendance radius in meters")
@@ -117,33 +104,16 @@ class CustomUser(AbstractUser):
     
     def set_office_location(self, latitude, longitude):
         """Set office location from coordinates"""
-        if GIS_ENABLED:
-            self.office_location = Point(longitude, latitude, srid=4326)
-        else:
-            self.office_location = f"{latitude},{longitude}"
+        self.office_location = Point(longitude, latitude, srid=4326)
     
     def is_within_attendance_radius(self, latitude, longitude):
         """Check if given coordinates are within attendance radius"""
         if not self.office_location:
             return True  # Allow if no office location set
         
-        if GIS_ENABLED:
-            user_point = Point(longitude, latitude, srid=4326)
-            distance = self.office_location.distance(user_point) * 111000  # Convert to meters
-            return distance <= self.attendance_radius
-        else:
-            # Simple distance calculation for SQLite
-            if ',' in str(self.office_location):
-                office_lat, office_lng = map(float, str(self.office_location).split(','))
-                # Haversine formula approximation
-                import math
-                lat_diff = math.radians(latitude - office_lat)
-                lng_diff = math.radians(longitude - office_lng)
-                a = math.sin(lat_diff/2)**2 + math.cos(math.radians(office_lat)) * math.cos(math.radians(latitude)) * math.sin(lng_diff/2)**2
-                c = 2 * math.asin(math.sqrt(a))
-                distance = 6371000 * c  # Earth radius in meters
-                return distance <= self.attendance_radius
-            return True
+        user_point = Point(longitude, latitude, srid=4326)
+        distance = self.office_location.distance(user_point) * 111000  # Convert to meters
+        return distance <= self.attendance_radius
     
     def __str__(self):
         return f"{self.employee_id} - {self.first_name} {self.last_name}"
@@ -175,19 +145,10 @@ class Attendance(models.Model):
     check_in_time = models.TimeField(null=True, blank=True)
     check_out_time = models.TimeField(null=True, blank=True)
     
-    # Separate GPS fields for better performance
-    latitude = models.FloatField(null=True, blank=True, help_text="GPS Latitude")
-    longitude = models.FloatField(null=True, blank=True, help_text="GPS Longitude")
+    # GIS location fields
+    check_in_location = gis_models.PointField(srid=4326, null=True, blank=True)
+    check_out_location = gis_models.PointField(srid=4326, null=True, blank=True)
     location_accuracy = models.FloatField(null=True, blank=True, help_text="GPS accuracy in meters")
-    
-    # Legacy location fields (for backward compatibility)
-    if GIS_ENABLED:
-        check_in_location = gis_models.PointField(srid=4326, null=True, blank=True)
-        check_out_location = gis_models.PointField(srid=4326, null=True, blank=True)
-    else:
-        check_in_location = models.CharField(max_length=100, null=True, blank=True, help_text="Check-in location (lat,lng)")
-        check_out_location = models.CharField(max_length=100, null=True, blank=True, help_text="Check-out location (lat,lng)")
-    
     location_address = models.CharField(max_length=300, null=True, blank=True)
     is_location_valid = models.BooleanField(default=True)
     distance_from_office = models.FloatField(null=True, blank=True, help_text="Distance in meters")
@@ -207,32 +168,15 @@ class Attendance(models.Model):
     
     def set_check_in_location(self, latitude, longitude):
         """Set check-in location and validate distance"""
-        if GIS_ENABLED:
-            self.check_in_location = Point(longitude, latitude, srid=4326)
-            if self.user.office_location:
-                distance = self.user.office_location.distance(self.check_in_location) * 111000
-                self.distance_from_office = distance
-                self.is_location_valid = distance <= self.user.attendance_radius
-        else:
-            self.check_in_location = f"{latitude},{longitude}"
-            # Simple distance validation for SQLite
-            if self.user.office_location and ',' in str(self.user.office_location):
-                office_lat, office_lng = map(float, str(self.user.office_location).split(','))
-                import math
-                lat_diff = math.radians(latitude - office_lat)
-                lng_diff = math.radians(longitude - office_lng)
-                a = math.sin(lat_diff/2)**2 + math.cos(math.radians(office_lat)) * math.cos(math.radians(latitude)) * math.sin(lng_diff/2)**2
-                c = 2 * math.asin(math.sqrt(a))
-                distance = 6371000 * c
-                self.distance_from_office = distance
-                self.is_location_valid = distance <= self.user.attendance_radius
+        self.check_in_location = Point(longitude, latitude, srid=4326)
+        if self.user.office_location:
+            distance = self.user.office_location.distance(self.check_in_location) * 111000
+            self.distance_from_office = distance
+            self.is_location_valid = distance <= self.user.attendance_radius
     
     def set_check_out_location(self, latitude, longitude):
         """Set check-out location"""
-        if GIS_ENABLED:
-            self.check_out_location = Point(longitude, latitude, srid=4326)
-        else:
-            self.check_out_location = f"{latitude},{longitude}"
+        self.check_out_location = Point(longitude, latitude, srid=4326)
     
     @property
     def is_late(self):
