@@ -35,14 +35,8 @@
                         </div>
 
                         <div class="d-grid gap-2">
-                            <button class="btn btn-success btn-lg" onclick="markAttendance('present')">
-                                <i class="fas fa-check me-2"></i>Mark Present
-                            </button>
-                            <button class="btn btn-warning btn-lg" onclick="markAttendance('half_day')">
-                                <i class="fas fa-clock me-2"></i>Mark Half Day
-                            </button>
-                            <button class="btn btn-danger btn-lg" onclick="markAttendance('absent')">
-                                <i class="fas fa-times me-2"></i>Mark Absent
+                            <button class="btn btn-success btn-lg" onclick="markAttendance()">
+                                <i class="fas fa-check me-2"></i>Mark Attendance
                             </button>
                         </div>
 
@@ -69,7 +63,7 @@ function updateTime() {
     document.getElementById('current-time').textContent = timeString;
 }
 
-function markAttendance(status) {
+function markAttendance() {
     const button = event.target;
     const originalText = button.innerHTML;
     
@@ -95,19 +89,11 @@ function markAttendance(status) {
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
             const accuracy = position.coords.accuracy;
-            const timestamp = new Date().toISOString();
             
             console.log(`GPS: ${lat.toFixed(8)}, ${lng.toFixed(8)}, accuracy: ${accuracy}m`);
             
-            // Validate accuracy before submission
-            if (accuracy > 50) {
-                showError(`GPS accuracy too low (${Math.round(accuracy)}m). Please move to an open area and try again. Required: ≤50m accuracy.`);
-                resetButton(button, originalText);
-                return;
-            }
-            
-            // Submit with validated location
-            submitAttendance(status, lat, lng, accuracy, timestamp, button, originalText);
+            // Submit with location (backend will validate accuracy)
+            submitAttendance(lat, lng, accuracy, button, originalText);
         },
         (error) => {
             let errorMsg = '';
@@ -121,7 +107,7 @@ function markAttendance(status) {
                 case error.TIMEOUT:
                     errorMsg = 'GPS timeout (15s). Please ensure GPS is enabled and try again in an open area.';
                     // Show manual location option
-                    showManualLocationOption(status, button, originalText);
+                    showManualLocationOption(button, originalText);
                     return;
                 default:
                     errorMsg = 'GPS error occurred. Please check your location settings and try again.';
@@ -133,16 +119,14 @@ function markAttendance(status) {
     );
 }
 
-function submitAttendance(status, latitude, longitude, accuracy, timestamp, button, originalText) {
+function submitAttendance(latitude, longitude, accuracy, button, originalText) {
     button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Submitting...';
     
-    // Minimal JSON payload
+    // Match backend expected fields
     const data = {
-        status: status,
         lat: parseFloat(latitude.toFixed(8)),
         lng: parseFloat(longitude.toFixed(8)),
-        accuracy: Math.round(accuracy),
-        timestamp: timestamp
+        accuracy: Math.round(accuracy)
     };
     
     fetch('{% url "mark_attendance" %}', {
@@ -178,7 +162,7 @@ function resetButton(button, originalText) {
     button.innerHTML = originalText;
 }
 
-function showManualLocationOption(status, button, originalText) {
+function showManualLocationOption(button, originalText) {
     resetButton(button, originalText);
     
     const alertDiv = document.createElement('div');
@@ -187,10 +171,10 @@ function showManualLocationOption(status, button, originalText) {
         <h6><i class="fas fa-map-marker-alt me-2"></i>GPS Unavailable - Manual Location</h6>
         <p class="mb-3">GPS signal is weak. You can still mark attendance with approximate location:</p>
         <div class="d-grid gap-2">
-            <button class="btn btn-outline-primary" onclick="useApproximateLocation('${status}')">
+            <button class="btn btn-outline-primary" onclick="useApproximateLocation()">
                 <i class="fas fa-location-arrow me-2"></i>Use Approximate Location
             </button>
-            <button class="btn btn-outline-secondary" onclick="retryGPS('${status}')">
+            <button class="btn btn-outline-secondary" onclick="retryGPS()">
                 <i class="fas fa-redo me-2"></i>Retry GPS
             </button>
         </div>
@@ -199,22 +183,22 @@ function showManualLocationOption(status, button, originalText) {
     setTimeout(() => alertDiv.remove(), 15000);
 }
 
-function useApproximateLocation(status) {
+function useApproximateLocation() {
     // Use a default location with low accuracy for manual marking
     const defaultLat = 23.0225;  // Ahmedabad approximate
     const defaultLng = 72.5714;
     const lowAccuracy = 1000;  // 1km accuracy for manual
     
     if (confirm('This will mark attendance with approximate location (1km accuracy). Continue?')) {
-        submitAttendance(status, defaultLat, defaultLng, lowAccuracy, new Date().toISOString(), 
+        submitAttendance(defaultLat, defaultLng, lowAccuracy, 
                         event.target, event.target.innerHTML);
     }
 }
 
-function retryGPS(status) {
+function retryGPS() {
     // Remove manual location alert and retry
     document.querySelectorAll('.alert-warning').forEach(alert => alert.remove());
-    markAttendance(status);
+    markAttendance();
 }
 
 function showError(message) {
