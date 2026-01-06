@@ -25,7 +25,7 @@
                             <h5>Already Marked</h5>
                             <p>You have already marked attendance for today.</p>
                             <p><strong>Status:</strong> {{ today_attendance.get_status_display }}</p>
-                            <p><strong>Time:</strong> {{ today_attendance.marked_at|time:"g:i A" }}</p>
+                            <p><strong>Time:</strong> {{ today_attendance.check_in_time|time:"g:i A" }}</p>
                         </div>
                         <a href="{% url 'field_dashboard' %}" class="btn btn-secondary">Back to Dashboard</a>
                     {% else %}
