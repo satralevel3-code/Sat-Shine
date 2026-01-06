@@ -261,6 +261,48 @@ def mark_attendance(request):
         'is_sunday': is_sunday_today,
         'current_time': timezone.now()
     }
+    return render(request, 'authe/mark_attendance.html', context)ians(office_lat)) * math.cos(math.radians(lat_float)) * math.sin(lng_diff/2)**2
+                        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+                        distance = 6371000 * c  # Earth radius in meters
+                        
+                        if distance > 200:  # 200m office radius
+                            attendance.location_address = f'Outside office area ({distance:.0f}m from office)'
+                        else:
+                            attendance.location_address = f'Within office area ({distance:.0f}m from office)'
+                        attendance.save()
+                        
+                except Exception:
+                    pass  # Ignore geofencing errors
+            
+            # Create audit log
+            create_audit_log(
+                user=request.user,
+                action='ATTENDANCE_MARKED',
+                details=f'Status: {status}, Time: {current_time}, Location: {lat_float:.6f},{lng_float:.6f}'
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': message,
+                'status': status,
+                'timing_status': timing_status,
+                'check_in_time': current_time.strftime('%I:%M %p'),
+                'location': f'{lat_float:.6f},{lng_float:.6f}',
+                'accuracy': f'{acc_float:.1f}m'
+            })
+            
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': f'Server error: {str(e)}'}, status=500)
+    
+    # GET request - return attendance form
+    context = {
+        'user': request.user,
+        'today': today,
+        'is_sunday': is_sunday_today,
+        'current_time': timezone.now()
+    }
     return render(request, 'authe/mark_attendance.html', context)
                         c = 2 * math.asin(math.sqrt(a))
                         distance = 6371000 * c  # Earth radius in meters
