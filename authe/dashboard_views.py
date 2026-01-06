@@ -217,3 +217,20 @@ def mark_attendance(request):
         'current_time': timezone.now()
     }
     return render(request, 'authe/mark_attendance.html', context)
+
+@login_required
+def attendance_history(request):
+    """Display attendance history for field officers"""
+    if request.user.role != 'field_officer':
+        return JsonResponse({'error': 'Access denied'}, status=403)
+    
+    # Get attendance records for the user
+    attendance_records = Attendance.objects.filter(
+        user=request.user
+    ).order_by('-date')[:30]  # Last 30 records
+    
+    context = {
+        'user': request.user,
+        'attendance_records': attendance_records,
+    }
+    return render(request, 'authe/attendance_history.html', context)
