@@ -75,11 +75,11 @@ function markAttendance(status) {
         const buttons = document.querySelectorAll('button');
         buttons.forEach(btn => btn.disabled = true);
         
-        // Request high accuracy location with timeout
+        // Optimized GPS options for faster response
         const options = {
-            enableHighAccuracy: true,
-            timeout: 15000, // 15 seconds timeout
-            maximumAge: 0 // Don't use cached location
+            enableHighAccuracy: false, // Use network/cell tower for speed
+            timeout: 5000, // Reduced to 5 seconds
+            maximumAge: 30000 // Allow 30-second cached location
         };
         
         navigator.geolocation.getCurrentPosition(
@@ -90,60 +90,25 @@ function markAttendance(status) {
                 
                 console.log(`Location obtained: ${lat}, ${lng} (accuracy: ${accuracy}m)`);
                 
-                // Get address from coordinates
-                getAddressFromCoords(lat, lng, (address) => {
-                    submitAttendance(status, lat, lng, address, accuracy);
-                });
+                // Skip address lookup for speed - submit directly
+                submitAttendance(status, lat, lng, 'Location captured', accuracy);
             },
             (error) => {
                 console.error('Location error:', error);
-                let errorMsg = 'Location access failed. ';
-                
-                switch(error.code) {
-                    case error.PERMISSION_DENIED:
-                        errorMsg += 'Please enable location permissions and try again.';
-                        break;
-                    case error.POSITION_UNAVAILABLE:
-                        errorMsg += 'Location information unavailable.';
-                        break;
-                    case error.TIMEOUT:
-                        errorMsg += 'Location request timed out. Please try again.';
-                        break;
-                }
-                
-                alert(errorMsg);
-                buttons.forEach(btn => btn.disabled = false);
+                // Continue without location for speed
+                submitAttendance(status, null, null, '', null);
             },
             options
         );
     } else {
-        alert('Geolocation is not supported by this browser.');
+        submitAttendance(status, null, null, '', null);
     }
-}
-
-function getAddressFromCoords(lat, lng, callback) {
-    // Use reverse geocoding to get address
-    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
-    
-    fetch(url)
-        .then(response => response.json())
-        .then(data => {
-            let address = 'Location captured';
-            if (data && data.display_name) {
-                address = data.display_name;
-            }
-            callback(address);
-        })
-        .catch(error => {
-            console.error('Geocoding error:', error);
-            callback(`Coordinates: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
-        });
 }
 
 function submitAttendance(status, latitude, longitude, address, accuracy) {
     const data = {
         status: status,
-        latitude: latitude ? parseFloat(latitude.toFixed(8)) : null, // 8 decimal precision
+        latitude: latitude ? parseFloat(latitude.toFixed(8)) : null,
         longitude: longitude ? parseFloat(longitude.toFixed(8)) : null,
         address: address || '',
         accuracy: accuracy || null
@@ -166,7 +131,8 @@ function submitAttendance(status, latitude, longitude, address, accuracy) {
         buttons.forEach(btn => btn.disabled = false);
         
         if (data.success) {
-            alert(data.message + (accuracy ? ` (GPS accuracy: ${Math.round(accuracy)}m)` : ''));
+            // Show message without GPS accuracy info
+            alert(data.message);
             window.location.reload();
         } else {
             alert(data.error || 'Failed to mark attendance');
