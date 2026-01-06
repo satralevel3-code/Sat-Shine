@@ -57,9 +57,14 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'Sat_Shine.wsgi.application'
 
+# Ensure PostgreSQL is used - NEVER fallback to SQLite in production
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable is required in production")
+
 DATABASES = {
     'default': dj_database_url.parse(
-        os.environ.get('DATABASE_URL', 'sqlite:///db.sqlite3'),
+        DATABASE_URL,
         conn_max_age=600,
         conn_health_checks=True,
     )
