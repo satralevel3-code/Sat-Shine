@@ -234,3 +234,90 @@ def attendance_history(request):
         'attendance_records': attendance_records,
     }
     return render(request, 'authe/attendance_history.html', context)
+
+@login_required
+def attendance_summary(request):
+    """Get attendance summary data for field officers"""
+    if request.user.role != 'field_officer':
+        return JsonResponse({'error': 'Access denied'}, status=403)
+    
+    today = timezone.localdate()
+    current_month = today.replace(day=1)
+    
+    # Get monthly attendance stats
+    monthly_attendance = Attendance.objects.filter(
+        user=request.user,
+        date__gte=current_month
+    )
+    
+    present_count = monthly_attendance.filter(status='present').count()
+    absent_count = monthly_attendance.filter(status='absent').count()
+    half_day_count = monthly_attendance.filter(status='half_day').count()
+    
+    return JsonResponse({
+        'present': present_count,
+        'absent': absent_count,
+        'half_day': half_day_count,
+        'total_marked': present_count + absent_count + half_day_count
+    })
+
+@login_required
+@csrf_exempt
+@require_http_methods(["POST", "GET"])
+def apply_leave(request):
+    """Apply for leave - field officers"""
+    if request.user.role != 'field_officer':
+        return JsonResponse({'error': 'Access denied'}, status=403)
+    
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            leave_type = data.get('leave_type')
+            start_date_str = data.get('start_date')
+            end_date_str = data.get('end_date')
+            reason = data.get('reason', '')
+            
+            # Validate dates
+            try:
+                start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+                end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+            except ValueError:
+                return JsonResponse({'success': False, 'error': 'Invalid date format'}, status=400)
+            
+            if start_date > end_date:
+                return JsonResponse({'success': False, 'error': 'Start date cannot be after end date'}, status=400)
+            
+            # Create leave request
+            leave_request = LeaveRequest.objects.create(
+                user=request.user,
+                leave_type=leave_type,
+                start_date=start_date,
+                end_date=end_date,
+                reason=reason,
+                status='pending'
+            )
+            
+            # Create audit log
+            create_audit_log(
+                user=request.user,
+                action='LEAVE_APPLIED',
+                details=f'Type: {leave_type}, Dates: {start_date} to {end_date}, Reason: {reason}'
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Leave application submitted successfully',
+                'leave_id': leave_request.id
+            })
+            
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': f'Server error: {str(e)}'}, status=500)
+    
+    # GET request - return leave application form
+    context = {
+        'user': request.user,
+        'leave_types': LeaveRequest.LEAVE_TYPE_CHOICES,
+    }
+    return render(request, 'authe/apply_leave.html', context)
