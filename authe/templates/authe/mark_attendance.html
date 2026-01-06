@@ -49,7 +49,7 @@
                         <div class="mt-3">
                             <small class="text-muted">
                                 <i class="fas fa-info-circle me-1"></i>
-                                Present & Half Day require GPS (≤100m accuracy). Absent is instant.
+                                Present & Half Day use GPS (3 attempts: 3s → 8s → 12s). Absent is instant.
                             </small>
                         </div>
 
@@ -96,39 +96,75 @@ function markAttendance(status) {
         return;
     }
     
-    navigator.geolocation.getCurrentPosition(
-        (position) => {
-            const lat = position.coords.latitude;
-            const lng = position.coords.longitude;
-            const accuracy = position.coords.accuracy;
-            const timestamp = new Date().toISOString();
-            
-            // Show location details during processing
-            clickedButton.innerHTML = `<i class="fas fa-spinner fa-spin me-2"></i>Location: ${lat.toFixed(6)}, ${lng.toFixed(6)} (${accuracy.toFixed(1)}m)`;
-            
-            if (accuracy > 100) {
-                if (confirm(`GPS accuracy is ${accuracy.toFixed(1)}m (required: ≤100m). Mark attendance anyway?`)) {
-                    submitAttendance(lat, lng, accuracy, timestamp, status, clickedButton);
+    // Progressive GPS strategy: Try high accuracy first, then fallback
+    let gpsAttempt = 1;
+    
+    function tryGPS(options, attemptNum) {
+        clickedButton.innerHTML = `<i class="fas fa-spinner fa-spin me-2"></i>GPS attempt ${attemptNum}...`;
+        
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                const accuracy = position.coords.accuracy;
+                const timestamp = new Date().toISOString();
+                
+                clickedButton.innerHTML = `<i class="fas fa-spinner fa-spin me-2"></i>Got GPS: ${accuracy.toFixed(1)}m`;
+                
+                if (accuracy > 100 && attemptNum < 3) {
+                    // Try again with different settings
+                    setTimeout(() => {
+                        const nextOptions = attemptNum === 1 ? 
+                            { enableHighAccuracy: false, timeout: 8000, maximumAge: 30000 } :
+                            { enableHighAccuracy: false, timeout: 12000, maximumAge: 60000 };
+                        tryGPS(nextOptions, attemptNum + 1);
+                    }, 500);
+                    return;
+                }
+                
+                if (accuracy > 100) {
+                    if (confirm(`GPS accuracy: ${accuracy.toFixed(1)}m (target: ≤100m). Continue?`)) {
+                        submitAttendance(lat, lng, accuracy, timestamp, status, clickedButton);
+                    } else {
+                        resetButtons();
+                    }
+                    return;
+                }
+                
+                submitAttendance(lat, lng, accuracy, timestamp, status, clickedButton);
+            },
+            (error) => {
+                if (attemptNum < 3) {
+                    // Try with relaxed settings
+                    setTimeout(() => {
+                        const nextOptions = attemptNum === 1 ? 
+                            { enableHighAccuracy: false, timeout: 8000, maximumAge: 30000 } :
+                            { enableHighAccuracy: false, timeout: 12000, maximumAge: 60000 };
+                        tryGPS(nextOptions, attemptNum + 1);
+                    }, 500);
+                    return;
+                }
+                
+                // Final fallback - allow manual entry
+                let errorMsg = 'GPS failed after 3 attempts. ';
+                switch(error.code) {
+                    case error.PERMISSION_DENIED: errorMsg += 'Enable GPS permissions.'; break;
+                    case error.POSITION_UNAVAILABLE: errorMsg += 'GPS unavailable.'; break;
+                    case error.TIMEOUT: errorMsg += 'GPS timeout.'; break;
+                }
+                
+                if (confirm(`${errorMsg} Mark attendance without GPS location?`)) {
+                    submitAttendance(null, null, null, new Date().toISOString(), status, clickedButton);
                 } else {
                     resetButtons();
                 }
-                return;
-            }
-            
-            submitAttendance(lat, lng, accuracy, timestamp, status, clickedButton);
-        },
-        (error) => {
-            let errorMsg = 'GPS error. ';
-            switch(error.code) {
-                case error.PERMISSION_DENIED: errorMsg += 'Enable GPS permissions.'; break;
-                case error.POSITION_UNAVAILABLE: errorMsg += 'GPS unavailable.'; break;
-                case error.TIMEOUT: errorMsg += 'GPS timeout.'; break;
-            }
-            showError(errorMsg);
-            resetButtons();
-        },
-        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-    );
+            },
+            options
+        );
+    }
+    
+    // Start with high accuracy, short timeout
+    tryGPS({ enableHighAccuracy: true, timeout: 3000, maximumAge: 0 }, 1);
 }
 
 function submitAttendance(latitude, longitude, accuracy, timestamp, status, button) {
