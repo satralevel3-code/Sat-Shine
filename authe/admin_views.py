@@ -1037,7 +1037,112 @@ def export_attendance_daily(request):
     return JsonResponse({'error': 'Invalid format'}, status=400)
 @login_required
 @admin_required
+@require_http_methods(["POST"])
+def update_attendance_status(request):
+    """Admin-only function to update attendance status"""
+    try:
+        data = json.loads(request.body)
+        attendance_id = data.get('attendance_id')
+        new_status = data.get('status')
+        admin_remarks = data.get('remarks', '')
+        
+        if new_status not in ['present', 'absent', 'half_day']:
+            return JsonResponse({'success': False, 'error': 'Invalid status'}, status=400)
+        
+        # Get attendance record
+        attendance = get_object_or_404(Attendance, id=attendance_id)
+        
+        # Store before data for audit
+        before_data = f"Status: {attendance.status}, Time: {attendance.check_in_time}"
+        
+        # Update attendance
+        old_status = attendance.status
+        attendance.status = new_status
+        
+        # If changing to absent, clear check-in time
+        if new_status == 'absent':
+            attendance.check_in_time = None
+        # If changing from absent to present/half_day, set current time if no time exists
+        elif old_status == 'absent' and new_status in ['present', 'half_day'] and not attendance.check_in_time:
+            attendance.check_in_time = timezone.localtime().time()
+        
+        attendance.remarks = admin_remarks
+        attendance.save()
+        
+        # Create audit log
+        after_data = f"Status: {attendance.status}, Time: {attendance.check_in_time}"
+        create_audit_log(
+            request.user,
+            f'Attendance Status Updated by Admin: {attendance.user.employee_id}',
+            request,
+            f'Before: {before_data}, After: {after_data}, Remarks: {admin_remarks}'
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Attendance status updated to {new_status}'
+        })
+@login_required
+@admin_required
 def employee_attendance_history(request, employee_id):
+    """View individual employee attendance history"""
+    employee = get_object_or_404(CustomUser, employee_id=employee_id, role='field_officer')
+    
+    # Get date range (default: current month)
+    today = timezone.localdate()
+    from_date_str = request.GET.get('from_date', today.replace(day=1).isoformat())
+    to_date_str = request.GET.get('to_date', today.isoformat())
+    
+    try:
+        from_date = datetime.strptime(from_date_str, '%Y-%m-%d').date()
+        to_date = datetime.strptime(to_date_str, '%Y-%m-%d').date()
+    except ValueError:
+        from_date = today.replace(day=1)
+        to_date = today
+    
+    # Get attendance records
+    attendance_records = Attendance.objects.filter(
+        user=employee,
+        date__range=[from_date, to_date]
+    ).order_by('-date')
+    
+    # Get leave records for the period
+    leave_records = LeaveRequest.objects.filter(
+        user=employee,
+        start_date__lte=to_date,
+        end_date__gte=from_date,
+        status='approved'
+    )
+    
+    # Calculate statistics
+    total_days = (to_date - from_date).days + 1
+    present_count = attendance_records.filter(status='present').count()
+    absent_count = attendance_records.filter(status='absent').count()
+    half_day_count = attendance_records.filter(status='half_day').count()
+    late_count = attendance_records.filter(status__in=['present', 'half_day'], check_in_time__gt=time(10, 0)).count()
+    
+    # Pagination
+    paginator = Paginator(attendance_records, 31)  # One month per page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'employee': employee,
+        'page_obj': page_obj,
+        'leave_records': leave_records,
+        'from_date': from_date,
+        'to_date': to_date,
+        'stats': {
+            'total_days': total_days,
+            'present': present_count,
+            'absent': absent_count,
+            'half_day': half_day_count,
+            'late': late_count,
+            'attendance_percentage': round((present_count + half_day_count * 0.5) / total_days * 100, 1) if total_days > 0 else 0
+        }
+    }
+    
+    return render(request, 'authe/admin_employee_attendance_history.html', context)
     """View individual employee attendance history"""
     employee = get_object_or_404(CustomUser, employee_id=employee_id, role='field_officer')
     

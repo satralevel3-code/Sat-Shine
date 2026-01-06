@@ -28,6 +28,7 @@ urlpatterns = [
     path('admin/attendance/geo/', admin_views.attendance_geo, name='admin_attendance_geo'),
     path('admin/attendance/geo/data/', admin_views.attendance_geo_data, name='admin_attendance_geo_data'),
     path('admin/attendance/detailed/', admin_views.attendance_detailed, name='admin_attendance_detailed'),
+    path('admin/attendance/update-status/', admin_views.update_attendance_status, name='update_attendance_status'),
     path('admin/employees/<str:employee_id>/attendance-history/', admin_views.employee_attendance_history, name='admin_employee_attendance_history'),
     path('admin/export/attendance-daily/', admin_views.export_attendance_daily, name='export_attendance_daily'),
     path('admin/leaves/', admin_views.leave_requests, name='admin_leave_requests'),

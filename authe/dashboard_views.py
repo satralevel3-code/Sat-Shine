@@ -121,13 +121,9 @@ def mark_attendance(request):
             
         try:
             data = json.loads(request.body)
-            status = data.get('status')
             latitude = data.get('latitude')
             longitude = data.get('longitude')
             address = data.get('address', '')
-            
-            if status not in ['present', 'half_day', 'absent']:
-                return JsonResponse({'success': False, 'error': 'Invalid status'}, status=400)
             
             current_time = timezone.localtime().time()
             
@@ -136,16 +132,36 @@ def mark_attendance(request):
             if existing:
                 return JsonResponse({'success': False, 'error': 'Attendance already marked for today'}, status=400)
             
-            # Determine if late (after 9:30 AM)
-            late_cutoff = time(9, 30)
-            is_late = current_time > late_cutoff
+            # Time-based attendance rules
+            on_time_cutoff = time(10, 0)      # 10:00 AM
+            late_cutoff = time(13, 30)        # 1:30 PM  
+            half_day_cutoff = time(15, 0)     # 3:00 PM
+            
+            # Determine status and message based on time
+            if current_time <= on_time_cutoff:
+                status = 'present'
+                timing_status = 'On Time'
+                message = 'Attendance marked successfully - On Time'
+            elif current_time <= late_cutoff:
+                status = 'present'
+                timing_status = 'Late Arrival'
+                message = f'Marked late at {current_time.strftime("%I:%M %p")} - Late Arrival'
+            elif current_time <= half_day_cutoff:
+                status = 'half_day'
+                timing_status = 'Half Day'
+                message = f'Marked at {current_time.strftime("%I:%M %p")} - Half Day'
+            else:
+                return JsonResponse({
+                    'success': False, 
+                    'error': f'Attendance marking not allowed after 3:00 PM. Current time: {current_time.strftime("%I:%M %p")}. Contact admin to update status.'
+                }, status=400)
             
             # Create attendance record
             attendance = Attendance.objects.create(
                 user=request.user,
                 date=today,
                 status=status,
-                check_in_time=current_time if status in ['present', 'half_day'] else None,
+                check_in_time=current_time,
                 location_address=address
             )
             
@@ -157,29 +173,24 @@ def mark_attendance(request):
                     attendance.check_in_location = f"{lat_float},{lng_float}"
                     attendance.save()
                 except (ValueError, TypeError):
-                    pass  # Continue without location if invalid coordinates
+                    pass
             
             # Create audit log
-            timing_status = 'Late' if is_late else 'On Time'
             create_audit_log(
                 request.user,
                 'Attendance Marked',
                 request,
-                f'Status: {status}, Timing: {timing_status}, Location: {address}'
+                f'Status: {status}, Timing: {timing_status}, Time: {current_time.strftime("%I:%M %p")}'
             )
-            
-            message = 'Attendance marked successfully.'
-            if is_late and status in ['present', 'half_day']:
-                message = f'Marked late at {current_time.strftime("%I:%M %p")} — recorded as Late.'
             
             return JsonResponse({
                 'success': True,
                 'message': message,
                 'attendance': {
                     'status': attendance.status,
-                    'check_in_time': attendance.check_in_time.strftime('%I:%M %p') if attendance.check_in_time else None,
+                    'check_in_time': attendance.check_in_time.strftime('%I:%M %p'),
                     'marked_at': attendance.marked_at.strftime('%I:%M %p'),
-                    'location': attendance.location_address
+                    'timing_status': timing_status
                 }
             })
             

@@ -231,11 +231,40 @@ class Attendance(models.Model):
     
     @property
     def is_late(self):
-        """Check if attendance was marked late (after 9:30 AM)"""
-        if self.check_in_time:
-            from datetime import time
-            return self.check_in_time > time(9, 30)
-        return False
+        """Check attendance timing status based on new rules"""
+        if not self.check_in_time:
+            return False
+        
+        from datetime import time
+        on_time_cutoff = time(10, 0)      # 10:00 AM
+        late_cutoff = time(13, 30)        # 1:30 PM
+        
+        if self.check_in_time <= on_time_cutoff:
+            return False  # On time
+        elif self.check_in_time <= late_cutoff:
+            return True   # Late arrival
+        else:
+            return False  # Half day (not considered "late")
+    
+    @property
+    def timing_status(self):
+        """Get timing status based on check-in time"""
+        if not self.check_in_time:
+            return 'Not Marked'
+        
+        from datetime import time
+        on_time_cutoff = time(10, 0)      # 10:00 AM
+        late_cutoff = time(13, 30)        # 1:30 PM
+        half_day_cutoff = time(15, 0)     # 3:00 PM
+        
+        if self.check_in_time <= on_time_cutoff:
+            return 'On Time'
+        elif self.check_in_time <= late_cutoff:
+            return 'Late Arrival'
+        elif self.check_in_time <= half_day_cutoff:
+            return 'Half Day Entry'
+        else:
+            return 'Very Late'
     
     def __str__(self):
         return f"{self.user.employee_id} - {self.date} - {self.status}"
