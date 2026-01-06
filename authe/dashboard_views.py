@@ -261,7 +261,7 @@ def mark_attendance(request):
         'is_sunday': is_sunday_today,
         'current_time': timezone.now()
     }
-    return render(request, 'authe/mark_attendance.html', context)ians(office_lat)) * math.cos(math.radians(lat_float)) * math.sin(lng_diff/2)**2
+    return render(request, 'authe/mark_attendance.html', context)
                         c = 2 * math.asin(math.sqrt(a))
                         distance = 6371000 * c  # Earth radius in meters
                         
