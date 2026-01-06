@@ -2,11 +2,134 @@
 
 {% block title %}Mark Attendance - SAT-SHINE{% endblock %}
 
+{% block extra_css %}
+<style>
+/* Custom Violet Attendance Buttons */
+.btn-attendance-present {
+    background: linear-gradient(135deg, #8B5CF6, #A855F7, #9333EA);
+    border: 2px solid #7C3AED;
+    color: #FFFFFF;
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-attendance-present:hover {
+    background: linear-gradient(135deg, #7C3AED, #8B5CF6, #7C3AED);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(139, 92, 246, 0.6);
+    color: #FFFFFF;
+}
+
+.btn-attendance-present:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 10px rgba(139, 92, 246, 0.4);
+}
+
+.btn-attendance-absent {
+    background: linear-gradient(135deg, #EC4899, #F472B6, #E879F9);
+    border: 2px solid #DB2777;
+    color: #FFFFFF;
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4);
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-attendance-absent:hover {
+    background: linear-gradient(135deg, #DB2777, #EC4899, #DB2777);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(236, 72, 153, 0.6);
+    color: #FFFFFF;
+}
+
+.btn-attendance-absent:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 10px rgba(236, 72, 153, 0.4);
+}
+
+.btn-attendance-half {
+    background: linear-gradient(135deg, #F59E0B, #FBBF24, #F97316);
+    border: 2px solid #D97706;
+    color: #FFFFFF;
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-attendance-half:hover {
+    background: linear-gradient(135deg, #D97706, #F59E0B, #D97706);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(245, 158, 11, 0.6);
+    color: #FFFFFF;
+}
+
+.btn-attendance-half:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 10px rgba(245, 158, 11, 0.4);
+}
+
+/* Shimmer effect for buttons */
+.btn-attendance-present::before,
+.btn-attendance-absent::before,
+.btn-attendance-half::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.5s;
+}
+
+.btn-attendance-present:hover::before,
+.btn-attendance-absent:hover::before,
+.btn-attendance-half:hover::before {
+    left: 100%;
+}
+
+/* Loading state */
+.btn-loading {
+    pointer-events: none;
+    opacity: 0.8;
+}
+
+/* Enhanced card styling */
+.attendance-card {
+    border-radius: 15px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    border: none;
+}
+
+.attendance-card .card-header {
+    border-radius: 15px 15px 0 0;
+    background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+}
+
+/* Button sizing */
+.btn-lg {
+    padding: 12px 24px;
+    font-size: 1.1rem;
+    border-radius: 10px;
+    min-height: 55px;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
     <div class="row justify-content-center">
         <div class="col-md-6">
-            <div class="card">
+            <div class="card attendance-card">
                 <div class="card-header bg-primary text-white">
                     <h4 class="mb-0"><i class="fas fa-calendar-check me-2"></i>Mark Attendance</h4>
                 </div>
@@ -34,9 +157,15 @@
                             <p class="text-muted">{{ current_time|date:"l, F d, Y" }}</p>
                         </div>
 
-                        <div class="d-grid gap-2">
-                            <button class="btn btn-success btn-lg" onclick="markAttendance()">
-                                <i class="fas fa-check me-2"></i>Mark Attendance
+                        <div class="d-grid gap-3 mb-4">
+                            <button class="btn btn-attendance-present btn-lg" onclick="markAttendance('present')">
+                                <i class="fas fa-check me-2"></i>Mark Present
+                            </button>
+                            <button class="btn btn-attendance-absent btn-lg" onclick="markAttendance('absent')">
+                                <i class="fas fa-times me-2"></i>Mark Absent
+                            </button>
+                            <button class="btn btn-attendance-half btn-lg" onclick="markAttendance('half_day')">
+                                <i class="fas fa-clock me-2"></i>Mark Half Day
                             </button>
                         </div>
 
@@ -63,11 +192,12 @@ function updateTime() {
     document.getElementById('current-time').textContent = timeString;
 }
 
-function markAttendance() {
+function markAttendance(status) {
     const button = event.target;
     const originalText = button.innerHTML;
     
-    // Show loader only on clicked button
+    // Add loading class for visual feedback
+    button.classList.add('btn-loading');
     button.disabled = true;
     button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Getting Location...';
     
@@ -77,11 +207,11 @@ function markAttendance() {
         return;
     }
     
-    // Enhanced GPS options for better reliability
+    // Optimized GPS options for faster response
     const options = {
         enableHighAccuracy: true,
-        timeout: 15000,  // Increased to 15 seconds
-        maximumAge: 30000  // Allow cached location up to 30 seconds
+        timeout: 10000,  // Reduced to 10 seconds for faster response
+        maximumAge: 60000  // Allow cached location up to 1 minute
     };
     
     navigator.geolocation.getCurrentPosition(
@@ -92,25 +222,24 @@ function markAttendance() {
             
             console.log(`GPS: ${lat.toFixed(8)}, ${lng.toFixed(8)}, accuracy: ${accuracy}m`);
             
-            // Submit with location (backend will validate accuracy)
-            submitAttendance(lat, lng, accuracy, button, originalText);
+            // Submit with location
+            submitAttendance(status, lat, lng, accuracy, button, originalText);
         },
         (error) => {
             let errorMsg = '';
             switch(error.code) {
                 case error.PERMISSION_DENIED:
-                    errorMsg = 'Location permission denied. Please enable GPS permissions in your browser settings and try again.';
+                    errorMsg = 'Location permission denied. Please enable GPS permissions and try again.';
                     break;
                 case error.POSITION_UNAVAILABLE:
-                    errorMsg = 'GPS signal unavailable. Please move to an open area with clear sky view and try again.';
+                    errorMsg = 'GPS signal unavailable. Please move to an open area and try again.';
                     break;
                 case error.TIMEOUT:
-                    errorMsg = 'GPS timeout (15s). Please ensure GPS is enabled and try again in an open area.';
-                    // Show manual location option
-                    showManualLocationOption(button, originalText);
+                    errorMsg = 'GPS timeout. Trying manual location option...';
+                    showManualLocationOption(status, button, originalText);
                     return;
                 default:
-                    errorMsg = 'GPS error occurred. Please check your location settings and try again.';
+                    errorMsg = 'GPS error occurred. Please check your location settings.';
             }
             showError(errorMsg);
             resetButton(button, originalText);
@@ -119,11 +248,12 @@ function markAttendance() {
     );
 }
 
-function submitAttendance(latitude, longitude, accuracy, button, originalText) {
+function submitAttendance(status, latitude, longitude, accuracy, button, originalText) {
     button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Submitting...';
     
-    // Match backend expected fields
+    // Send status along with location data
     const data = {
+        status: status,
         lat: parseFloat(latitude.toFixed(8)),
         lng: parseFloat(longitude.toFixed(8)),
         accuracy: Math.round(accuracy)
@@ -159,10 +289,11 @@ function submitAttendance(latitude, longitude, accuracy, button, originalText) {
 
 function resetButton(button, originalText) {
     button.disabled = false;
+    button.classList.remove('btn-loading');
     button.innerHTML = originalText;
 }
 
-function showManualLocationOption(button, originalText) {
+function showManualLocationOption(status, button, originalText) {
     resetButton(button, originalText);
     
     const alertDiv = document.createElement('div');
@@ -171,10 +302,10 @@ function showManualLocationOption(button, originalText) {
         <h6><i class="fas fa-map-marker-alt me-2"></i>GPS Unavailable - Manual Location</h6>
         <p class="mb-3">GPS signal is weak. You can still mark attendance with approximate location:</p>
         <div class="d-grid gap-2">
-            <button class="btn btn-outline-primary" onclick="useApproximateLocation()">
+            <button class="btn btn-outline-primary" onclick="useApproximateLocation('${status}')">
                 <i class="fas fa-location-arrow me-2"></i>Use Approximate Location
             </button>
-            <button class="btn btn-outline-secondary" onclick="retryGPS()">
+            <button class="btn btn-outline-secondary" onclick="retryGPS('${status}')">
                 <i class="fas fa-redo me-2"></i>Retry GPS
             </button>
         </div>
@@ -183,22 +314,22 @@ function showManualLocationOption(button, originalText) {
     setTimeout(() => alertDiv.remove(), 15000);
 }
 
-function useApproximateLocation() {
+function useApproximateLocation(status) {
     // Use a default location with low accuracy for manual marking
     const defaultLat = 23.0225;  // Ahmedabad approximate
     const defaultLng = 72.5714;
     const lowAccuracy = 1000;  // 1km accuracy for manual
     
     if (confirm('This will mark attendance with approximate location (1km accuracy). Continue?')) {
-        submitAttendance(defaultLat, defaultLng, lowAccuracy, 
+        submitAttendance(status, defaultLat, defaultLng, lowAccuracy, 
                         event.target, event.target.innerHTML);
     }
 }
 
-function retryGPS() {
+function retryGPS(status) {
     // Remove manual location alert and retry
     document.querySelectorAll('.alert-warning').forEach(alert => alert.remove());
-    markAttendance();
+    markAttendance(status);
 }
 
 function showError(message) {

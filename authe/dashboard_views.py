@@ -123,6 +123,7 @@ def mark_attendance(request):
             latitude = data.get('lat')
             longitude = data.get('lng')
             accuracy = data.get('accuracy')
+            manual_status = data.get('status')  # Get status from frontend
             
             current_time = timezone.localtime().time()
             
@@ -152,28 +153,44 @@ def mark_attendance(request):
             except (ValueError, TypeError):
                 return JsonResponse({'success': False, 'error': 'Invalid location data'}, status=400)
             
-            # Time-based attendance rules
-            on_time_cutoff = time(10, 0)
-            late_cutoff = time(13, 30)
-            half_day_cutoff = time(15, 0)
-            
-            if current_time <= on_time_cutoff:
-                status = 'present'
-                timing_status = 'On Time'
-                message = 'Attendance marked successfully - On Time'
-            elif current_time <= late_cutoff:
-                status = 'present'
-                timing_status = 'Late Arrival'
-                message = f'Marked late at {current_time.strftime("%I:%M %p")} - Late Arrival'
-            elif current_time <= half_day_cutoff:
-                status = 'half_day'
-                timing_status = 'Half Day'
-                message = f'Marked at {current_time.strftime("%I:%M %p")} - Half Day'
+            # Use manual status if provided, otherwise determine by time
+            if manual_status and manual_status in ['present', 'absent', 'half_day']:
+                status = manual_status
+                if status == 'present':
+                    timing_status = 'Present (Manual)'
+                    message = 'Attendance marked as Present'
+                elif status == 'half_day':
+                    timing_status = 'Half Day (Manual)'
+                    message = 'Attendance marked as Half Day'
+                else:  # absent
+                    timing_status = 'Absent (Manual)'
+                    message = 'Attendance marked as Absent'
+                    # For absent, don't require location
+                    lat_float = lng_float = 0.0
+                    acc_float = 0
             else:
-                return JsonResponse({
-                    'success': False, 
-                    'error': f'Attendance marking not allowed after 3:00 PM. Current time: {current_time.strftime("%I:%M %p")}'
-                }, status=400)
+                # Time-based attendance rules (original logic)
+                on_time_cutoff = time(10, 0)
+                late_cutoff = time(13, 30)
+                half_day_cutoff = time(15, 0)
+                
+                if current_time <= on_time_cutoff:
+                    status = 'present'
+                    timing_status = 'On Time'
+                    message = 'Attendance marked successfully - On Time'
+                elif current_time <= late_cutoff:
+                    status = 'present'
+                    timing_status = 'Late Arrival'
+                    message = f'Marked late at {current_time.strftime("%I:%M %p")} - Late Arrival'
+                elif current_time <= half_day_cutoff:
+                    status = 'half_day'
+                    timing_status = 'Half Day'
+                    message = f'Marked at {current_time.strftime("%I:%M %p")} - Half Day'
+                else:
+                    return JsonResponse({
+                        'success': False, 
+                        'error': f'Attendance marking not allowed after 3:00 PM. Current time: {current_time.strftime("%I:%M %p")}'
+                    }, status=400)
             
             # Create attendance record
             attendance = Attendance.objects.create(
