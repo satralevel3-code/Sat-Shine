@@ -3,7 +3,6 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "python manage.py migrate --run-syncdb && python manage.py create_admin && python manage.py collectstatic --noinput && gunicorn Sat_Shine.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --env DJANGO_SETTINGS_MODULE=Sat_Shine.settings_production",
-    "restartPolicyType": "ON_FAILURE"
+    "startCommand": "python manage.py migrate && python create_admin.py && gunicorn Sat_Shine.wsgi:application --bind 0.0.0.0:$PORT"
   }
 }
