@@ -20,7 +20,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-key-change-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True  # Force True for local development
+DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
 # Railway automatically provides RAILWAY_STATIC_URL and other variables
 RAILWAY_ENVIRONMENT = os.environ.get('RAILWAY_ENVIRONMENT')
@@ -148,17 +148,8 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Security Settings - DISABLED for local development
-# All SSL/HTTPS settings are disabled when DEBUG=True
-SECURE_SSL_REDIRECT = False
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
-SECURE_HSTS_SECONDS = 0
-SECURE_HSTS_INCLUDE_SUBDOMAINS = False
-SECURE_HSTS_PRELOAD = False
-
 # Only enable security settings in production
-if not DEBUG and os.environ.get('RAILWAY_ENVIRONMENT'):
+if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_BROWSER_XSS_FILTER = True
@@ -166,6 +157,14 @@ if not DEBUG and os.environ.get('RAILWAY_ENVIRONMENT'):
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+else:
+    # Development settings
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+    SECURE_HSTS_SECONDS = 0
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+    SECURE_HSTS_PRELOAD = False
 
 # Session Configuration
 SESSION_COOKIE_AGE = 900  # 15 minutes
