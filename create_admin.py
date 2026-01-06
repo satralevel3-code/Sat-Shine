@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Create superuser for production deployment
+Create superuser for production deployment with proper password hashing
 """
 import os
 import django
@@ -12,19 +12,25 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Sat_Shine.settings_production')
 django.setup()
 
 from authe.models import CustomUser
+from django.contrib.auth.hashers import make_password
 
 def create_superuser():
     try:
         # Check if admin user exists
         if CustomUser.objects.filter(employee_id='MP0001').exists():
             print("Admin user already exists - preserving existing data")
+            # Update password to ensure it's properly hashed
+            admin_user = CustomUser.objects.get(employee_id='MP0001')
+            admin_user.set_password('admin123')
+            admin_user.save()
+            print("[OK] Admin password updated and properly hashed")
             return
         
-        # Create admin user
-        admin_user = CustomUser.objects.create_user(
+        # Create admin user with properly hashed password
+        admin_user = CustomUser.objects.create(
             employee_id='MP0001',
+            username='MP0001',
             email='admin@satshine.com',
-            password='admin123',
             first_name='Admin',
             last_name='User',
             contact_number='9999999999',
@@ -32,8 +38,11 @@ def create_superuser():
             designation='Manager',
             role='admin',
             is_staff=True,
-            is_superuser=True
+            is_superuser=True,
+            is_active=True
         )
+        admin_user.set_password('admin123')  # This properly hashes the password
+        admin_user.save()
         print(f"[OK] Admin user created: {admin_user.employee_id}")
         
     except Exception as e:
