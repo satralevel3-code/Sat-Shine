@@ -1082,6 +1082,10 @@ def update_attendance_status(request):
             'success': True,
             'message': f'Attendance status updated to {new_status}'
         })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
 @login_required
 @admin_required
 def employee_attendance_history(request, employee_id):
@@ -1120,64 +1124,6 @@ def employee_attendance_history(request, employee_id):
     absent_count = attendance_records.filter(status='absent').count()
     half_day_count = attendance_records.filter(status='half_day').count()
     late_count = attendance_records.filter(status__in=['present', 'half_day'], check_in_time__gt=time(10, 0)).count()
-    
-    # Pagination
-    paginator = Paginator(attendance_records, 31)  # One month per page
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    
-    context = {
-        'employee': employee,
-        'page_obj': page_obj,
-        'leave_records': leave_records,
-        'from_date': from_date,
-        'to_date': to_date,
-        'stats': {
-            'total_days': total_days,
-            'present': present_count,
-            'absent': absent_count,
-            'half_day': half_day_count,
-            'late': late_count,
-            'attendance_percentage': round((present_count + half_day_count * 0.5) / total_days * 100, 1) if total_days > 0 else 0
-        }
-    }
-    
-    return render(request, 'authe/admin_employee_attendance_history.html', context)
-    """View individual employee attendance history"""
-    employee = get_object_or_404(CustomUser, employee_id=employee_id, role='field_officer')
-    
-    # Get date range (default: current month)
-    today = timezone.localdate()
-    from_date_str = request.GET.get('from_date', today.replace(day=1).isoformat())
-    to_date_str = request.GET.get('to_date', today.isoformat())
-    
-    try:
-        from_date = datetime.strptime(from_date_str, '%Y-%m-%d').date()
-        to_date = datetime.strptime(to_date_str, '%Y-%m-%d').date()
-    except ValueError:
-        from_date = today.replace(day=1)
-        to_date = today
-    
-    # Get attendance records
-    attendance_records = Attendance.objects.filter(
-        user=employee,
-        date__range=[from_date, to_date]
-    ).order_by('-date')
-    
-    # Get leave records for the period
-    leave_records = LeaveRequest.objects.filter(
-        user=employee,
-        start_date__lte=to_date,
-        end_date__gte=from_date,
-        status='approved'
-    )
-    
-    # Calculate statistics
-    total_days = (to_date - from_date).days + 1
-    present_count = attendance_records.filter(status='present').count()
-    absent_count = attendance_records.filter(status='absent').count()
-    half_day_count = attendance_records.filter(status='half_day').count()
-    late_count = attendance_records.filter(status__in=['present', 'half_day'], check_in_time__gt=time(9, 30)).count()
     
     # Pagination
     paginator = Paginator(attendance_records, 31)  # One month per page
