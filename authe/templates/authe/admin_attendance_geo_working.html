@@ -95,7 +95,7 @@ function loadMarkers() {
             
             console.log(`Loading ${data.length} location markers`);
             
-            data.forEach(record => {
+            data.forEach((record, index) => {
                 // Validate coordinates precision
                 const lat = parseFloat(record.lat);
                 const lng = parseFloat(record.lng);
@@ -105,9 +105,9 @@ function loadMarkers() {
                     return;
                 }
                 
-                console.log(`Marker for ${record.employee_id}: ${lat.toFixed(8)}, ${lng.toFixed(8)}`);
+                console.log(`Processing marker ${index + 1}: ${record.employee_id} at LAT=${lat.toFixed(8)}, LNG=${lng.toFixed(8)}`);
                 
-                // Create marker feature with high precision
+                // Create marker feature with correct coordinate order (longitude, latitude for OpenLayers)
                 const feature = new ol.Feature({
                     geometry: new ol.geom.Point(ol.proj.fromLonLat([lng, lat]))
                 });

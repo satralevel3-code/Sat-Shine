@@ -174,6 +174,8 @@ def mark_attendance(request):
                     lng_precise = round(float(longitude), 8)
                     attendance.check_in_location = f"{lat_precise},{lng_precise}"
                     
+                    print(f"DEBUG: Storing location for {request.user.employee_id}: {lat_precise},{lng_precise}")
+                    
                     # Store accuracy if provided
                     if accuracy:
                         attendance.location_accuracy = round(float(accuracy), 2)

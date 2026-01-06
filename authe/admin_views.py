@@ -600,6 +600,8 @@ def attendance_geo_data(request):
                 lat = round(lat, 8)
                 lng = round(lng, 8)
                 
+                print(f"DEBUG: Processing location for {record.user.employee_id}: LAT={lat}, LNG={lng}")
+                
                 geo_data.append({
                     'employee_id': record.user.employee_id,
                     'name': f"{record.user.first_name} {record.user.last_name}",
