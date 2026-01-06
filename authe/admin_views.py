@@ -525,35 +525,7 @@ def attendance_geo(request):
     except ValueError:
         selected_date = timezone.localdate()
     
-    # Get attendance records for the selected date with location data
-    attendance_records = Attendance.objects.filter(
-        date=selected_date,
-        check_in_location__isnull=False
-    ).exclude(check_in_location='').select_related('user')
-    
-    # Prepare geo data for the map
-    geo_data = []
-    for record in attendance_records:
-        if record.check_in_location:
-            # Assuming location is stored as "lat,lng" string
-            try:
-                lat, lng = map(float, record.check_in_location.split(','))
-                geo_data.append({
-                    'employee_id': record.user.employee_id,
-                    'name': f"{record.user.first_name} {record.user.last_name}",
-                    'designation': record.user.designation,
-                    'dccb': record.user.dccb or '',
-                    'status': record.status,
-                    'is_late': record.is_late,
-                    'lat': lat,
-                    'lng': lng,
-                    'marked_at': record.marked_at.strftime('%H:%M') if record.marked_at else ''
-                })
-            except (ValueError, AttributeError):
-                continue
-    
     context = {
-        'geo_data': json.dumps(geo_data),
         'selected_date': selected_date,
     }
     
