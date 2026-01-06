@@ -15,5 +15,22 @@
     "is_superuser": true,
     "date_joined": "2025-12-27T19:02:43.475216+00:00",
     "password": "pbkdf2_sha256$1200000$vDtqsVeFWVae9dWS5wHPXI$+Vss2DdVklJgbn2Fzj48fTiURSKL9nNJtUxCuvdwjZA="
+  },
+  {
+    "employee_id": "MGJ00007",
+    "username": "MGJ00007",
+    "email": "bahdhifibjd@gmail.com",
+    "first_name": "ABHISHEK",
+    "last_name": "PANDEY",
+    "contact_number": "9023963518",
+    "role": "field_officer",
+    "designation": "MT",
+    "dccb": "BHARUCH",
+    "reporting_manager": "NITIN SINGH",
+    "is_active": true,
+    "is_staff": false,
+    "is_superuser": false,
+    "date_joined": "2026-01-06T11:26:41.494575+00:00",
+    "password": "pbkdf2_sha256$1200000$EBuGZXhOnv1h2wl2GRnTxp$mVb9skV3XUHulte1qRHYzZs//9wzD18XKdFLQ/9vKtE="
   }
 ]
