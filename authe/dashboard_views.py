@@ -151,11 +151,11 @@ def mark_attendance(request):
                     if not (-90 <= lat_float <= 90 and -180 <= lng_float <= 180):
                         return JsonResponse({'success': False, 'error': 'Invalid GPS coordinates'}, status=400)
                     
-                    # Accuracy requirement: ≤300 meters (very lenient for real-world usage)
-                    if acc_float > 300:  # Hard limit at 300m
+                    # Strict accuracy requirement: ≤100 meters
+                    if acc_float > 100:
                         return JsonResponse({
                             'success': False, 
-                            'error': f'GPS accuracy extremely poor ({acc_float:.1f}m). Maximum allowed: 300m. Try moving to a completely open area.'
+                            'error': f'GPS accuracy too low ({acc_float:.1f}m). Required: ≤100m. Move to open area for better signal.'
                         }, status=400)
                         
                 except (ValueError, TypeError):
@@ -223,12 +223,15 @@ def mark_attendance(request):
                 'check_in_time': current_time.strftime('%I:%M %p')
             }
             
-            # Add location info for present/half_day
+            # Add detailed location info for present/half_day
             if status != 'absent':
                 response_data.update({
-                    'location': f'{lat_float:.6f},{lng_float:.6f}',
+                    'location': f'{lat_float:.6f}, {lng_float:.6f}',
                     'accuracy': f'{acc_float:.1f}m',
-                    'office_distance': f'{distance:.0f}m'
+                    'office_distance': f'{distance:.0f}m',
+                    'latitude': lat_float,
+                    'longitude': lng_float,
+                    'timing_status': 'On Time' if current_time <= time(10, 0) else 'Late Arrival'
                 })
             
             return JsonResponse(response_data)

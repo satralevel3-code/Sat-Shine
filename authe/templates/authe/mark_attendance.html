@@ -101,19 +101,21 @@ function markAttendance(status) {
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
             const accuracy = position.coords.accuracy;
+            const timestamp = new Date().toISOString();
             
-            console.log(`GPS: ${lat}, ${lng}, accuracy: ${accuracy}m`);
+            // Show location details during processing
+            clickedButton.innerHTML = `<i class="fas fa-spinner fa-spin me-2"></i>Location: ${lat.toFixed(6)}, ${lng.toFixed(6)} (${accuracy.toFixed(1)}m)`;
             
             if (accuracy > 100) {
-                if (confirm(`GPS accuracy is ${accuracy.toFixed(1)}m (recommended: ≤100m). Mark attendance anyway?`)) {
-                    submitAttendance(lat, lng, accuracy, new Date().toISOString(), status, clickedButton);
+                if (confirm(`GPS accuracy is ${accuracy.toFixed(1)}m (required: ≤100m). Mark attendance anyway?`)) {
+                    submitAttendance(lat, lng, accuracy, timestamp, status, clickedButton);
                 } else {
                     resetButtons();
                 }
                 return;
             }
             
-            submitAttendance(lat, lng, accuracy, new Date().toISOString(), status, clickedButton);
+            submitAttendance(lat, lng, accuracy, timestamp, status, clickedButton);
         },
         (error) => {
             let errorMsg = 'GPS error. ';
@@ -130,8 +132,12 @@ function markAttendance(status) {
 }
 
 function submitAttendance(latitude, longitude, accuracy, timestamp, status, button) {
-    console.log('Submitting:', { latitude, longitude, accuracy, status });
-    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Submitting...';
+    // Show detailed location info during submission
+    if (latitude !== null) {
+        button.innerHTML = `<i class="fas fa-spinner fa-spin me-2"></i>Submitting ${status} at ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+    } else {
+        button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Submitting absent...';
+    }
     
     const data = { status: status, timestamp: timestamp };
     
@@ -155,14 +161,13 @@ function submitAttendance(latitude, longitude, accuracy, timestamp, status, butt
         return response.json();
     })
     .then(data => {
-        console.log('Response data:', data);
         if (data.success) {
-            let message = data.message;
-            if (data.accuracy && data.office_distance) {
-                message += `<br><small>GPS: ${data.accuracy} | Distance: ${data.office_distance}</small>`;
+            let message = `${data.message}<br><strong>Time:</strong> ${data.check_in_time}`;
+            if (data.location && data.accuracy) {
+                message += `<br><strong>Location:</strong> ${data.location}<br><strong>Accuracy:</strong> ${data.accuracy}<br><strong>Distance from office:</strong> ${data.office_distance}`;
             }
             showSuccess(message);
-            setTimeout(() => window.location.reload(), 2000);
+            setTimeout(() => window.location.reload(), 3000);
         } else {
             showError(data.error || 'Submission failed');
             resetButtons();
