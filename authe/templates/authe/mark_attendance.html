@@ -8,16 +8,6 @@
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0"><i class="fas fa-calendar-check me-2"></i>Mark Attendance</h4{% extends 'main/base.html' %}
-
-{% block title %}Mark Attendance - SAT-SHINE{% endblock %}
-
-{% block content %}
-<div class="container mt-4">
-    <div class="row justify-content-center">
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
                     <h4 class="mb-0"><i class="fas fa-calendar-check me-2"></i>Mark Attendance</h4>
                 </div>
                 <div class="card-body">
@@ -89,7 +79,6 @@ function updateTime() {
 function markAttendance(status) {
     const buttons = document.querySelectorAll('.btn');
     const clickedButton = event.target;
-    const originalText = clickedButton.innerHTML;
     
     // Disable all buttons
     buttons.forEach(btn => btn.disabled = true);
@@ -97,7 +86,7 @@ function markAttendance(status) {
     // For absent, no GPS needed - instant submission
     if (status === 'absent') {
         clickedButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Marking...';
-        submitAttendance(null, null, null, new Date().toISOString(), status, clickedButton, originalText);
+        submitAttendance(null, null, null, new Date().toISOString(), status, clickedButton);
         return;
     }
     
@@ -105,63 +94,44 @@ function markAttendance(status) {
     clickedButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Getting GPS...';
     
     if (!navigator.geolocation) {
-        showError('GPS not supported. Please use a device with GPS capability.');
-        resetButtons(buttons, originalText);
+        showError('GPS not supported. Use device with GPS.');
+        resetButtons();
         return;
     }
-    
-    const options = {
-        enableHighAccuracy: true,
-        timeout: 5000,
-        maximumAge: 0
-    };
     
     navigator.geolocation.getCurrentPosition(
         (position) => {
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
             const accuracy = position.coords.accuracy;
-            const timestamp = new Date().toISOString();
             
             if (accuracy > 50) {
-                showError(`GPS accuracy too low (${accuracy.toFixed(1)}m). Required: ≤50m. Move to open area and try again.`);
-                resetButtons(buttons, originalText);
+                showError(`GPS accuracy too low (${accuracy.toFixed(1)}m). Move to open area.`);
+                resetButtons();
                 return;
             }
             
-            submitAttendance(lat, lng, accuracy, timestamp, status, clickedButton, originalText);
+            submitAttendance(lat, lng, accuracy, new Date().toISOString(), status, clickedButton);
         },
         (error) => {
-            let errorMsg = '';
+            let errorMsg = 'GPS error. ';
             switch(error.code) {
-                case error.PERMISSION_DENIED:
-                    errorMsg = 'Location permission denied. Enable GPS permissions and refresh.';
-                    break;
-                case error.POSITION_UNAVAILABLE:
-                    errorMsg = 'GPS unavailable. Enable GPS and move to open area.';
-                    break;
-                case error.TIMEOUT:
-                    errorMsg = 'GPS timeout. Try again in open area.';
-                    break;
-                default:
-                    errorMsg = 'GPS error. Check location settings.';
+                case error.PERMISSION_DENIED: errorMsg += 'Enable GPS permissions.'; break;
+                case error.POSITION_UNAVAILABLE: errorMsg += 'GPS unavailable.'; break;
+                case error.TIMEOUT: errorMsg += 'GPS timeout.'; break;
             }
             showError(errorMsg);
-            resetButtons(buttons, originalText);
+            resetButtons();
         },
-        options
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
     );
 }
 
-function submitAttendance(latitude, longitude, accuracy, timestamp, status, button, originalText) {
+function submitAttendance(latitude, longitude, accuracy, timestamp, status, button) {
     button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Submitting...';
     
-    const data = {
-        status: status,
-        timestamp: timestamp
-    };
+    const data = { status: status, timestamp: timestamp };
     
-    // Add GPS data only for present/half_day
     if (latitude !== null) {
         data.lat = parseFloat(latitude.toFixed(8));
         data.lng = parseFloat(longitude.toFixed(8));
@@ -176,32 +146,28 @@ function submitAttendance(latitude, longitude, accuracy, timestamp, status, butt
         },
         body: JSON.stringify(data)
     })
-    .then(response => {
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
         if (data.success) {
             let message = data.message;
             if (data.accuracy && data.office_distance) {
-                message += `<br><small>Location: ${data.accuracy} | Distance: ${data.office_distance}</small>`;
+                message += `<br><small>GPS: ${data.accuracy} | Distance: ${data.office_distance}</small>`;
             }
             showSuccess(message);
             setTimeout(() => window.location.reload(), 2000);
         } else {
-            showError(data.error || 'Attendance submission failed');
-            resetButtons(document.querySelectorAll('.btn'), originalText);
+            showError(data.error || 'Submission failed');
+            resetButtons();
         }
     })
     .catch(error => {
-        console.error('Network error:', error);
-        showError('Network error. Check connection and try again.');
-        resetButtons(document.querySelectorAll('.btn'), originalText);
+        showError('Network error. Check connection.');
+        resetButtons();
     });
 }
 
-function resetButtons(buttons, originalText) {
-    buttons.forEach(btn => {
+function resetButtons() {
+    document.querySelectorAll('.btn').forEach(btn => {
         btn.disabled = false;
         if (btn.classList.contains('btn-success')) {
             btn.innerHTML = '<i class="fas fa-check-circle me-2"></i>Present';
@@ -216,25 +182,18 @@ function resetButtons(buttons, originalText) {
 function showError(message) {
     const alertDiv = document.createElement('div');
     alertDiv.className = 'alert alert-danger alert-dismissible fade show mt-3';
-    alertDiv.innerHTML = `
-        <i class="fas fa-exclamation-triangle me-2"></i>${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
+    alertDiv.innerHTML = `<i class="fas fa-exclamation-triangle me-2"></i>${message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
     document.querySelector('.card-body').appendChild(alertDiv);
-    setTimeout(() => alertDiv.remove(), 10000);
+    setTimeout(() => alertDiv.remove(), 8000);
 }
 
 function showSuccess(message) {
     const alertDiv = document.createElement('div');
     alertDiv.className = 'alert alert-success alert-dismissible fade show mt-3';
-    alertDiv.innerHTML = `
-        <i class="fas fa-check-circle me-2"></i>${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
+    alertDiv.innerHTML = `<i class="fas fa-check-circle me-2"></i>${message}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
     document.querySelector('.card-body').appendChild(alertDiv);
 }
 
-// Update time every minute
 updateTime();
 setInterval(updateTime, 60000);
 </script>
