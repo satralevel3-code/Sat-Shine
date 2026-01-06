@@ -104,7 +104,7 @@ def field_dashboard(request):
 @csrf_exempt
 @require_http_methods(["POST", "GET"])
 def mark_attendance(request):
-    """Production-ready attendance marking with high-accuracy GPS validation"""
+    """Attendance marking with three options: Present (GPS), Half Day (GPS), Absent (no GPS)"""
     if request.user.role != 'field_officer':
         return JsonResponse({'error': 'Access denied'}, status=403)
     
@@ -120,6 +120,7 @@ def mark_attendance(request):
             
         try:
             data = json.loads(request.body)
+            status = data.get('status')  # 'present', 'half_day', 'absent'
             latitude = data.get('lat')
             longitude = data.get('lng')
             accuracy = data.get('accuracy')
@@ -132,106 +133,114 @@ def mark_attendance(request):
             if existing:
                 return JsonResponse({'success': False, 'error': 'Attendance already marked for today'}, status=400)
             
-            # Strict GPS validation for production
-            if latitude is None or longitude is None or accuracy is None:
-                return JsonResponse({'success': False, 'error': 'GPS location data required'}, status=400)
+            # Validate status
+            if status not in ['present', 'half_day', 'absent']:
+                return JsonResponse({'success': False, 'error': 'Invalid attendance status'}, status=400)
             
-            try:
-                lat_float = float(latitude)
-                lng_float = float(longitude)
-                acc_float = float(accuracy)
+            # GPS validation only for present and half_day
+            if status in ['present', 'half_day']:
+                if latitude is None or longitude is None or accuracy is None:
+                    return JsonResponse({'success': False, 'error': 'GPS location required for Present/Half Day'}, status=400)
                 
-                # Validate coordinate ranges
-                if not (-90 <= lat_float <= 90 and -180 <= lng_float <= 180):
-                    return JsonResponse({'success': False, 'error': 'Invalid GPS coordinates'}, status=400)
-                
-                # Strict accuracy requirement: ≤50 meters
-                if acc_float > 50:
-                    return JsonResponse({
-                        'success': False, 
-                        'error': f'GPS accuracy too low ({acc_float:.1f}m). Required: ≤50m. Please move to an open area and try again.'
-                    }, status=400)
+                try:
+                    lat_float = float(latitude)
+                    lng_float = float(longitude)
+                    acc_float = float(accuracy)
                     
-            except (ValueError, TypeError):
-                return JsonResponse({'success': False, 'error': 'Invalid location data format'}, status=400)
-            
-            # Office geofencing (optional - Ahmedabad office coordinates)
-            office_lat = 23.0225
-            office_lng = 72.5714
-            office_radius = 200  # 200 meters
-            
-            # Calculate distance from office (simple approximation)
-            import math
-            lat_diff = lat_float - office_lat
-            lng_diff = lng_float - office_lng
-            distance = math.sqrt(lat_diff**2 + lng_diff**2) * 111000  # Convert to meters
-            
-            is_within_office = distance <= office_radius
-            
-            # Time-based status determination
-            on_time_cutoff = time(10, 0)
-            late_cutoff = time(13, 30)
-            half_day_cutoff = time(15, 0)
-            
-            if current_time <= on_time_cutoff:
-                status = 'present'
-                timing_status = 'On Time'
-                message = 'Attendance marked successfully - On Time'
-            elif current_time <= late_cutoff:
-                status = 'present'
-                timing_status = 'Late Arrival'
-                message = f'Marked late at {current_time.strftime("%I:%M %p")}'
-            elif current_time <= half_day_cutoff:
-                status = 'half_day'
-                timing_status = 'Half Day'
-                message = f'Marked as Half Day at {current_time.strftime("%I:%M %p")}'
+                    # Validate coordinate ranges
+                    if not (-90 <= lat_float <= 90 and -180 <= lng_float <= 180):
+                        return JsonResponse({'success': False, 'error': 'Invalid GPS coordinates'}, status=400)
+                    
+                    # Accuracy requirement: ≤50 meters
+                    if acc_float > 50:
+                        return JsonResponse({
+                            'success': False, 
+                            'error': f'GPS accuracy too low ({acc_float:.1f}m). Required: ≤50m. Move to open area and try again.'
+                        }, status=400)
+                        
+                except (ValueError, TypeError):
+                    return JsonResponse({'success': False, 'error': 'Invalid location data format'}, status=400)
+                
+                # Office distance calculation
+                office_lat = 23.0225
+                office_lng = 72.5714
+                import math
+                lat_diff = lat_float - office_lat
+                lng_diff = lng_float - office_lng
+                distance = math.sqrt(lat_diff**2 + lng_diff**2) * 111000
+                
+                location_data = {
+                    'check_in_location': f"{lat_float:.8f},{lng_float:.8f}",
+                    'location_accuracy': acc_float,
+                    'is_location_valid': True,
+                    'location_address': f'GPS: {acc_float:.1f}m accuracy' + (' (Office)' if distance <= 200 else ' (Remote)'),
+                    'distance_from_office': distance
+                }
             else:
-                return JsonResponse({
-                    'success': False, 
-                    'error': f'Attendance marking not allowed after 3:00 PM. Current time: {current_time.strftime("%I:%M %p")}'
-                }, status=400)
+                # For absent, no GPS data needed
+                location_data = {
+                    'check_in_location': None,
+                    'location_accuracy': None,
+                    'is_location_valid': False,
+                    'location_address': 'Absent - No location required',
+                    'distance_from_office': None
+                }
+                distance = None
             
-            # Create attendance record with validation flags
+            # Create attendance record
             attendance = Attendance.objects.create(
                 user=request.user,
                 date=today,
                 status=status,
                 check_in_time=current_time,
-                check_in_location=f"{lat_float:.8f},{lng_float:.8f}",
-                location_accuracy=acc_float,
-                is_location_valid=True,  # Always true since we validated accuracy ≤50m
-                location_address=f'GPS: {acc_float:.1f}m accuracy' + (' (Office)' if is_within_office else ' (Remote)'),
-                distance_from_office=distance
+                **location_data
             )
             
             # Create audit log
+            location_info = f'Location: {latitude},{longitude}, Accuracy: {accuracy}m' if status != 'absent' else 'No location (Absent)'
             create_audit_log(
                 user=request.user,
                 action='ATTENDANCE_MARKED',
-                details=f'Status: {status}, Time: {current_time}, Location: {lat_float:.6f},{lng_float:.6f}, Accuracy: {acc_float:.1f}m, Distance: {distance:.0f}m'
+                details=f'Status: {status}, Time: {current_time}, {location_info}'
             )
             
-            return JsonResponse({
+            # Response message
+            if status == 'present':
+                message = f'Marked Present at {current_time.strftime("%I:%M %p")}'
+            elif status == 'half_day':
+                message = f'Marked Half Day at {current_time.strftime("%I:%M %p")}'
+            else:
+                message = f'Marked Absent at {current_time.strftime("%I:%M %p")}'
+            
+            response_data = {
                 'success': True,
                 'message': message,
                 'status': status,
-                'timing_status': timing_status,
-                'check_in_time': current_time.strftime('%I:%M %p'),
-                'location': f'{lat_float:.6f},{lng_float:.6f}',
-                'accuracy': f'{acc_float:.1f}m',
-                'office_distance': f'{distance:.0f}m',
-                'within_office': is_within_office
-            })
+                'check_in_time': current_time.strftime('%I:%M %p')
+            }
+            
+            # Add location info for present/half_day
+            if status != 'absent':
+                response_data.update({
+                    'location': f'{lat_float:.6f},{lng_float:.6f}',
+                    'accuracy': f'{acc_float:.1f}m',
+                    'office_distance': f'{distance:.0f}m'
+                })
+            
+            return JsonResponse(response_data)
             
         except json.JSONDecodeError:
             return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
         except Exception as e:
             return JsonResponse({'success': False, 'error': f'Server error: {str(e)}'}, status=500)
     
-    # GET request - return attendance form
+    # GET request - check if already marked today
+    today_attendance = Attendance.objects.filter(user=request.user, date=today).first()
+    
     context = {
         'user': request.user,
         'today': today,
+        'today_attendance': today_attendance,
         'is_sunday': is_sunday_today,
         'current_time': timezone.now()
     }

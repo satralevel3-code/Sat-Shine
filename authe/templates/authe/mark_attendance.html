@@ -8,6 +8,16 @@
         <div class="col-md-6">
             <div class="card">
                 <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-calendar-check me-2"></i>Mark Attendance</h4{% extends 'main/base.html' %}
+
+{% block title %}Mark Attendance - SAT-SHINE{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
                     <h4 class="mb-0"><i class="fas fa-calendar-check me-2"></i>Mark Attendance</h4>
                 </div>
                 <div class="card-body">
@@ -35,15 +45,21 @@
                         </div>
 
                         <div class="d-grid gap-2">
-                            <button id="attendance-btn" class="btn btn-success btn-lg" onclick="markAttendance()">
-                                <i class="fas fa-map-marker-alt me-2"></i>Mark Attendance
+                            <button class="btn btn-success btn-lg" onclick="markAttendance('present')">
+                                <i class="fas fa-check-circle me-2"></i>Present
+                            </button>
+                            <button class="btn btn-warning btn-lg" onclick="markAttendance('half_day')">
+                                <i class="fas fa-clock me-2"></i>Half Day
+                            </button>
+                            <button class="btn btn-danger btn-lg" onclick="markAttendance('absent')">
+                                <i class="fas fa-times-circle me-2"></i>Absent
                             </button>
                         </div>
 
                         <div class="mt-3">
                             <small class="text-muted">
                                 <i class="fas fa-info-circle me-1"></i>
-                                Requires GPS accuracy ≤50m for attendance marking
+                                Present & Half Day require GPS (≤50m accuracy). Absent is instant.
                             </small>
                         </div>
 
@@ -70,26 +86,34 @@ function updateTime() {
     document.getElementById('current-time').textContent = timeString;
 }
 
-function markAttendance() {
-    const button = document.getElementById('attendance-btn');
-    const originalText = button.innerHTML;
+function markAttendance(status) {
+    const buttons = document.querySelectorAll('.btn');
+    const clickedButton = event.target;
+    const originalText = clickedButton.innerHTML;
     
-    // Show loading state
-    button.disabled = true;
-    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Getting GPS Location...';
+    // Disable all buttons
+    buttons.forEach(btn => btn.disabled = true);
     
-    // Check GPS support
-    if (!navigator.geolocation) {
-        showError('GPS not supported on this device. Please use a device with GPS capability.');
-        resetButton(button, originalText);
+    // For absent, no GPS needed - instant submission
+    if (status === 'absent') {
+        clickedButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Marking...';
+        submitAttendance(null, null, null, new Date().toISOString(), status, clickedButton, originalText);
         return;
     }
     
-    // Production GPS options for high accuracy
+    // For present/half_day, get GPS location
+    clickedButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Getting GPS...';
+    
+    if (!navigator.geolocation) {
+        showError('GPS not supported. Please use a device with GPS capability.');
+        resetButtons(buttons, originalText);
+        return;
+    }
+    
     const options = {
         enableHighAccuracy: true,
-        timeout: 5000,  // 5 seconds max
-        maximumAge: 0   // No cached location
+        timeout: 5000,
+        maximumAge: 0
     };
     
     navigator.geolocation.getCurrentPosition(
@@ -99,50 +123,50 @@ function markAttendance() {
             const accuracy = position.coords.accuracy;
             const timestamp = new Date().toISOString();
             
-            console.log(`GPS: ${lat.toFixed(8)}, ${lng.toFixed(8)}, accuracy: ${accuracy}m`);
-            
-            // Frontend validation: Check accuracy before sending
             if (accuracy > 50) {
-                showError(`GPS accuracy too low (${accuracy.toFixed(1)}m). Required: ≤50m. Please move to an open area with clear sky view and try again.`);
-                resetButton(button, originalText);
+                showError(`GPS accuracy too low (${accuracy.toFixed(1)}m). Required: ≤50m. Move to open area and try again.`);
+                resetButtons(buttons, originalText);
                 return;
             }
             
-            // Submit attendance with validated location
-            submitAttendance(lat, lng, accuracy, timestamp, button, originalText);
+            submitAttendance(lat, lng, accuracy, timestamp, status, clickedButton, originalText);
         },
         (error) => {
             let errorMsg = '';
             switch(error.code) {
                 case error.PERMISSION_DENIED:
-                    errorMsg = 'Location permission denied. Please enable GPS permissions in your browser settings and refresh the page.';
+                    errorMsg = 'Location permission denied. Enable GPS permissions and refresh.';
                     break;
                 case error.POSITION_UNAVAILABLE:
-                    errorMsg = 'GPS signal unavailable. Please ensure GPS is enabled and move to an area with clear sky view.';
+                    errorMsg = 'GPS unavailable. Enable GPS and move to open area.';
                     break;
                 case error.TIMEOUT:
-                    errorMsg = 'GPS timeout (5 seconds). Please ensure GPS is enabled and try again in an open area.';
+                    errorMsg = 'GPS timeout. Try again in open area.';
                     break;
                 default:
-                    errorMsg = 'GPS error occurred. Please check your location settings and try again.';
+                    errorMsg = 'GPS error. Check location settings.';
             }
             showError(errorMsg);
-            resetButton(button, originalText);
+            resetButtons(buttons, originalText);
         },
         options
     );
 }
 
-function submitAttendance(latitude, longitude, accuracy, timestamp, button, originalText) {
+function submitAttendance(latitude, longitude, accuracy, timestamp, status, button, originalText) {
     button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Submitting...';
     
-    // Minimal JSON payload
     const data = {
-        lat: parseFloat(latitude.toFixed(8)),
-        lng: parseFloat(longitude.toFixed(8)),
-        accuracy: Math.round(accuracy),
+        status: status,
         timestamp: timestamp
     };
+    
+    // Add GPS data only for present/half_day
+    if (latitude !== null) {
+        data.lat = parseFloat(latitude.toFixed(8));
+        data.lng = parseFloat(longitude.toFixed(8));
+        data.accuracy = Math.round(accuracy);
+    }
     
     fetch('{% url "mark_attendance" %}', {
         method: 'POST',
@@ -158,23 +182,35 @@ function submitAttendance(latitude, longitude, accuracy, timestamp, button, orig
     })
     .then(data => {
         if (data.success) {
-            showSuccess(`${data.message}<br><small>Location: ${data.accuracy} | Distance from office: ${data.office_distance}</small>`);
+            let message = data.message;
+            if (data.accuracy && data.office_distance) {
+                message += `<br><small>Location: ${data.accuracy} | Distance: ${data.office_distance}</small>`;
+            }
+            showSuccess(message);
             setTimeout(() => window.location.reload(), 2000);
         } else {
             showError(data.error || 'Attendance submission failed');
-            resetButton(button, originalText);
+            resetButtons(document.querySelectorAll('.btn'), originalText);
         }
     })
     .catch(error => {
         console.error('Network error:', error);
-        showError('Network error. Please check your connection and try again.');
-        resetButton(button, originalText);
+        showError('Network error. Check connection and try again.');
+        resetButtons(document.querySelectorAll('.btn'), originalText);
     });
 }
 
-function resetButton(button, originalText) {
-    button.disabled = false;
-    button.innerHTML = originalText;
+function resetButtons(buttons, originalText) {
+    buttons.forEach(btn => {
+        btn.disabled = false;
+        if (btn.classList.contains('btn-success')) {
+            btn.innerHTML = '<i class="fas fa-check-circle me-2"></i>Present';
+        } else if (btn.classList.contains('btn-warning')) {
+            btn.innerHTML = '<i class="fas fa-clock me-2"></i>Half Day';
+        } else if (btn.classList.contains('btn-danger')) {
+            btn.innerHTML = '<i class="fas fa-times-circle me-2"></i>Absent';
+        }
+    });
 }
 
 function showError(message) {
