@@ -4,6 +4,8 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.utils import timezone
 from django.db.models import Q, Count
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 from datetime import datetime, timedelta, time
 from .models import CustomUser, Attendance, LeaveRequest
 from .views import create_audit_log
@@ -99,6 +101,8 @@ def field_dashboard(request):
     return render(request, 'authe/field_dashboard.html', context)
 
 @login_required
+@csrf_exempt
+@require_http_methods(["POST", "GET"])
 def mark_attendance(request):
     """Mark attendance for field officers with GIS validation"""
     if request.user.role != 'field_officer':
@@ -115,71 +119,74 @@ def mark_attendance(request):
                 'error': 'Attendance marking is not allowed on Sundays. Sundays are automatically marked as holidays.'
             }, status=400)
             
-        data = json.loads(request.body)
-        status = data.get('status')
-        latitude = data.get('latitude')
-        longitude = data.get('longitude')
-        
-        if status not in ['present', 'half_day', 'absent']:
-            return JsonResponse({'error': 'Invalid status'}, status=400)
-        
-        current_time = timezone.localtime().time()
-        
-        # Check if already marked
-        existing = Attendance.objects.filter(user=request.user, date=today).first()
-        if existing:
-            return JsonResponse({'error': 'Attendance already marked for today'}, status=400)
-        
-        # Determine if late (after 9:30 AM)
-        late_cutoff = time(9, 30)
-        is_late = current_time > late_cutoff
-        
-        # Create attendance record
-        attendance = Attendance.objects.create(
-            user=request.user,
-            date=today,
-            status=status,
-            check_in_time=current_time if status in ['present', 'half_day'] else None,
-            location=data.get('address', '')
-        )
-        
-        # Set location if coordinates provided
-        if latitude and longitude:
-            attendance.location = f"Lat: {latitude}, Lng: {longitude}"
-            attendance.save()
-        
-        # Validate location if office location is set
-        location_valid = True
-        distance_msg = ''
-        # Note: Location validation disabled for now
-        
-        # Create audit log
-        timing_status = 'Late' if is_late else 'On Time'
-        location_status = 'Valid' if location_valid else 'Outside Range'
-        create_audit_log(
-            request.user,
-            'Attendance Marked',
-            request,
-            f'Status: {status}, Timing: {timing_status}, Location: {location_status}'
-        )
-        
-        message = 'Attendance marked successfully.'
-        if is_late and status in ['present', 'half_day']:
-            message = f'Marked late at {current_time.strftime("%I:%M %p")} — recorded as Late.'
-        if not location_valid:
-            message += f' Warning: Location outside allowed radius{distance_msg}'
-        
-        return JsonResponse({
-            'success': True,
-            'message': message,
-            'location_valid': location_valid,
-            'attendance': {
-                'status': attendance.status,
-                'check_in_time': attendance.check_in_time.strftime('%I:%M %p') if attendance.check_in_time else None,
-                'marked_at': attendance.marked_at.strftime('%I:%M %p'),
-                'location': attendance.location
-            }
-        })
+        try:
+            data = json.loads(request.body)
+            status = data.get('status')
+            latitude = data.get('latitude')
+            longitude = data.get('longitude')
+            address = data.get('address', '')
+            
+            if status not in ['present', 'half_day', 'absent']:
+                return JsonResponse({'success': False, 'error': 'Invalid status'}, status=400)
+            
+            current_time = timezone.localtime().time()
+            
+            # Check if already marked
+            existing = Attendance.objects.filter(user=request.user, date=today).first()
+            if existing:
+                return JsonResponse({'success': False, 'error': 'Attendance already marked for today'}, status=400)
+            
+            # Determine if late (after 9:30 AM)
+            late_cutoff = time(9, 30)
+            is_late = current_time > late_cutoff
+            
+            # Create attendance record
+            attendance = Attendance.objects.create(
+                user=request.user,
+                date=today,
+                status=status,
+                check_in_time=current_time if status in ['present', 'half_day'] else None,
+                location_address=address
+            )
+            
+            # Set location if coordinates provided
+            if latitude and longitude:
+                try:
+                    lat_float = float(latitude)
+                    lng_float = float(longitude)
+                    attendance.check_in_location = f"{lat_float},{lng_float}"
+                    attendance.save()
+                except (ValueError, TypeError):
+                    pass  # Continue without location if invalid coordinates
+            
+            # Create audit log
+            timing_status = 'Late' if is_late else 'On Time'
+            create_audit_log(
+                request.user,
+                'Attendance Marked',
+                request,
+                f'Status: {status}, Timing: {timing_status}, Location: {address}'
+            )
+            
+            message = 'Attendance marked successfully.'
+            if is_late and status in ['present', 'half_day']:
+                message = f'Marked late at {current_time.strftime("%I:%M %p")} — recorded as Late.'
+            
+            return JsonResponse({
+                'success': True,
+                'message': message,
+                'attendance': {
+                    'status': attendance.status,
+                    'check_in_time': attendance.check_in_time.strftime('%I:%M %p') if attendance.check_in_time else None,
+                    'marked_at': attendance.marked_at.strftime('%I:%M %p'),
+                    'location': attendance.location_address
+                }
+            })
+            
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': f'Server error: {str(e)}'}, status=500)
     
     # GET request - show the mark attendance page
     today_attendance = Attendance.objects.filter(user=request.user, date=today).first()
