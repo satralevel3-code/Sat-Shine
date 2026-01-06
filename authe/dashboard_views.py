@@ -170,6 +170,8 @@ def mark_attendance(request):
                 distance = math.sqrt(lat_diff**2 + lng_diff**2) * 111000
                 
                 location_data = {
+                    'latitude': lat_float,
+                    'longitude': lng_float,
                     'check_in_location': f"{lat_float:.8f},{lng_float:.8f}",
                     'location_accuracy': acc_float,
                     'is_location_valid': True,
@@ -179,6 +181,8 @@ def mark_attendance(request):
             else:
                 # For absent, no GPS data needed
                 location_data = {
+                    'latitude': None,
+                    'longitude': None,
                     'check_in_location': None,
                     'location_accuracy': None,
                     'is_location_valid': False,

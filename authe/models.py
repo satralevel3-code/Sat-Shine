@@ -175,7 +175,12 @@ class Attendance(models.Model):
     check_in_time = models.TimeField(null=True, blank=True)
     check_out_time = models.TimeField(null=True, blank=True)
     
-    # GIS Fields (conditional)
+    # Separate GPS fields for better performance
+    latitude = models.FloatField(null=True, blank=True, help_text="GPS Latitude")
+    longitude = models.FloatField(null=True, blank=True, help_text="GPS Longitude")
+    location_accuracy = models.FloatField(null=True, blank=True, help_text="GPS accuracy in meters")
+    
+    # Legacy location fields (for backward compatibility)
     if GIS_ENABLED:
         check_in_location = gis_models.PointField(srid=4326, null=True, blank=True)
         check_out_location = gis_models.PointField(srid=4326, null=True, blank=True)
@@ -184,7 +189,6 @@ class Attendance(models.Model):
         check_out_location = models.CharField(max_length=100, null=True, blank=True, help_text="Check-out location (lat,lng)")
     
     location_address = models.CharField(max_length=300, null=True, blank=True)
-    location_accuracy = models.FloatField(null=True, blank=True, help_text="GPS accuracy in meters")
     is_location_valid = models.BooleanField(default=True)
     distance_from_office = models.FloatField(null=True, blank=True, help_text="Distance in meters")
     
