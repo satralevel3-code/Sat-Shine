@@ -1082,7 +1082,6 @@ def update_attendance_status(request):
             'success': True,
             'message': f'Attendance status updated to {new_status}'
         })
-        
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
