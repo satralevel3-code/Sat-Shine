@@ -106,15 +106,19 @@ function markAttendance(status) {
             const accuracy = position.coords.accuracy;
             
             if (accuracy > 100) {
+                console.log(`GPS accuracy: ${accuracy}m - showing confirmation`);
                 // Show warning but allow submission with poor accuracy
                 if (confirm(`GPS accuracy is ${accuracy.toFixed(1)}m (recommended: ≤100m). Mark attendance anyway?`)) {
+                    console.log('User confirmed poor GPS accuracy');
                     submitAttendance(lat, lng, accuracy, new Date().toISOString(), status, clickedButton);
                 } else {
+                    console.log('User cancelled poor GPS accuracy');
                     resetButtons();
                 }
                 return;
             }
             
+            console.log(`GPS accuracy good: ${accuracy}m - proceeding`);
             submitAttendance(lat, lng, accuracy, new Date().toISOString(), status, clickedButton);
         },
         (error) => {
@@ -132,6 +136,7 @@ function markAttendance(status) {
 }
 
 function submitAttendance(latitude, longitude, accuracy, timestamp, status, button) {
+    console.log('Submitting attendance:', { latitude, longitude, accuracy, status });
     button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Submitting...';
     
     const data = { status: status, timestamp: timestamp };
@@ -142,6 +147,8 @@ function submitAttendance(latitude, longitude, accuracy, timestamp, status, butt
         data.accuracy = Math.round(accuracy);
     }
     
+    console.log('Sending data:', data);
+    
     fetch('{% url "mark_attendance" %}', {
         method: 'POST',
         headers: {
@@ -150,7 +157,13 @@ function submitAttendance(latitude, longitude, accuracy, timestamp, status, butt
         },
         body: JSON.stringify(data)
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            console.error('HTTP Error:', response.status);
+            throw new Error(`HTTP ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             let message = data.message;
@@ -165,7 +178,8 @@ function submitAttendance(latitude, longitude, accuracy, timestamp, status, butt
         }
     })
     .catch(error => {
-        showError('Network error. Check connection.');
+        console.error('Attendance submission error:', error);
+        showError(`Network error: ${error.message}. Check connection.`);
         resetButtons();
     });
 }
