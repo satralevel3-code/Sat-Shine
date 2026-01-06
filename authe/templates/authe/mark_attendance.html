@@ -83,11 +83,11 @@ function markAttendance(status) {
         return;
     }
     
-    // High-accuracy GPS options for production
+    // Enhanced GPS options for better reliability
     const options = {
         enableHighAccuracy: true,
-        timeout: 5000,
-        maximumAge: 0
+        timeout: 15000,  // Increased to 15 seconds
+        maximumAge: 30000  // Allow cached location up to 30 seconds
     };
     
     navigator.geolocation.getCurrentPosition(
@@ -119,8 +119,10 @@ function markAttendance(status) {
                     errorMsg = 'GPS signal unavailable. Please move to an open area with clear sky view and try again.';
                     break;
                 case error.TIMEOUT:
-                    errorMsg = 'GPS timeout (5s). Please ensure GPS is enabled and try again in an open area.';
-                    break;
+                    errorMsg = 'GPS timeout (15s). Please ensure GPS is enabled and try again in an open area.';
+                    // Show manual location option
+                    showManualLocationOption(status, button, originalText);
+                    return;
                 default:
                     errorMsg = 'GPS error occurred. Please check your location settings and try again.';
             }
@@ -174,6 +176,45 @@ function submitAttendance(status, latitude, longitude, accuracy, timestamp, butt
 function resetButton(button, originalText) {
     button.disabled = false;
     button.innerHTML = originalText;
+}
+
+function showManualLocationOption(status, button, originalText) {
+    resetButton(button, originalText);
+    
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-warning mt-3';
+    alertDiv.innerHTML = `
+        <h6><i class="fas fa-map-marker-alt me-2"></i>GPS Unavailable - Manual Location</h6>
+        <p class="mb-3">GPS signal is weak. You can still mark attendance with approximate location:</p>
+        <div class="d-grid gap-2">
+            <button class="btn btn-outline-primary" onclick="useApproximateLocation('${status}')">
+                <i class="fas fa-location-arrow me-2"></i>Use Approximate Location
+            </button>
+            <button class="btn btn-outline-secondary" onclick="retryGPS('${status}')">
+                <i class="fas fa-redo me-2"></i>Retry GPS
+            </button>
+        </div>
+    `;
+    document.querySelector('.card-body').appendChild(alertDiv);
+    setTimeout(() => alertDiv.remove(), 15000);
+}
+
+function useApproximateLocation(status) {
+    // Use a default location with low accuracy for manual marking
+    const defaultLat = 23.0225;  // Ahmedabad approximate
+    const defaultLng = 72.5714;
+    const lowAccuracy = 1000;  // 1km accuracy for manual
+    
+    if (confirm('This will mark attendance with approximate location (1km accuracy). Continue?')) {
+        submitAttendance(status, defaultLat, defaultLng, lowAccuracy, new Date().toISOString(), 
+                        event.target, event.target.innerHTML);
+    }
+}
+
+function retryGPS(status) {
+    // Remove manual location alert and retry
+    document.querySelectorAll('.alert-warning').forEach(alert => alert.remove());
+    markAttendance(status);
 }
 
 function showError(message) {

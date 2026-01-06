@@ -143,10 +143,10 @@ def mark_attendance(request):
                 if not (-90 <= lat_float <= 90 and -180 <= lng_float <= 180):
                     return JsonResponse({'success': False, 'error': 'Invalid GPS coordinates'}, status=400)
                 
-                if acc_float > 50:
+                if acc_float > 1000:  # Allow up to 1km for manual locations
                     return JsonResponse({
                         'success': False, 
-                        'error': f'GPS accuracy too low ({acc_float:.0f}m). Required: ≤50m'
+                        'error': f'Location accuracy too low ({acc_float:.0f}m). Maximum allowed: 1000m'
                     }, status=400)
                     
             except (ValueError, TypeError):
