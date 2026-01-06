@@ -3,19 +3,13 @@ set -e
 
 echo "Starting SAT-SHINE deployment..."
 
-# Backup existing data if database exists
-echo "Backing up existing data..."
-if [ -f "db.sqlite3" ]; then
-    python data_backup.py backup
-fi
-
-# Run migrations
+# Run migrations first
 echo "Running database migrations..."
 python manage.py migrate --noinput
 
-# Create admin user
-echo "Creating/updating admin user..."
-python create_admin.py
+# Ensure users exist (backup + restore + create defaults)
+echo "Ensuring user data persistence..."
+python manage.py preserve_users --action=ensure
 
 # Collect static files
 echo "Collecting static files..."
