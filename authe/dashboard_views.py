@@ -182,13 +182,16 @@ def mark_attendance(request):
                 **location_data
             )
             
-            # Create audit log
-            location_info = f'Location: {latitude},{longitude}, Accuracy: {accuracy}m' if status != 'absent' else 'No location (Absent)'
-            create_audit_log(
-                user=request.user,
-                action='ATTENDANCE_MARKED',
-                details=f'Status: {status}, Time: {current_time}, {location_info}'
-            )
+            # Simple audit log without external function
+            try:
+                from .models import AuditLog
+                AuditLog.objects.create(
+                    user=request.user,
+                    action='ATTENDANCE_MARKED',
+                    details=f'Status: {status}, Time: {current_time}'
+                )
+            except:
+                pass  # Continue even if audit log fails
             
             # Response message
             if status == 'present':
@@ -221,7 +224,12 @@ def mark_attendance(request):
         except json.JSONDecodeError:
             return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
         except Exception as e:
-            return JsonResponse({'success': False, 'error': f'Server error: {str(e)}'}, status=500)
+            import traceback
+            return JsonResponse({
+                'success': False, 
+                'error': f'Server error: {str(e)}',
+                'traceback': traceback.format_exc()[:500]
+            }, status=500)
     
     # GET request - check if already marked today
     today_attendance = Attendance.objects.filter(user=request.user, date=today).first()
