@@ -70,51 +70,78 @@ function updateTime() {
 }
 
 function markAttendance(status) {
-    if (navigator.geolocation) {
-        // Show loading indicator
-        const buttons = document.querySelectorAll('button');
-        buttons.forEach(btn => btn.disabled = true);
-        
-        // Optimized GPS options for faster response
-        const options = {
-            enableHighAccuracy: false, // Use network/cell tower for speed
-            timeout: 5000, // Reduced to 5 seconds
-            maximumAge: 30000 // Allow 30-second cached location
-        };
-        
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const lat = position.coords.latitude;
-                const lng = position.coords.longitude;
-                const accuracy = position.coords.accuracy;
-                
-                console.log(`Location obtained: ${lat}, ${lng} (accuracy: ${accuracy}m)`);
-                
-                // Skip address lookup for speed - submit directly
-                submitAttendance(status, lat, lng, 'Location captured', accuracy);
-            },
-            (error) => {
-                console.error('Location error:', error);
-                // Continue without location for speed
-                submitAttendance(status, null, null, '', null);
-            },
-            options
-        );
-    } else {
-        submitAttendance(status, null, null, '', null);
+    const button = event.target;
+    const originalText = button.innerHTML;
+    
+    // Show loader only on clicked button
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Getting Location...';
+    
+    if (!navigator.geolocation) {
+        showError('GPS not supported on this device. Please use a device with GPS capability.');
+        resetButton(button, originalText);
+        return;
     }
-}
-
-function submitAttendance(status, latitude, longitude, address, accuracy) {
-    const data = {
-        status: status,
-        latitude: latitude ? parseFloat(latitude.toFixed(8)) : null,
-        longitude: longitude ? parseFloat(longitude.toFixed(8)) : null,
-        address: address || '',
-        accuracy: accuracy || null
+    
+    // High-accuracy GPS options for production
+    const options = {
+        enableHighAccuracy: true,
+        timeout: 5000,
+        maximumAge: 0
     };
     
-    console.log('Submitting attendance with data:', data);
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            const accuracy = position.coords.accuracy;
+            const timestamp = new Date().toISOString();
+            
+            console.log(`GPS: ${lat.toFixed(8)}, ${lng.toFixed(8)}, accuracy: ${accuracy}m`);
+            
+            // Validate accuracy before submission
+            if (accuracy > 50) {
+                showError(`GPS accuracy too low (${Math.round(accuracy)}m). Please move to an open area and try again. Required: ≤50m accuracy.`);
+                resetButton(button, originalText);
+                return;
+            }
+            
+            // Submit with validated location
+            submitAttendance(status, lat, lng, accuracy, timestamp, button, originalText);
+        },
+        (error) => {
+            let errorMsg = '';
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    errorMsg = 'Location permission denied. Please enable GPS permissions in your browser settings and try again.';
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    errorMsg = 'GPS signal unavailable. Please move to an open area with clear sky view and try again.';
+                    break;
+                case error.TIMEOUT:
+                    errorMsg = 'GPS timeout (5s). Please ensure GPS is enabled and try again in an open area.';
+                    break;
+                default:
+                    errorMsg = 'GPS error occurred. Please check your location settings and try again.';
+            }
+            showError(errorMsg);
+            resetButton(button, originalText);
+        },
+        options
+    );
+}
+
+function submitAttendance(status, latitude, longitude, accuracy, timestamp, button, originalText) {
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Submitting...';
+    
+    // Minimal JSON payload
+    const data = {
+        status: status,
+        lat: parseFloat(latitude.toFixed(8)),
+        lng: parseFloat(longitude.toFixed(8)),
+        accuracy: Math.round(accuracy),
+        timestamp: timestamp
+    };
     
     fetch('{% url "mark_attendance" %}', {
         method: 'POST',
@@ -124,26 +151,50 @@ function submitAttendance(status, latitude, longitude, address, accuracy) {
         },
         body: JSON.stringify(data)
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+    })
     .then(data => {
-        // Re-enable buttons
-        const buttons = document.querySelectorAll('button');
-        buttons.forEach(btn => btn.disabled = false);
-        
         if (data.success) {
-            // Show message without GPS accuracy info
-            alert(data.message);
-            window.location.reload();
+            showSuccess(data.message);
+            setTimeout(() => window.location.reload(), 1500);
         } else {
-            alert(data.error || 'Failed to mark attendance');
+            showError(data.error || 'Attendance submission failed');
+            resetButton(button, originalText);
         }
     })
     .catch(error => {
-        console.error('Error:', error);
-        const buttons = document.querySelectorAll('button');
-        buttons.forEach(btn => btn.disabled = false);
-        alert('Network error. Please try again.');
+        console.error('Network error:', error);
+        showError('Network error. Please check your connection and try again.');
+        resetButton(button, originalText);
     });
+}
+
+function resetButton(button, originalText) {
+    button.disabled = false;
+    button.innerHTML = originalText;
+}
+
+function showError(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-danger alert-dismissible fade show mt-3';
+    alertDiv.innerHTML = `
+        <i class="fas fa-exclamation-triangle me-2"></i>${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.querySelector('.card-body').appendChild(alertDiv);
+    setTimeout(() => alertDiv.remove(), 8000);
+}
+
+function showSuccess(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-success alert-dismissible fade show mt-3';
+    alertDiv.innerHTML = `
+        <i class="fas fa-check-circle me-2"></i>${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.querySelector('.card-body').appendChild(alertDiv);
 }
 
 // Update time every minute

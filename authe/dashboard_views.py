@@ -104,11 +104,10 @@ def field_dashboard(request):
 @csrf_exempt
 @require_http_methods(["POST", "GET"])
 def mark_attendance(request):
-    """Mark attendance for field officers with high-precision GPS validation"""
+    """Production-ready attendance marking with high-accuracy GPS validation"""
     if request.user.role != 'field_officer':
         return JsonResponse({'error': 'Access denied'}, status=403)
     
-    # Check if today is Sunday - restrict attendance marking
     today = timezone.localdate()
     is_sunday_today = today.weekday() == 6
     
@@ -116,15 +115,15 @@ def mark_attendance(request):
         if is_sunday_today:
             return JsonResponse({
                 'success': False, 
-                'error': 'Attendance marking is not allowed on Sundays. Sundays are automatically marked as holidays.'
+                'error': 'Attendance marking not allowed on Sundays'
             }, status=400)
             
         try:
             data = json.loads(request.body)
-            latitude = data.get('latitude')
-            longitude = data.get('longitude')
-            address = data.get('address', '')
+            latitude = data.get('lat')
+            longitude = data.get('lng')
             accuracy = data.get('accuracy')
+            timestamp = data.get('timestamp')
             
             current_time = timezone.localtime().time()
             
@@ -133,12 +132,46 @@ def mark_attendance(request):
             if existing:
                 return JsonResponse({'success': False, 'error': 'Attendance already marked for today'}, status=400)
             
-            # Time-based attendance rules
-            on_time_cutoff = time(10, 0)      # 10:00 AM
-            late_cutoff = time(13, 30)        # 1:30 PM  
-            half_day_cutoff = time(15, 0)     # 3:00 PM
+            # Strict backend validation of GPS accuracy
+            is_location_valid = False
+            if latitude is not None and longitude is not None and accuracy is not None:
+                try:
+                    lat_float = float(latitude)
+                    lng_float = float(longitude)
+                    acc_float = float(accuracy)
+                    
+                    # Validate coordinate ranges
+                    if not (-90 <= lat_float <= 90 and -180 <= lng_float <= 180):
+                        return JsonResponse({
+                            'success': False, 
+                            'error': 'Invalid GPS coordinates received'
+                        }, status=400)
+                    
+                    # Strict accuracy validation - reject if > 50m
+                    if acc_float > 50:
+                        return JsonResponse({
+                            'success': False, 
+                            'error': f'GPS accuracy too low ({acc_float:.0f}m). Required: ≤50m accuracy'
+                        }, status=400)
+                    
+                    is_location_valid = True
+                    
+                except (ValueError, TypeError):
+                    return JsonResponse({
+                        'success': False, 
+                        'error': 'Invalid location data format'
+                    }, status=400)
+            else:
+                return JsonResponse({
+                    'success': False, 
+                    'error': 'GPS location required for attendance marking'
+                }, status=400)
             
-            # Determine status and message based on time
+            # Time-based attendance rules
+            on_time_cutoff = time(10, 0)
+            late_cutoff = time(13, 30)
+            half_day_cutoff = time(15, 0)
+            
             if current_time <= on_time_cutoff:
                 status = 'present'
                 timing_status = 'On Time'
@@ -154,48 +187,59 @@ def mark_attendance(request):
             else:
                 return JsonResponse({
                     'success': False, 
-                    'error': f'Attendance marking not allowed after 3:00 PM. Current time: {current_time.strftime("%I:%M %p")}. Contact admin to update status.'
+                    'error': f'Attendance marking not allowed after 3:00 PM. Current time: {current_time.strftime("%I:%M %p")}'
                 }, status=400)
             
-            # Create attendance record
+            # Create attendance record with validated location
             attendance = Attendance.objects.create(
                 user=request.user,
                 date=today,
                 status=status,
                 check_in_time=current_time,
-                location_address=address
+                check_in_location=f"{lat_float:.8f},{lng_float:.8f}",
+                location_accuracy=acc_float,
+                is_location_valid=is_location_valid,
+                location_address='GPS Location Captured'
             )
             
-            # Set high-precision location if coordinates provided
-            if latitude is not None and longitude is not None:
+            # Optional: Office geofencing validation (200m radius)
+            if request.user.office_location:
                 try:
-                    # Store with 8 decimal places precision (~1.1m accuracy)
-                    lat_precise = round(float(latitude), 8)
-                    lng_precise = round(float(longitude), 8)
-                    attendance.check_in_location = f"{lat_precise},{lng_precise}"
+                    if hasattr(request.user.office_location, 'coords'):
+                        # GIS Point field
+                        office_lat, office_lng = request.user.office_location.coords[1], request.user.office_location.coords[0]
+                    elif ',' in str(request.user.office_location):
+                        # String format
+                        office_lat, office_lng = map(float, str(request.user.office_location).split(','))
+                    else:
+                        office_lat = office_lng = None
                     
-                    print(f"DEBUG: Storing location for {request.user.employee_id}: {lat_precise},{lng_precise}")
-                    
-                    # Store accuracy if provided
-                    if accuracy:
-                        attendance.location_accuracy = round(float(accuracy), 2)
-                    
-                    attendance.save()
-                    
-                    print(f"Location saved: {lat_precise},{lng_precise} (accuracy: {accuracy}m)")
-                except (ValueError, TypeError) as e:
-                    print(f"Location parsing error: {e}")
+                    if office_lat and office_lng:
+                        # Calculate distance using Haversine formula
+                        import math
+                        lat_diff = math.radians(lat_float - office_lat)
+                        lng_diff = math.radians(lng_float - office_lng)
+                        a = math.sin(lat_diff/2)**2 + math.cos(math.radians(office_lat)) * math.cos(math.radians(lat_float)) * math.sin(lng_diff/2)**2
+                        c = 2 * math.asin(math.sqrt(a))
+                        distance = 6371000 * c  # Earth radius in meters
+                        
+                        attendance.distance_from_office = round(distance, 2)
+                        
+                        # Geofencing check (200m radius)
+                        if distance > 200:
+                            attendance.is_location_valid = False
+                            message += f' (Outside office area: {distance:.0f}m)'
+                        
+                        attendance.save()
+                except Exception as e:
+                    print(f"Geofencing calculation error: {e}")
             
             # Create audit log
-            location_info = f"Location: {latitude},{longitude}" if latitude and longitude else "No location"
-            if accuracy:
-                location_info += f" (accuracy: {accuracy}m)"
-            
             create_audit_log(
                 request.user,
                 'Attendance Marked',
                 request,
-                f'Status: {status}, Timing: {timing_status}, Time: {current_time.strftime("%I:%M %p")}, {location_info}'
+                f'Status: {status}, Timing: {timing_status}, GPS: {lat_float:.6f},{lng_float:.6f}, Accuracy: {acc_float}m'
             )
             
             return JsonResponse({
@@ -204,18 +248,17 @@ def mark_attendance(request):
                 'attendance': {
                     'status': attendance.status,
                     'check_in_time': attendance.check_in_time.strftime('%I:%M %p'),
-                    'marked_at': attendance.marked_at.strftime('%I:%M %p'),
                     'timing_status': timing_status,
-                    'location': f"{latitude},{longitude}" if latitude and longitude else None,
-                    'accuracy': accuracy
+                    'accuracy': f'{acc_float:.0f}m',
+                    'location_valid': is_location_valid
                 }
             })
             
         except json.JSONDecodeError:
-            return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
+            return JsonResponse({'success': False, 'error': 'Invalid request format'}, status=400)
         except Exception as e:
             print(f"Attendance marking error: {str(e)}")
-            return JsonResponse({'success': False, 'error': f'Server error: {str(e)}'}, status=500)
+            return JsonResponse({'success': False, 'error': 'Server error occurred'}, status=500)
     
     # GET request - show the mark attendance page
     today_attendance = Attendance.objects.filter(user=request.user, date=today).first()
