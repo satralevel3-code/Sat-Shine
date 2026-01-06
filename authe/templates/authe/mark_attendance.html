@@ -80,17 +80,14 @@ function markAttendance(status) {
     const buttons = document.querySelectorAll('.btn');
     const clickedButton = event.target;
     
-    // Disable all buttons
     buttons.forEach(btn => btn.disabled = true);
     
-    // For absent, no GPS needed - instant submission
     if (status === 'absent') {
         clickedButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Marking...';
         submitAttendance(null, null, null, new Date().toISOString(), status, clickedButton);
         return;
     }
     
-    // For present/half_day, get GPS location
     clickedButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Getting GPS...';
     
     if (!navigator.geolocation) {
@@ -105,20 +102,17 @@ function markAttendance(status) {
             const lng = position.coords.longitude;
             const accuracy = position.coords.accuracy;
             
+            console.log(`GPS: ${lat}, ${lng}, accuracy: ${accuracy}m`);
+            
             if (accuracy > 100) {
-                console.log(`GPS accuracy: ${accuracy}m - showing confirmation`);
-                // Show warning but allow submission with poor accuracy
                 if (confirm(`GPS accuracy is ${accuracy.toFixed(1)}m (recommended: ≤100m). Mark attendance anyway?`)) {
-                    console.log('User confirmed poor GPS accuracy');
                     submitAttendance(lat, lng, accuracy, new Date().toISOString(), status, clickedButton);
                 } else {
-                    console.log('User cancelled poor GPS accuracy');
                     resetButtons();
                 }
                 return;
             }
             
-            console.log(`GPS accuracy good: ${accuracy}m - proceeding`);
             submitAttendance(lat, lng, accuracy, new Date().toISOString(), status, clickedButton);
         },
         (error) => {
@@ -136,7 +130,7 @@ function markAttendance(status) {
 }
 
 function submitAttendance(latitude, longitude, accuracy, timestamp, status, button) {
-    console.log('Submitting attendance:', { latitude, longitude, accuracy, status });
+    console.log('Submitting:', { latitude, longitude, accuracy, status });
     button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Submitting...';
     
     const data = { status: status, timestamp: timestamp };
@@ -147,8 +141,6 @@ function submitAttendance(latitude, longitude, accuracy, timestamp, status, butt
         data.accuracy = Math.round(accuracy);
     }
     
-    console.log('Sending data:', data);
-    
     fetch('{% url "mark_attendance" %}', {
         method: 'POST',
         headers: {
@@ -158,13 +150,12 @@ function submitAttendance(latitude, longitude, accuracy, timestamp, status, butt
         body: JSON.stringify(data)
     })
     .then(response => {
-        if (!response.ok) {
-            console.error('HTTP Error:', response.status);
-            throw new Error(`HTTP ${response.status}`);
-        }
+        console.log('Response status:', response.status);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.json();
     })
     .then(data => {
+        console.log('Response data:', data);
         if (data.success) {
             let message = data.message;
             if (data.accuracy && data.office_distance) {
@@ -178,8 +169,8 @@ function submitAttendance(latitude, longitude, accuracy, timestamp, status, butt
         }
     })
     .catch(error => {
-        console.error('Attendance submission error:', error);
-        showError(`Network error: ${error.message}. Check connection.`);
+        console.error('Error:', error);
+        showError(`Error: ${error.message}`);
         resetButtons();
     });
 }
