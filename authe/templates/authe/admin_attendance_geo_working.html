@@ -28,11 +28,19 @@
     
     <div id="legend" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px;">
         <h5>Legend</h5>
-        <div style="display: flex; gap: 20px;">
+        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
             <div><span style="color: green;">●</span> Present (On Time)</div>
             <div><span style="color: orange;">●</span> Present (Late)</div>
             <div><span style="color: red;">●</span> Absent</div>
             <div><span style="color: blue;">●</span> Half Day</div>
+        </div>
+        <div style="margin-top: 10px;">
+            <h6>GPS Accuracy Indicators (Border Colors):</h6>
+            <div style="display: flex; gap: 20px; flex-wrap: wrap; font-size: 13px;">
+                <div><span style="color: green; font-weight: bold;">Green Border:</span> High Accuracy (≤20m)</div>
+                <div><span style="color: orange; font-weight: bold;">Orange Border:</span> Moderate Accuracy (21-50m)</div>
+                <div><span style="color: red; font-weight: bold;">Red Border:</span> Low Accuracy (>50m)</div>
+            </div>
         </div>
     </div>
 </div>
@@ -52,7 +60,7 @@ const map = new ol.Map({
     view: new ol.View({
         center: ol.proj.fromLonLat([72.5714, 23.0225]), // Ahmedabad center
         zoom: 12, // Higher zoom for better accuracy
-        maxZoom: 18 // Allow very high zoom
+        maxZoom: 20 // Allow very high zoom for precision
     })
 });
 
@@ -63,7 +71,7 @@ const vectorLayer = new ol.layer.Vector({
 });
 map.addLayer(vectorLayer);
 
-// Load and display markers
+// Load and display markers with high precision
 function loadMarkers() {
     const dateFilter = document.getElementById('dateFilter').value;
     const statusFilter = document.getElementById('statusFilter').value;
@@ -81,16 +89,30 @@ function loadMarkers() {
             vectorSource.clear();
             
             if (data.length === 0) {
+                console.log('No location data found for the selected filters');
                 return;
             }
             
+            console.log(`Loading ${data.length} location markers`);
+            
             data.forEach(record => {
-                // Create marker feature
+                // Validate coordinates precision
+                const lat = parseFloat(record.lat);
+                const lng = parseFloat(record.lng);
+                
+                if (isNaN(lat) || isNaN(lng)) {
+                    console.warn(`Invalid coordinates for ${record.employee_id}: ${record.lat}, ${record.lng}`);
+                    return;
+                }
+                
+                console.log(`Marker for ${record.employee_id}: ${lat.toFixed(8)}, ${lng.toFixed(8)}`);
+                
+                // Create marker feature with high precision
                 const feature = new ol.Feature({
-                    geometry: new ol.geom.Point(ol.proj.fromLonLat([record.lng, record.lat]))
+                    geometry: new ol.geom.Point(ol.proj.fromLonLat([lng, lat]))
                 });
                 
-                // Set marker properties
+                // Set comprehensive marker properties
                 feature.setProperties({
                     employee_id: record.employee_id,
                     name: record.name,
@@ -98,28 +120,56 @@ function loadMarkers() {
                     dccb: record.dccb,
                     status: record.status,
                     is_late: record.is_late,
-                    marked_at: record.marked_at
+                    timing_status: record.timing_status,
+                    marked_at: record.marked_at,
+                    check_in_time: record.check_in_time,
+                    location_address: record.location_address,
+                    location_accuracy: record.location_accuracy,
+                    distance_from_office: record.distance_from_office,
+                    is_location_valid: record.is_location_valid,
+                    coordinates: `${lat.toFixed(8)}, ${lng.toFixed(8)}`
                 });
                 
-                // Set marker style based on status
+                // Set marker style based on status and accuracy
                 let color = 'green';
-                if (record.status === 'absent') color = 'red';
-                else if (record.status === 'half_day') color = 'blue';
-                else if (record.is_late) color = 'orange';
+                let strokeColor = 'white';
+                let strokeWidth = 3;
                 
-                // Set marker style with higher precision
+                if (record.status === 'absent') {
+                    color = 'red';
+                } else if (record.status === 'half_day') {
+                    color = 'blue';
+                } else if (record.is_late) {
+                    color = 'orange';
+                }
+                
+                // Add accuracy indicator
+                if (record.location_accuracy) {
+                    if (record.location_accuracy > 50) {
+                        strokeColor = 'red'; // Poor accuracy
+                        strokeWidth = 4;
+                    } else if (record.location_accuracy > 20) {
+                        strokeColor = 'orange'; // Moderate accuracy
+                        strokeWidth = 3;
+                    } else {
+                        strokeColor = 'green'; // Good accuracy
+                        strokeWidth = 2;
+                    }
+                }
+                
+                // Set marker style with accuracy indication
                 feature.setStyle(new ol.style.Style({
                     image: new ol.style.Circle({
-                        radius: 10, // Larger marker for better visibility
+                        radius: 12, // Larger marker for better visibility
                         fill: new ol.style.Fill({color: color}),
-                        stroke: new ol.style.Stroke({color: 'white', width: 3})
+                        stroke: new ol.style.Stroke({color: strokeColor, width: strokeWidth})
                     }),
                     text: new ol.style.Text({
                         text: record.employee_id,
-                        font: '12px Arial',
+                        font: 'bold 11px Arial',
                         fill: new ol.style.Fill({color: 'white'}),
                         stroke: new ol.style.Stroke({color: 'black', width: 2}),
-                        offsetY: -25
+                        offsetY: -30
                     })
                 }));
                 
@@ -130,12 +180,13 @@ function loadMarkers() {
             if (vectorSource.getFeatures().length > 0) {
                 map.getView().fit(vectorSource.getExtent(), {
                     padding: [50, 50, 50, 50],
-                    maxZoom: 16 // Ensure good detail level
+                    maxZoom: 18 // Ensure good detail level
                 });
             }
         })
         .catch(error => {
             console.error('Error loading geo data:', error);
+            alert('Error loading location data. Please try again.');
         });
 }
 
@@ -147,7 +198,7 @@ function applyFilters() {
 // Load initial markers
 loadMarkers();
 
-// Add click handler for marker info
+// Add click handler for detailed marker info
 map.on('click', function(event) {
     const feature = map.forEachFeatureAtPixel(event.pixel, function(feature) {
         return feature;
@@ -155,34 +206,68 @@ map.on('click', function(event) {
     
     if (feature) {
         const props = feature.getProperties();
+        
+        // Create detailed popup content
         let info = `
-            <strong>${props.name}</strong><br>
-            Employee ID: ${props.employee_id}<br>
-            Designation: ${props.designation}<br>
-            DCCB: ${props.dccb}<br>
-            Status: ${props.status}<br>
-            Marked At: ${props.marked_at}
+            <div style="min-width: 250px;">
+                <h6 style="margin: 0 0 8px 0; color: #1e3a8a;"><strong>${props.name}</strong></h6>
+                <div style="font-size: 13px; line-height: 1.4;">
+                    <strong>Employee ID:</strong> ${props.employee_id}<br>
+                    <strong>Designation:</strong> ${props.designation}<br>
+                    <strong>DCCB:</strong> ${props.dccb}<br>
+                    <strong>Status:</strong> <span style="color: ${props.status === 'present' ? 'green' : props.status === 'absent' ? 'red' : 'blue'}">${props.status.toUpperCase()}</span><br>
+                    <strong>Timing:</strong> ${props.timing_status || 'N/A'}<br>
+                    <strong>Check-in Time:</strong> ${props.check_in_time || 'N/A'}<br>
+                    <strong>Marked At:</strong> ${props.marked_at}<br>
+        `;
+        
+        if (props.location_accuracy) {
+            const accuracyColor = props.location_accuracy <= 20 ? 'green' : props.location_accuracy <= 50 ? 'orange' : 'red';
+            info += `<strong>GPS Accuracy:</strong> <span style="color: ${accuracyColor}">${Math.round(props.location_accuracy)}m</span><br>`;
+        }
+        
+        if (props.distance_from_office) {
+            info += `<strong>Distance from Office:</strong> ${Math.round(props.distance_from_office)}m<br>`;
+        }
+        
+        info += `
+                    <strong>Coordinates:</strong> ${props.coordinates}<br>
+                    <strong>Address:</strong> ${props.location_address || 'Not available'}
+                </div>
+            </div>
         `;
         
         // Create popup
         const popup = document.createElement('div');
         popup.innerHTML = info;
-        popup.style.cssText = 'background: white; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);';
+        popup.style.cssText = `
+            background: white; 
+            padding: 12px; 
+            border: 2px solid #1e3a8a; 
+            border-radius: 8px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            font-family: Arial, sans-serif;
+            max-width: 300px;
+        `;
         
         const overlay = new ol.Overlay({
             element: popup,
             positioning: 'bottom-center',
             stopEvent: false,
-            offset: [0, -10]
+            offset: [0, -15]
         });
         
         map.addOverlay(overlay);
         overlay.setPosition(feature.getGeometry().getCoordinates());
         
-        // Remove popup after 3 seconds
-        setTimeout(() => {
+        // Remove popup after 5 seconds or on map click
+        const removePopup = () => {
             map.removeOverlay(overlay);
-        }, 3000);
+            map.un('click', removePopup);
+        };
+        
+        setTimeout(removePopup, 5000);
+        map.on('click', removePopup);
     }
 });
 </script>

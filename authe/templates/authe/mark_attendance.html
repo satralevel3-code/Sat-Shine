@@ -71,26 +71,85 @@ function updateTime() {
 
 function markAttendance(status) {
     if (navigator.geolocation) {
+        // Show loading indicator
+        const buttons = document.querySelectorAll('button');
+        buttons.forEach(btn => btn.disabled = true);
+        
+        // Request high accuracy location with timeout
+        const options = {
+            enableHighAccuracy: true,
+            timeout: 15000, // 15 seconds timeout
+            maximumAge: 0 // Don't use cached location
+        };
+        
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                submitAttendance(status, position.coords.latitude, position.coords.longitude);
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                const accuracy = position.coords.accuracy;
+                
+                console.log(`Location obtained: ${lat}, ${lng} (accuracy: ${accuracy}m)`);
+                
+                // Get address from coordinates
+                getAddressFromCoords(lat, lng, (address) => {
+                    submitAttendance(status, lat, lng, address, accuracy);
+                });
             },
             (error) => {
-                console.log('Location error:', error);
-                submitAttendance(status, null, null);
-            }
+                console.error('Location error:', error);
+                let errorMsg = 'Location access failed. ';
+                
+                switch(error.code) {
+                    case error.PERMISSION_DENIED:
+                        errorMsg += 'Please enable location permissions and try again.';
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        errorMsg += 'Location information unavailable.';
+                        break;
+                    case error.TIMEOUT:
+                        errorMsg += 'Location request timed out. Please try again.';
+                        break;
+                }
+                
+                alert(errorMsg);
+                buttons.forEach(btn => btn.disabled = false);
+            },
+            options
         );
     } else {
-        submitAttendance(status, null, null);
+        alert('Geolocation is not supported by this browser.');
     }
 }
 
-function submitAttendance(status, latitude, longitude) {
+function getAddressFromCoords(lat, lng, callback) {
+    // Use reverse geocoding to get address
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            let address = 'Location captured';
+            if (data && data.display_name) {
+                address = data.display_name;
+            }
+            callback(address);
+        })
+        .catch(error => {
+            console.error('Geocoding error:', error);
+            callback(`Coordinates: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+        });
+}
+
+function submitAttendance(status, latitude, longitude, address, accuracy) {
     const data = {
         status: status,
-        latitude: latitude,
-        longitude: longitude
+        latitude: latitude ? parseFloat(latitude.toFixed(8)) : null, // 8 decimal precision
+        longitude: longitude ? parseFloat(longitude.toFixed(8)) : null,
+        address: address || '',
+        accuracy: accuracy || null
     };
+    
+    console.log('Submitting attendance with data:', data);
     
     fetch('{% url "mark_attendance" %}', {
         method: 'POST',
@@ -102,8 +161,12 @@ function submitAttendance(status, latitude, longitude) {
     })
     .then(response => response.json())
     .then(data => {
+        // Re-enable buttons
+        const buttons = document.querySelectorAll('button');
+        buttons.forEach(btn => btn.disabled = false);
+        
         if (data.success) {
-            alert(data.message);
+            alert(data.message + (accuracy ? ` (GPS accuracy: ${Math.round(accuracy)}m)` : ''));
             window.location.reload();
         } else {
             alert(data.error || 'Failed to mark attendance');
@@ -111,6 +174,8 @@ function submitAttendance(status, latitude, longitude) {
     })
     .catch(error => {
         console.error('Error:', error);
+        const buttons = document.querySelectorAll('button');
+        buttons.forEach(btn => btn.disabled = false);
         alert('Network error. Please try again.');
     });
 }

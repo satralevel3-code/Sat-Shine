@@ -104,7 +104,7 @@ def field_dashboard(request):
 @csrf_exempt
 @require_http_methods(["POST", "GET"])
 def mark_attendance(request):
-    """Mark attendance for field officers with GIS validation"""
+    """Mark attendance for field officers with high-precision GPS validation"""
     if request.user.role != 'field_officer':
         return JsonResponse({'error': 'Access denied'}, status=403)
     
@@ -124,6 +124,7 @@ def mark_attendance(request):
             latitude = data.get('latitude')
             longitude = data.get('longitude')
             address = data.get('address', '')
+            accuracy = data.get('accuracy')
             
             current_time = timezone.localtime().time()
             
@@ -165,22 +166,34 @@ def mark_attendance(request):
                 location_address=address
             )
             
-            # Set location if coordinates provided
-            if latitude and longitude:
+            # Set high-precision location if coordinates provided
+            if latitude is not None and longitude is not None:
                 try:
-                    lat_float = float(latitude)
-                    lng_float = float(longitude)
-                    attendance.check_in_location = f"{lat_float},{lng_float}"
+                    # Store with 8 decimal places precision (~1.1m accuracy)
+                    lat_precise = round(float(latitude), 8)
+                    lng_precise = round(float(longitude), 8)
+                    attendance.check_in_location = f"{lat_precise},{lng_precise}"
+                    
+                    # Store accuracy if provided
+                    if accuracy:
+                        attendance.location_accuracy = round(float(accuracy), 2)
+                    
                     attendance.save()
-                except (ValueError, TypeError):
-                    pass
+                    
+                    print(f"Location saved: {lat_precise},{lng_precise} (accuracy: {accuracy}m)")
+                except (ValueError, TypeError) as e:
+                    print(f"Location parsing error: {e}")
             
             # Create audit log
+            location_info = f"Location: {latitude},{longitude}" if latitude and longitude else "No location"
+            if accuracy:
+                location_info += f" (accuracy: {accuracy}m)"
+            
             create_audit_log(
                 request.user,
                 'Attendance Marked',
                 request,
-                f'Status: {status}, Timing: {timing_status}, Time: {current_time.strftime("%I:%M %p")}'
+                f'Status: {status}, Timing: {timing_status}, Time: {current_time.strftime("%I:%M %p")}, {location_info}'
             )
             
             return JsonResponse({
@@ -190,13 +203,16 @@ def mark_attendance(request):
                     'status': attendance.status,
                     'check_in_time': attendance.check_in_time.strftime('%I:%M %p'),
                     'marked_at': attendance.marked_at.strftime('%I:%M %p'),
-                    'timing_status': timing_status
+                    'timing_status': timing_status,
+                    'location': f"{latitude},{longitude}" if latitude and longitude else None,
+                    'accuracy': accuracy
                 }
             })
             
         except json.JSONDecodeError:
             return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
         except Exception as e:
+            print(f"Attendance marking error: {str(e)}")
             return JsonResponse({'success': False, 'error': f'Server error: {str(e)}'}, status=500)
     
     # GET request - show the mark attendance page

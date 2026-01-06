@@ -562,41 +562,64 @@ def attendance_geo(request):
 @login_required
 @admin_required
 def attendance_geo_data(request):
-    """API endpoint for geo-location data"""
+    """API endpoint for high-precision geo-location data"""
     date_str = request.GET.get('date', timezone.localdate().isoformat())
+    status_filter = request.GET.get('status', '')
+    
     try:
         selected_date = datetime.strptime(date_str, '%Y-%m-%d').date()
     except ValueError:
         selected_date = timezone.localdate()
     
-    # Get attendance records for the selected date
-    attendance_records = Attendance.objects.filter(date=selected_date).select_related('user')
+    # Get attendance records for the selected date with location data
+    attendance_records = Attendance.objects.filter(
+        date=selected_date,
+        check_in_location__isnull=False
+    ).exclude(check_in_location='').select_related('user')
     
-    # Prepare geo data
+    # Apply status filter if provided
+    if status_filter:
+        attendance_records = attendance_records.filter(status=status_filter)
+    
+    # Prepare high-precision geo data
     geo_data = []
     for record in attendance_records:
         if record.check_in_location:
-            # Handle both GIS and non-GIS location formats
-            if hasattr(record.check_in_location, 'coords'):
-                # GIS Point field
-                lat, lng = record.check_in_location.coords[1], record.check_in_location.coords[0]
-            elif isinstance(record.check_in_location, str) and ',' in record.check_in_location:
-                # String format "lat,lng"
-                lat, lng = map(float, record.check_in_location.split(','))
-            else:
+            try:
+                # Handle both GIS and string location formats
+                if hasattr(record.check_in_location, 'coords'):
+                    # GIS Point field
+                    lat, lng = record.check_in_location.coords[1], record.check_in_location.coords[0]
+                elif isinstance(record.check_in_location, str) and ',' in record.check_in_location:
+                    # String format "lat,lng" with high precision
+                    lat, lng = map(float, record.check_in_location.split(','))
+                else:
+                    continue
+                
+                # Ensure high precision (8 decimal places)
+                lat = round(lat, 8)
+                lng = round(lng, 8)
+                
+                geo_data.append({
+                    'employee_id': record.user.employee_id,
+                    'name': f"{record.user.first_name} {record.user.last_name}",
+                    'designation': record.user.designation,
+                    'dccb': record.user.dccb or '',
+                    'status': record.status,
+                    'is_late': record.is_late,
+                    'timing_status': record.timing_status,
+                    'lat': lat,
+                    'lng': lng,
+                    'marked_at': record.marked_at.strftime('%H:%M') if record.marked_at else '',
+                    'check_in_time': record.check_in_time.strftime('%H:%M') if record.check_in_time else '',
+                    'location_address': record.location_address or '',
+                    'location_accuracy': record.location_accuracy,
+                    'distance_from_office': record.distance_from_office,
+                    'is_location_valid': record.is_location_valid
+                })
+            except (ValueError, AttributeError, TypeError) as e:
+                print(f"Error processing location for {record.user.employee_id}: {e}")
                 continue
-            
-            geo_data.append({
-                'employee_id': record.user.employee_id,
-                'name': f"{record.user.first_name} {record.user.last_name}",
-                'designation': record.user.designation,
-                'dccb': record.user.dccb or '',
-                'status': record.status,
-                'is_late': record.is_late,
-                'lat': lat,
-                'lng': lng,
-                'marked_at': record.marked_at.strftime('%H:%M') if record.marked_at else ''
-            })
     
     return JsonResponse(geo_data, safe=False)
 

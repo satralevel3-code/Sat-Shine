@@ -184,6 +184,7 @@ class Attendance(models.Model):
         check_out_location = models.CharField(max_length=100, null=True, blank=True, help_text="Check-out location (lat,lng)")
     
     location_address = models.CharField(max_length=300, null=True, blank=True)
+    location_accuracy = models.FloatField(null=True, blank=True, help_text="GPS accuracy in meters")
     is_location_valid = models.BooleanField(default=True)
     distance_from_office = models.FloatField(null=True, blank=True, help_text="Distance in meters")
     
