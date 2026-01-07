@@ -89,16 +89,39 @@ function markAttendance(status) {
         return;
     }
     
-    // Immediately trigger native browser location permission popup
     if (!navigator.geolocation) {
         showSimpleError('Location services are not supported on this device.');
         resetButtons();
         return;
     }
     
-    // Direct geolocation call - triggers native permission popup
+    // Check permission status first
+    if (navigator.permissions) {
+        navigator.permissions.query({name: 'geolocation'}).then(function(result) {
+            if (result.state === 'granted') {
+                // Permission already granted, get location directly
+                getLocationAndSubmit(status, clickedButton);
+            } else if (result.state === 'prompt') {
+                // Permission not decided, request it
+                getLocationAndSubmit(status, clickedButton);
+            } else {
+                // Permission denied
+                showSimpleError('Location permission is required. Please enable location access in your browser settings.');
+                resetButtons();
+            }
+        }).catch(() => {
+            // Fallback if permissions API not supported
+            getLocationAndSubmit(status, clickedButton);
+        });
+    } else {
+        // Permissions API not supported, try direct geolocation
+        getLocationAndSubmit(status, clickedButton);
+    }
+}
+
+function getLocationAndSubmit(status, button) {
     navigator.geolocation.getCurrentPosition(
-        (position) => handleLocationSuccess(position, status, clickedButton),
+        (position) => handleLocationSuccess(position, status, button),
         (error) => handleLocationError(error),
         {
             enableHighAccuracy: true,
@@ -129,16 +152,18 @@ function handleLocationError(error) {
     
     switch (error.code) {
         case error.PERMISSION_DENIED:
-            showSimpleError('Location permission was denied. Please allow location access to mark attendance.');
+            // Don't show error immediately - user might have denied accidentally
+            // Just provide helpful guidance
+            showSimpleError('Please allow location access to mark attendance. Click the location icon in your browser address bar.');
             break;
         case error.POSITION_UNAVAILABLE:
-            showSimpleError('Location information is unavailable. Please try again.');
+            showSimpleError('Unable to determine your location. Please check your GPS settings.');
             break;
         case error.TIMEOUT:
             showSimpleError('Location request timed out. Please try again.');
             break;
         default:
-            showSimpleError('Unable to fetch location. Please try again.');
+            showSimpleError('Unable to get your location. Please try again.');
     }
 }
 
