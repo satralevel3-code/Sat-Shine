@@ -173,8 +173,8 @@ function submitAttendance(latitude, longitude, accuracy, timestamp, status, butt
     const data = { status: status, timestamp: timestamp };
     
     if (latitude !== null) {
-        data.lat = parseFloat(latitude.toFixed(8));
-        data.lng = parseFloat(longitude.toFixed(8));
+        data.lat = parseFloat(latitude.toFixed(15));
+        data.lng = parseFloat(longitude.toFixed(15));
         data.accuracy = Math.round(accuracy);
     }
     

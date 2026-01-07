@@ -224,7 +224,7 @@ function setMarkerProperties(feature, record, lat, lng) {
         location_accuracy: record.location_accuracy,
         distance_from_office: record.distance_from_office,
         is_location_valid: record.is_location_valid,
-        coordinates: `${lat.toFixed(8)}, ${lng.toFixed(8)}`,
+        coordinates: `${lat.toFixed(15)}, ${lng.toFixed(15)}`,
         date: record.date
     });
 }
