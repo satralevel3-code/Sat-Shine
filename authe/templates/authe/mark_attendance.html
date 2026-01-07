@@ -89,8 +89,8 @@ function markAttendance(status) {
         return;
     }
     
-    // Present and Half Day require GPS location
-    clickedButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Getting GPS location...';
+    // Present and Half Day require GPS location with high accuracy
+    clickedButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Getting high-accuracy GPS...';
     
     if (!navigator.geolocation) {
         showError('GPS not supported. Cannot mark Present/Half Day without location.');
@@ -98,35 +98,68 @@ function markAttendance(status) {
         return;
     }
     
-    navigator.geolocation.getCurrentPosition(
-        (position) => {
-            const lat = position.coords.latitude;
-            const lng = position.coords.longitude;
-            const accuracy = position.coords.accuracy;
-            const timestamp = new Date().toISOString();
-            
-            clickedButton.innerHTML = `<i class="fas fa-spinner fa-spin me-2"></i>Location captured (${accuracy.toFixed(1)}m accuracy)`;
-            
-            submitAttendance(lat, lng, accuracy, timestamp, status, clickedButton);
-        },
-        (error) => {
-            let errorMsg = 'GPS Error: ';
-            switch(error.code) {
-                case error.PERMISSION_DENIED: 
-                    errorMsg += 'Location permission denied. Enable GPS permissions to mark Present/Half Day.';
-                    break;
-                case error.POSITION_UNAVAILABLE: 
-                    errorMsg += 'GPS unavailable. Move to an open area and try again.';
-                    break;
-                case error.TIMEOUT: 
-                    errorMsg += 'GPS timeout. Try again or move to better GPS coverage area.';
-                    break;
+    // Try multiple GPS attempts for better accuracy
+    let attempts = 0;
+    const maxAttempts = 2;
+    
+    function tryGPS() {
+        attempts++;
+        
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                const accuracy = position.coords.accuracy;
+                const timestamp = new Date().toISOString();
+                
+                // Validate GPS accuracy
+                if (accuracy > 100 && attempts < maxAttempts) {
+                    clickedButton.innerHTML = `<i class="fas fa-spinner fa-spin me-2"></i>Improving accuracy... (${accuracy.toFixed(1)}m, attempt ${attempts}/${maxAttempts})`;
+                    setTimeout(tryGPS, 2000); // Try again after 2 seconds
+                    return;
+                }
+                
+                if (accuracy > 100) {
+                    showError(`GPS accuracy too low (${accuracy.toFixed(1)}m). Move to open area for better signal and try again.`);
+                    resetButtons();
+                    return;
+                }
+                
+                clickedButton.innerHTML = `<i class="fas fa-spinner fa-spin me-2"></i>High accuracy location captured (${accuracy.toFixed(1)}m)`;
+                
+                submitAttendance(lat, lng, accuracy, timestamp, status, clickedButton);
+            },
+            (error) => {
+                if (attempts < maxAttempts) {
+                    clickedButton.innerHTML = `<i class="fas fa-spinner fa-spin me-2"></i>Retrying GPS... (attempt ${attempts}/${maxAttempts})`;
+                    setTimeout(tryGPS, 2000);
+                    return;
+                }
+                
+                let errorMsg = 'GPS Error: ';
+                switch(error.code) {
+                    case error.PERMISSION_DENIED: 
+                        errorMsg += 'Location permission denied. Enable GPS permissions to mark Present/Half Day.';
+                        break;
+                    case error.POSITION_UNAVAILABLE: 
+                        errorMsg += 'GPS unavailable. Move to an open area and try again.';
+                        break;
+                    case error.TIMEOUT: 
+                        errorMsg += 'GPS timeout. Try again or move to better GPS coverage area.';
+                        break;
+                }
+                showError(errorMsg);
+                resetButtons();
+            },
+            { 
+                enableHighAccuracy: true, 
+                timeout: 20000, 
+                maximumAge: 0 
             }
-            showError(errorMsg);
-            resetButtons();
-        },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
+        );
+    }
+    
+    tryGPS();
 }
 
 function submitAttendance(latitude, longitude, accuracy, timestamp, status, button) {
