@@ -125,20 +125,7 @@ function handleLocationSuccess(position, status, button) {
 
 function handleLocationError(error) {
     resetButtons();
-    
-    switch (error.code) {
-        case error.PERMISSION_DENIED:
-            showSimpleError('Location access blocked. Please click the location icon in your browser address bar and select "Allow".');
-            break;
-        case error.POSITION_UNAVAILABLE:
-            showSimpleError('Unable to determine your location. Please check your GPS settings.');
-            break;
-        case error.TIMEOUT:
-            showSimpleError('Location request timed out. Please try again.');
-            break;
-        default:
-            showSimpleError('Unable to get your location. Please try again.');
-    }
+    // No error messages - let user try again
 }
 
 function showSimpleError(message) {
