@@ -84,12 +84,16 @@ function loadMarkers() {
     
     fetch(url)
         .then(response => response.json())
-        .then(data => {
+        .then(result => {
             // Clear existing markers
             vectorSource.clear();
             
-            if (data.length === 0) {
+            // Handle new API response format
+            const data = result.data || result;
+            
+            if (!data || data.length === 0) {
                 console.log('No location data found for the selected filters');
+                alert(`No GPS attendance data found. Total records: ${result.count || 0}`);
                 return;
             }
             

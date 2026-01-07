@@ -543,47 +543,67 @@ def attendance_geo_data(request):
     except ValueError:
         selected_date = timezone.localdate()
     
-    # Query with lat/lng fields
-    attendance_query = Attendance.objects.filter(
-        date=selected_date,
-        latitude__isnull=False,
-        longitude__isnull=False
-    ).select_related('user').only(
-        'user__employee_id', 'user__first_name', 'user__last_name', 
-        'user__designation', 'user__dccb', 'status', 'check_in_time',
-        'latitude', 'longitude', 'location_accuracy', 'location_address',
-        'distance_from_office', 'is_location_valid', 'marked_at'
-    )
-    
-    # Apply status filter if provided
-    if status_filter:
-        attendance_query = attendance_query.filter(status=status_filter)
-    
-    # Process records efficiently
-    geo_data = []
-    for record in attendance_query:
-        lat = float(record.latitude)
-        lng = float(record.longitude)
+    try:
+        # Query with lat/lng fields - include all dates if no GPS data for selected date
+        attendance_query = Attendance.objects.filter(
+            latitude__isnull=False,
+            longitude__isnull=False
+        ).select_related('user')
         
-        geo_data.append({
-            'employee_id': record.user.employee_id,
-            'name': f"{record.user.first_name} {record.user.last_name}",
-            'designation': record.user.designation,
-            'dccb': record.user.dccb or '',
-            'status': record.status,
-            'is_late': record.check_in_time > time(10, 0) if record.check_in_time else False,
-            'timing_status': 'On Time' if record.check_in_time and record.check_in_time <= time(10, 0) else 'Late' if record.check_in_time else 'Not Marked',
-            'lat': round(lat, 8),
-            'lng': round(lng, 8),
-            'marked_at': record.marked_at.strftime('%H:%M') if record.marked_at else '',
-            'check_in_time': record.check_in_time.strftime('%H:%M') if record.check_in_time else '',
-            'location_address': record.location_address or f'GPS Location ({lat:.6f}, {lng:.6f})',
-            'location_accuracy': round(record.location_accuracy) if record.location_accuracy else 0,
-            'distance_from_office': round(record.distance_from_office) if record.distance_from_office else 0,
-            'is_location_valid': record.is_location_valid
+        # Filter by date if data exists for that date
+        date_filtered = attendance_query.filter(date=selected_date)
+        if not date_filtered.exists():
+            # If no data for selected date, show all GPS data
+            attendance_query = attendance_query.order_by('-date')[:20]
+        else:
+            attendance_query = date_filtered
+        
+        # Apply status filter if provided
+        if status_filter:
+            attendance_query = attendance_query.filter(status=status_filter)
+        
+        # Process records efficiently
+        geo_data = []
+        for record in attendance_query:
+            try:
+                lat = float(record.latitude)
+                lng = float(record.longitude)
+                
+                geo_data.append({
+                    'employee_id': record.user.employee_id,
+                    'name': f"{record.user.first_name} {record.user.last_name}",
+                    'designation': record.user.designation,
+                    'dccb': record.user.dccb or '',
+                    'status': record.status,
+                    'date': record.date.isoformat(),
+                    'is_late': record.check_in_time > time(10, 0) if record.check_in_time else False,
+                    'timing_status': 'On Time' if record.check_in_time and record.check_in_time <= time(10, 0) else 'Late' if record.check_in_time else 'Not Marked',
+                    'lat': round(lat, 8),
+                    'lng': round(lng, 8),
+                    'marked_at': record.marked_at.strftime('%H:%M') if record.marked_at else '',
+                    'check_in_time': record.check_in_time.strftime('%H:%M') if record.check_in_time else '',
+                    'location_address': record.location_address or f'GPS Location ({lat:.6f}, {lng:.6f})',
+                    'location_accuracy': round(record.location_accuracy) if record.location_accuracy else 0,
+                    'distance_from_office': round(record.distance_from_office) if record.distance_from_office else 0,
+                    'is_location_valid': record.is_location_valid
+                })
+            except (ValueError, TypeError):
+                continue
+        
+        return JsonResponse({
+            'success': True,
+            'count': len(geo_data),
+            'selected_date': selected_date.isoformat(),
+            'data': geo_data
         })
-    
-    return JsonResponse(geo_data, safe=False)
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'selected_date': selected_date.isoformat(),
+            'data': []
+        })
 
 @login_required
 @admin_required
