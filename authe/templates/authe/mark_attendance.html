@@ -95,33 +95,9 @@ function markAttendance(status) {
         return;
     }
     
-    // Check permission status first
-    if (navigator.permissions) {
-        navigator.permissions.query({name: 'geolocation'}).then(function(result) {
-            if (result.state === 'granted') {
-                // Permission already granted, get location directly
-                getLocationAndSubmit(status, clickedButton);
-            } else if (result.state === 'prompt') {
-                // Permission not decided, request it
-                getLocationAndSubmit(status, clickedButton);
-            } else {
-                // Permission denied
-                showSimpleError('Location permission is required. Please enable location access in your browser settings.');
-                resetButtons();
-            }
-        }).catch(() => {
-            // Fallback if permissions API not supported
-            getLocationAndSubmit(status, clickedButton);
-        });
-    } else {
-        // Permissions API not supported, try direct geolocation
-        getLocationAndSubmit(status, clickedButton);
-    }
-}
-
-function getLocationAndSubmit(status, button) {
+    // Directly trigger native browser location popup
     navigator.geolocation.getCurrentPosition(
-        (position) => handleLocationSuccess(position, status, button),
+        (position) => handleLocationSuccess(position, status, clickedButton),
         (error) => handleLocationError(error),
         {
             enableHighAccuracy: true,
@@ -152,9 +128,7 @@ function handleLocationError(error) {
     
     switch (error.code) {
         case error.PERMISSION_DENIED:
-            // Don't show error immediately - user might have denied accidentally
-            // Just provide helpful guidance
-            showSimpleError('Please allow location access to mark attendance. Click the location icon in your browser address bar.');
+            showSimpleError('Location access blocked. Please click the location icon in your browser address bar and select "Allow".');
             break;
         case error.POSITION_UNAVAILABLE:
             showSimpleError('Unable to determine your location. Please check your GPS settings.');
