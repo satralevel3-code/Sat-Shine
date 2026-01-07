@@ -82,80 +82,64 @@ function markAttendance(status) {
     const clickedButton = event.target;
     
     buttons.forEach(btn => btn.disabled = true);
+    clickedButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Marking attendance...';
     
     if (status === 'absent') {
-        clickedButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Marking attendance...';
         submitAttendance(null, null, null, new Date().toISOString(), status, clickedButton);
         return;
     }
     
-    // Present and Half Day require location - silent background process
-    clickedButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Marking attendance...';
-    
+    // Immediately trigger native browser location permission popup
     if (!navigator.geolocation) {
-        showSimpleError('Location services not available on this device.');
+        showSimpleError('Location services are not supported on this device.');
         resetButtons();
         return;
     }
     
-    acquireLocation(status, clickedButton);
+    // Direct geolocation call - triggers native permission popup
+    navigator.geolocation.getCurrentPosition(
+        (position) => handleLocationSuccess(position, status, clickedButton),
+        (error) => handleLocationError(error),
+        {
+            enableHighAccuracy: true,
+            timeout: 8000,
+            maximumAge: 0
+        }
+    );
 }
 
-function acquireLocation(status, clickedButton) {
-    let attempt = 0;
-    const strategies = [
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 },      // Tier 1: GPS ≤25m
-        { enableHighAccuracy: false, timeout: 6000, maximumAge: 30000 }, // Tier 2: Network ≤50m  
-        { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }   // Tier 3: Cached ≤75m
-    ];
+function handleLocationSuccess(position, status, button) {
+    const lat = position.coords.latitude;
+    const lng = position.coords.longitude;
+    const accuracy = position.coords.accuracy;
     
-    function tryLocation() {
-        if (attempt >= strategies.length) {
-            showLocationError();
-            resetButtons();
-            return;
-        }
-        
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const accuracy = position.coords.accuracy;
-                const maxAccuracy = attempt === 0 ? 25 : attempt === 1 ? 50 : 75;
-                
-                if (accuracy <= maxAccuracy) {
-                    const lat = position.coords.latitude;
-                    const lng = position.coords.longitude;
-                    const timestamp = new Date().toISOString();
-                    
-                    submitAttendance(lat, lng, accuracy, timestamp, status, clickedButton);
-                } else {
-                    attempt++;
-                    tryLocation();
-                }
-            },
-            (error) => {
-                if (error.code === error.PERMISSION_DENIED) {
-                    showLocationPermissionError();
-                    resetButtons();
-                    return;
-                }
-                attempt++;
-                tryLocation();
-            },
-            strategies[attempt]
-        );
-        
-        attempt++;
+    // Reject if accuracy too low
+    if (accuracy > 75) {
+        showSimpleError('Unable to verify your location. Please try again in an open area.');
+        resetButtons();
+        return;
     }
     
-    tryLocation();
+    const timestamp = new Date().toISOString();
+    submitAttendance(lat, lng, accuracy, timestamp, status, button);
 }
 
-function showLocationPermissionError() {
-    showSimpleError('Location access is required to mark attendance. Please enable location permissions in browser settings.');
-}
-
-function showLocationError() {
-    showSimpleError('Unable to mark attendance. Location access is required.');
+function handleLocationError(error) {
+    resetButtons();
+    
+    switch (error.code) {
+        case error.PERMISSION_DENIED:
+            showSimpleError('Location permission was denied. Please allow location access to mark attendance.');
+            break;
+        case error.POSITION_UNAVAILABLE:
+            showSimpleError('Location information is unavailable. Please try again.');
+            break;
+        case error.TIMEOUT:
+            showSimpleError('Location request timed out. Please try again.');
+            break;
+        default:
+            showSimpleError('Unable to fetch location. Please try again.');
+    }
 }
 
 function showSimpleError(message) {
