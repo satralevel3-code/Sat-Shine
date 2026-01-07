@@ -97,71 +97,120 @@ function checkLocationPermissions(status, clickedButton) {
     clickedButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Checking location services...';
     
     if (!navigator.geolocation) {
-        showLocationError('GPS not supported on this device. Cannot mark Present/Half Day without location services.');
+        showLocationPopup('GPS not supported on this device. Cannot mark Present/Half Day without location services.');
         resetButtons();
         return;
     }
     
-    // Check if location services are enabled
+    // For iPhone Safari, directly try GPS access as permissions API is limited
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    
+    if (isIOS || isSafari) {
+        // iOS Safari - directly attempt GPS access
+        startGPSCapture(status, clickedButton);
+        return;
+    }
+    
+    // For other browsers, check permissions first
     if ('permissions' in navigator) {
         navigator.permissions.query({name: 'geolocation'}).then(function(result) {
             if (result.state === 'denied') {
-                showLocationPermissionDialog(status, clickedButton);
+                showLocationPermissionPopup(status, clickedButton);
             } else if (result.state === 'prompt') {
-                showLocationRequestDialog(status, clickedButton);
+                showLocationRequestPopup(status, clickedButton);
             } else {
-                // Permission granted, proceed with GPS
                 startGPSCapture(status, clickedButton);
             }
         }).catch(function() {
-            // Fallback if permissions API not supported
             startGPSCapture(status, clickedButton);
         });
     } else {
-        // Fallback for older browsers
         startGPSCapture(status, clickedButton);
     }
 }
 
-function showLocationPermissionDialog(status, clickedButton) {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = 'alert alert-warning alert-dismissible fade show mt-3';
-    alertDiv.innerHTML = `
-        <h6><i class="fas fa-location-slash me-2"></i>Location Permission Required</h6>
-        <p>To mark Present/Half Day attendance, please:</p>
-        <ol>
-            <li>Enable location services on your device</li>
-            <li>Allow location access for this website</li>
-            <li>Refresh the page and try again</li>
-        </ol>
-        <div class="mt-2">
-            <button class="btn btn-primary btn-sm" onclick="requestLocationPermission('${status}', this.parentElement.parentElement.parentElement)">Try Again</button>
-            <button class="btn btn-secondary btn-sm ms-2" onclick="this.parentElement.parentElement.remove(); resetButtons();">Cancel</button>
+function showLocationPermissionPopup(status, clickedButton) {
+    showLocationPopup(`
+        <h5><i class="fas fa-location-slash me-2"></i>Location Access Required</h5>
+        <p>To mark attendance, please enable location access:</p>
+        <div class="text-start">
+            <strong>iPhone Safari:</strong><br>
+            1. Settings → Privacy & Security → Location Services<br>
+            2. Turn ON Location Services<br>
+            3. Scroll down → Safari → While Using App<br><br>
+            <strong>Android Chrome:</strong><br>
+            1. Click location icon in address bar<br>
+            2. Select "Allow"<br>
         </div>
-    `;
-    document.querySelector('.card-body').appendChild(alertDiv);
-    resetButtons();
+    `, status, 'Try Again');
 }
 
-function showLocationRequestDialog(status, clickedButton) {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = 'alert alert-info alert-dismissible fade show mt-3';
-    alertDiv.innerHTML = `
-        <h6><i class="fas fa-map-marker-alt me-2"></i>Location Access Needed</h6>
-        <p>This app needs access to your location to mark attendance. Please allow location access when prompted.</p>
-        <div class="mt-2">
-            <button class="btn btn-primary btn-sm" onclick="requestLocationPermission('${status}', this.parentElement.parentElement)">Allow Location Access</button>
-            <button class="btn btn-secondary btn-sm ms-2" onclick="this.parentElement.parentElement.remove(); resetButtons();">Cancel</button>
-        </div>
-    `;
-    document.querySelector('.card-body').appendChild(alertDiv);
-    resetButtons();
+function showLocationRequestPopup(status, clickedButton) {
+    showLocationPopup(`
+        <h5><i class="fas fa-map-marker-alt me-2"></i>Allow Location Access</h5>
+        <p>This app needs your location to mark attendance accurately.</p>
+        <p><strong>Please tap "Allow" when prompted by your browser.</strong></p>
+    `, status, 'Request Location');
 }
 
-function requestLocationPermission(status, alertElement) {
-    alertElement.remove();
+function showLocationPopup(content, status = null, buttonText = 'OK') {
+    // Create overlay
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.7);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    `;
+    
+    // Create popup
+    const popup = document.createElement('div');
+    popup.style.cssText = `
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        max-width: 400px;
+        width: 100%;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        text-align: center;
+        font-family: Arial, sans-serif;
+    `;
+    
+    popup.innerHTML = `
+        ${content}
+        <div class="mt-4">
+            ${status ? `<button class="btn btn-primary me-2" onclick="handleLocationPopupAction('${status}', '${buttonText}')">${buttonText}</button>` : ''}
+            <button class="btn btn-secondary" onclick="closeLocationPopup()">Cancel</button>
+        </div>
+    `;
+    
+    overlay.appendChild(popup);
+    document.body.appendChild(overlay);
+    overlay.id = 'locationPopup';
+}
+
+function handleLocationPopupAction(status, action) {
+    closeLocationPopup();
     const clickedButton = document.querySelector(`[onclick="markAttendance('${status}')"]`);
-    startGPSCapture(status, clickedButton);
+    if (action === 'Request Location' || action === 'Try Again') {
+        startGPSCapture(status, clickedButton);
+    }
+}
+
+function closeLocationPopup() {
+    const popup = document.getElementById('locationPopup');
+    if (popup) {
+        popup.remove();
+    }
+    resetButtons();
 }
 
 function startGPSCapture(status, clickedButton) {
@@ -190,7 +239,17 @@ function startGPSCapture(status, clickedButton) {
                 }
                 
                 if (accuracy > 100) {
-                    showLocationError(`GPS accuracy too low (${accuracy.toFixed(1)}m). Move to open area for better signal and try again.`);
+                    showLocationPopup(`
+                        <h5><i class="fas fa-signal text-warning me-2"></i>Low GPS Accuracy</h5>
+                        <p>GPS accuracy is too low (${accuracy.toFixed(1)}m).</p>
+                        <p><strong>Please:</strong></p>
+                        <div class="text-start">
+                            • Move to an open outdoor area<br>
+                            • Away from tall buildings<br>
+                            • Ensure clear sky view<br>
+                            • Try again
+                        </div>
+                    `);
                     resetButtons();
                     return;
                 }
@@ -211,27 +270,56 @@ function startGPSCapture(status, clickedButton) {
                 
                 switch(error.code) {
                     case error.PERMISSION_DENIED: 
-                        errorMsg = 'Location permission denied.';
-                        instructions = `
-                            <p><strong>To enable location access:</strong></p>
-                            <ul>
-                                <li><strong>Chrome:</strong> Click the location icon in address bar → Allow</li>
-                                <li><strong>Safari:</strong> Settings → Privacy & Security → Location Services → Website Settings</li>
-                                <li><strong>Mobile:</strong> Settings → Apps → Browser → Permissions → Location</li>
-                            </ul>
-                        `;
+                        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                        if (isIOS) {
+                            showLocationPopup(`
+                                <h5><i class="fas fa-exclamation-triangle text-warning me-2"></i>Location Access Denied</h5>
+                                <p><strong>iPhone users:</strong> Please enable location access in device settings:</p>
+                                <div class="text-start">
+                                    1. Go to <strong>Settings</strong><br>
+                                    2. Tap <strong>Privacy & Security</strong><br>
+                                    3. Tap <strong>Location Services</strong><br>
+                                    4. Turn ON <strong>Location Services</strong><br>
+                                    5. Scroll down and tap <strong>Safari</strong><br>
+                                    6. Select <strong>"While Using App"</strong><br>
+                                    7. Return to this page and try again
+                                </div>
+                            `);
+                        } else {
+                            showLocationPopup(`
+                                <h5><i class="fas fa-exclamation-triangle text-warning me-2"></i>Location Permission Denied</h5>
+                                <p>Please allow location access:</p>
+                                <div class="text-start">
+                                    <strong>Chrome:</strong> Click location icon in address bar → Allow<br>
+                                    <strong>Firefox:</strong> Click shield icon → Allow location<br>
+                                    <strong>Edge:</strong> Click location icon → Allow
+                                </div>
+                            `);
+                        }
                         break;
                     case error.POSITION_UNAVAILABLE: 
-                        errorMsg = 'GPS unavailable.';
-                        instructions = '<p>Please ensure location services are enabled on your device and try again in an open area.</p>';
+                        showLocationPopup(`
+                            <h5><i class="fas fa-satellite-dish text-danger me-2"></i>GPS Unavailable</h5>
+                            <p>Cannot get your location. Please:</p>
+                            <div class="text-start">
+                                • Move to an open area<br>
+                                • Check if location services are enabled<br>
+                                • Try again in a few moments
+                            </div>
+                        `);
                         break;
                     case error.TIMEOUT: 
-                        errorMsg = 'GPS timeout.';
-                        instructions = '<p>Move to an area with better GPS coverage and try again.</p>';
+                        showLocationPopup(`
+                            <h5><i class="fas fa-clock text-warning me-2"></i>GPS Timeout</h5>
+                            <p>Location request timed out. Please:</p>
+                            <div class="text-start">
+                                • Move to an area with better GPS signal<br>
+                                • Ensure you're not indoors<br>
+                                • Try again
+                            </div>
+                        `);
                         break;
                 }
-                
-                showLocationError(errorMsg, instructions);
                 resetButtons();
             },
             { 
@@ -245,18 +333,7 @@ function startGPSCapture(status, clickedButton) {
     tryGPS();
 }
 
-function showLocationError(message, instructions = '') {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = 'alert alert-danger alert-dismissible fade show mt-3';
-    alertDiv.innerHTML = `
-        <h6><i class="fas fa-exclamation-triangle me-2"></i>Location Error</h6>
-        <p>${message}</p>
-        ${instructions}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
-    document.querySelector('.card-body').appendChild(alertDiv);
-    setTimeout(() => alertDiv.remove(), 12000);
-}
+
 
 function submitAttendance(latitude, longitude, accuracy, timestamp, status, button) {
     // Show detailed location info during submission
