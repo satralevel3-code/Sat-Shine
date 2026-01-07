@@ -82,23 +82,28 @@ function loadMarkers() {
     if (statusFilter) params.append('status', statusFilter);
     if (params.toString()) url += '?' + params.toString();
     
+    console.log('Loading markers from:', url);
+    
     fetch(url)
         .then(response => response.json())
         .then(result => {
+            console.log('API Response:', result);
+            
             // Clear existing markers
             vectorSource.clear();
             
-            // Handle new API response format
-            const data = result.data || result;
+            // Handle API response
+            const data = result.data || [];
             
             if (!data || data.length === 0) {
                 console.log('No location data found for the selected filters');
-                alert(`No GPS attendance data found. Total records: ${result.count || 0}`);
+                alert(`No GPS attendance data found. ${result.message || 'Please try different filters.'}`);
                 return;
             }
             
             console.log(`Loading ${data.length} location markers`);
             
+            // Process each record and create markers
             data.forEach((record, index) => {
                 // Validate coordinates precision
                 const lat = parseFloat(record.lat);
@@ -109,7 +114,7 @@ function loadMarkers() {
                     return;
                 }
                 
-                console.log(`Processing marker ${index + 1}: ${record.employee_id} at LAT=${lat.toFixed(8)}, LNG=${lng.toFixed(8)}`);
+                console.log(`Creating marker ${index + 1}: ${record.employee_id} at LAT=${lat.toFixed(8)}, LNG=${lng.toFixed(8)}`);
                 
                 // Create marker feature with correct coordinate order (longitude, latitude for OpenLayers)
                 const feature = new ol.Feature({
@@ -131,7 +136,8 @@ function loadMarkers() {
                     location_accuracy: record.location_accuracy,
                     distance_from_office: record.distance_from_office,
                     is_location_valid: record.is_location_valid,
-                    coordinates: `${lat.toFixed(8)}, ${lng.toFixed(8)}`
+                    coordinates: `${lat.toFixed(8)}, ${lng.toFixed(8)}`,
+                    date: record.date
                 });
                 
                 // Set marker style based on status and accuracy
@@ -177,8 +183,12 @@ function loadMarkers() {
                     })
                 }));
                 
+                // Add feature to vector source
                 vectorSource.addFeature(feature);
+                console.log(`Added marker for ${record.employee_id}`);
             });
+            
+            console.log(`Total markers added: ${vectorSource.getFeatures().length}`);
             
             // Fit map to show all markers with better padding
             if (vectorSource.getFeatures().length > 0) {
@@ -186,6 +196,9 @@ function loadMarkers() {
                     padding: [50, 50, 50, 50],
                     maxZoom: 18 // Ensure good detail level
                 });
+                console.log('Map fitted to show all markers');
+            } else {
+                console.log('No markers to display');
             }
         })
         .catch(error => {
@@ -217,6 +230,7 @@ map.on('click', function(event) {
                 <h6 style="margin: 0 0 8px 0; color: #1e3a8a;"><strong>${props.name}</strong></h6>
                 <div style="font-size: 13px; line-height: 1.4;">
                     <strong>Employee ID:</strong> ${props.employee_id}<br>
+                    <strong>Date:</strong> ${props.date}<br>
                     <strong>Designation:</strong> ${props.designation}<br>
                     <strong>DCCB:</strong> ${props.dccb}<br>
                     <strong>Status:</strong> <span style="color: ${props.status === 'present' ? 'green' : props.status === 'absent' ? 'red' : 'blue'}">${props.status.toUpperCase()}</span><br>

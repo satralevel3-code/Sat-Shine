@@ -60,10 +60,6 @@ class CustomUser(AbstractUser):
     dccb = models.CharField(max_length=20, choices=DCCB_CHOICES, blank=True, null=True, db_index=True)
     reporting_manager = models.CharField(max_length=100, blank=True, null=True)
     
-    # Location fields for office
-    office_latitude = models.FloatField(null=True, blank=True, help_text="Office latitude")
-    office_longitude = models.FloatField(null=True, blank=True, help_text="Office longitude")
-    
     office_address = models.CharField(max_length=300, blank=True, null=True)
     attendance_radius = models.FloatField(default=500.0, help_text="Allowed attendance radius in meters")
     is_demo_user = models.BooleanField(default=False, help_text="Protected demo user - cannot be deleted")
@@ -102,20 +98,16 @@ class CustomUser(AbstractUser):
         
         super().save(*args, **kwargs)
     
-    def set_office_location(self, latitude, longitude):
-        """Set office location from coordinates"""
-        self.office_latitude = latitude
-        self.office_longitude = longitude
-    
     def is_within_attendance_radius(self, latitude, longitude):
         """Check if given coordinates are within attendance radius"""
-        if not self.office_latitude or not self.office_longitude:
-            return True  # Allow if no office location set
+        # Default office location (Ahmedabad)
+        office_lat = 23.0225
+        office_lng = 72.5714
         
         # Haversine formula for distance calculation
-        lat_diff = math.radians(latitude - self.office_latitude)
-        lng_diff = math.radians(longitude - self.office_longitude)
-        a = math.sin(lat_diff/2)**2 + math.cos(math.radians(self.office_latitude)) * math.cos(math.radians(latitude)) * math.sin(lng_diff/2)**2
+        lat_diff = math.radians(latitude - office_lat)
+        lng_diff = math.radians(longitude - office_lng)
+        a = math.sin(lat_diff/2)**2 + math.cos(math.radians(office_lat)) * math.cos(math.radians(latitude)) * math.sin(lng_diff/2)**2
         c = 2 * math.asin(math.sqrt(a))
         distance = 6371000 * c  # Earth radius in meters
         return distance <= self.attendance_radius
@@ -175,15 +167,18 @@ class Attendance(models.Model):
         """Set check-in location and validate distance"""
         self.latitude = latitude
         self.longitude = longitude
-        if self.user.office_latitude and self.user.office_longitude:
-            # Haversine formula for distance calculation
-            lat_diff = math.radians(latitude - self.user.office_latitude)
-            lng_diff = math.radians(longitude - self.user.office_longitude)
-            a = math.sin(lat_diff/2)**2 + math.cos(math.radians(self.user.office_latitude)) * math.cos(math.radians(latitude)) * math.sin(lng_diff/2)**2
-            c = 2 * math.asin(math.sqrt(a))
-            distance = 6371000 * c
-            self.distance_from_office = distance
-            self.is_location_valid = distance <= self.user.attendance_radius
+        # Default office location (Ahmedabad)
+        office_lat = 23.0225
+        office_lng = 72.5714
+        
+        # Haversine formula for distance calculation
+        lat_diff = math.radians(latitude - office_lat)
+        lng_diff = math.radians(longitude - office_lng)
+        a = math.sin(lat_diff/2)**2 + math.cos(math.radians(office_lat)) * math.cos(math.radians(latitude)) * math.sin(lng_diff/2)**2
+        c = 2 * math.asin(math.sqrt(a))
+        distance = 6371000 * c
+        self.distance_from_office = distance
+        self.is_location_valid = distance <= self.user.attendance_radius
     
     def set_check_out_location(self, latitude, longitude):
         """Set check-out location"""
