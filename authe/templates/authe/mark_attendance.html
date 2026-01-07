@@ -102,13 +102,12 @@ function checkLocationPermissions(status, clickedButton) {
         return;
     }
     
-    // For iPhone Safari, directly try GPS access as permissions API is limited
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
     
-    if (isIOS || isSafari) {
-        // iOS Safari - directly attempt GPS access
-        startGPSCapture(status, clickedButton);
+    // For iPhone Safari, show user interaction prompt first
+    if (isIOS && isSafari) {
+        showSafariLocationPrompt(status, clickedButton);
         return;
     }
     
@@ -127,6 +126,136 @@ function checkLocationPermissions(status, clickedButton) {
         });
     } else {
         startGPSCapture(status, clickedButton);
+    }
+}
+
+function showSafariLocationPrompt(status, clickedButton) {
+    showLocationPopup(`
+        <h5><i class="fas fa-mobile-alt text-primary me-2"></i>iPhone Safari Location</h5>
+        <p><strong>Important:</strong> Safari requires user interaction to access location.</p>
+        <p>When you tap "Get My Location", Safari will ask for permission.</p>
+        <p><strong>Please tap "Allow" when prompted.</strong></p>
+        <div class="alert alert-info mt-3 text-start small">
+            <strong>If permission popup doesn't appear:</strong><br>
+            1. Refresh this page<br>
+            2. Try in Private browsing mode<br>
+            3. Check Settings → Safari → Location (Allow)
+        </div>
+    `, status, 'Get My Location', () => {
+        startSafariGPSCapture(status, clickedButton);
+    });
+}
+
+function startSafariGPSCapture(status, clickedButton) {
+    clickedButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Requesting Safari location...';
+    clickedButton.disabled = true;
+    
+    // Safari-specific options
+    const safariOptions = {
+        enableHighAccuracy: false, // Start with network location for faster response
+        timeout: 15000,
+        maximumAge: 60000 // Allow cached location up to 1 minute
+    };
+    
+    // First try with network location (faster)
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            console.log('Safari network location success:', position.coords);
+            
+            // If network location is good enough, use it
+            if (position.coords.accuracy <= 500) {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                const accuracy = position.coords.accuracy;
+                const timestamp = new Date().toISOString();
+                
+                clickedButton.innerHTML = `<i class="fas fa-check me-2"></i>Location found (${accuracy.toFixed(0)}m)`;
+                submitAttendance(lat, lng, accuracy, timestamp, status, clickedButton);
+            } else {
+                // Try high accuracy GPS
+                tryHighAccuracyGPS(status, clickedButton);
+            }
+        },
+        (error) => {
+            console.log('Safari network location failed:', error);
+            // Try high accuracy GPS as fallback
+            tryHighAccuracyGPS(status, clickedButton);
+        },
+        safariOptions
+    );
+}
+
+function tryHighAccuracyGPS(status, clickedButton) {
+    clickedButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Getting precise location...';
+    
+    const highAccuracyOptions = {
+        enableHighAccuracy: true,
+        timeout: 25000,
+        maximumAge: 0
+    };
+    
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            console.log('Safari high accuracy success:', position.coords);
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            const accuracy = position.coords.accuracy;
+            const timestamp = new Date().toISOString();
+            
+            clickedButton.innerHTML = `<i class="fas fa-check me-2"></i>Precise location (${accuracy.toFixed(0)}m)`;
+            submitAttendance(lat, lng, accuracy, timestamp, status, clickedButton);
+        },
+        (error) => {
+            console.log('Safari high accuracy failed:', error);
+            handleSafariLocationError(error, status);
+            resetButtons();
+        },
+        highAccuracyOptions
+    );
+}
+
+function handleSafariLocationError(error, status) {
+    switch(error.code) {
+        case error.PERMISSION_DENIED:
+            showLocationPopup(`
+                <h5><i class="fas fa-times-circle text-danger me-2"></i>Safari Location Blocked</h5>
+                <p><strong>Location access was denied.</strong></p>
+                <div class="text-start">
+                    <strong>To fix this:</strong><br>
+                    1. Tap the "aA" icon in Safari address bar<br>
+                    2. Tap "Website Settings"<br>
+                    3. Set Location to "Allow"<br><br>
+                    <strong>Or in iPhone Settings:</strong><br>
+                    Settings → Safari → Location → "Allow"
+                </div>
+            `, status, 'Try Again');
+            break;
+        case error.POSITION_UNAVAILABLE:
+            showLocationPopup(`
+                <h5><i class="fas fa-satellite-dish text-warning me-2"></i>Safari Can't Find Location</h5>
+                <p>Safari cannot determine your location.</p>
+                <div class="text-start">
+                    <strong>Please try:</strong><br>
+                    • Move to an outdoor area<br>
+                    • Enable WiFi for better location<br>
+                    • Wait a moment and try again<br>
+                    • Try refreshing the page
+                </div>
+            `, status, 'Retry');
+            break;
+        case error.TIMEOUT:
+            showLocationPopup(`
+                <h5><i class="fas fa-clock text-info me-2"></i>Safari Location Timeout</h5>
+                <p>Safari took too long to find your location.</p>
+                <div class="text-start">
+                    <strong>Solutions:</strong><br>
+                    • Try in a more open area<br>
+                    • Check your internet connection<br>
+                    • Enable both WiFi and Cellular data<br>
+                    • Try again in a few seconds
+                </div>
+            `, status, 'Try Again');
+            break;
     }
 }
 
