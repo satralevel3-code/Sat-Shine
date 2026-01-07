@@ -221,42 +221,86 @@ function handleSafariLocationError(error, status) {
                 <h5><i class="fas fa-times-circle text-danger me-2"></i>Safari Location Blocked</h5>
                 <p><strong>Location access was denied.</strong></p>
                 <div class="text-start">
-                    <strong>To fix this:</strong><br>
+                    <strong>Quick Fix:</strong><br>
                     1. Tap the "aA" icon in Safari address bar<br>
                     2. Tap "Website Settings"<br>
                     3. Set Location to "Allow"<br><br>
-                    <strong>Or in iPhone Settings:</strong><br>
-                    Settings → Safari → Location → "Allow"
+                    <strong>Alternative:</strong> Use manual location entry below
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-warning btn-sm" onclick="showManualLocationEntry('${status}')">Enter Location Manually</button>
                 </div>
             `, status, 'Try Again');
             break;
         case error.POSITION_UNAVAILABLE:
+        case error.TIMEOUT:
             showLocationPopup(`
-                <h5><i class="fas fa-satellite-dish text-warning me-2"></i>Safari Can't Find Location</h5>
-                <p>Safari cannot determine your location.</p>
+                <h5><i class="fas fa-satellite-dish text-warning me-2"></i>Safari Location Issue</h5>
+                <p>Safari cannot find your location automatically.</p>
                 <div class="text-start">
-                    <strong>Please try:</strong><br>
-                    • Move to an outdoor area<br>
+                    <strong>Options:</strong><br>
+                    • Try again in an outdoor area<br>
                     • Enable WiFi for better location<br>
-                    • Wait a moment and try again<br>
-                    • Try refreshing the page
+                    • Or enter your location manually
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-warning btn-sm" onclick="showManualLocationEntry('${status}')">Enter Location Manually</button>
                 </div>
             `, status, 'Retry');
             break;
-        case error.TIMEOUT:
-            showLocationPopup(`
-                <h5><i class="fas fa-clock text-info me-2"></i>Safari Location Timeout</h5>
-                <p>Safari took too long to find your location.</p>
-                <div class="text-start">
-                    <strong>Solutions:</strong><br>
-                    • Try in a more open area<br>
-                    • Check your internet connection<br>
-                    • Enable both WiFi and Cellular data<br>
-                    • Try again in a few seconds
-                </div>
-            `, status, 'Try Again');
-            break;
     }
+}
+
+function showManualLocationEntry(status) {
+    closeLocationPopup();
+    
+    showLocationPopup(`
+        <h5><i class="fas fa-map-pin text-primary me-2"></i>Manual Location Entry</h5>
+        <p>Enter your current location coordinates:</p>
+        <div class="text-start">
+            <div class="mb-2">
+                <label class="form-label small">Latitude:</label>
+                <input type="number" id="manualLat" class="form-control form-control-sm" 
+                       placeholder="23.0225" step="any" style="font-size: 14px;">
+            </div>
+            <div class="mb-2">
+                <label class="form-label small">Longitude:</label>
+                <input type="number" id="manualLng" class="form-control form-control-sm" 
+                       placeholder="72.5714" step="any" style="font-size: 14px;">
+            </div>
+            <div class="alert alert-info small mt-2">
+                <strong>How to get coordinates:</strong><br>
+                1. Open Google Maps app<br>
+                2. Long press your location<br>
+                3. Copy the coordinates shown<br>
+                4. Paste them above
+            </div>
+        </div>
+    `, status, 'Submit Location', () => {
+        submitManualLocation(status);
+    });
+}
+
+function submitManualLocation(status) {
+    const lat = parseFloat(document.getElementById('manualLat').value);
+    const lng = parseFloat(document.getElementById('manualLng').value);
+    
+    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        alert('Please enter valid coordinates');
+        return;
+    }
+    
+    closeLocationPopup();
+    
+    const clickedButton = document.querySelector(`[onclick="markAttendance('${status}')"]`);
+    clickedButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Submitting manual location...';
+    clickedButton.disabled = true;
+    
+    const accuracy = 999; // Manual entry accuracy
+    const timestamp = new Date().toISOString();
+    
+    console.log(`Manual location: ${lat}, ${lng}`);
+    submitAttendance(lat, lng, accuracy, timestamp, status, clickedButton);
 }
 
 function showLocationPermissionPopup(status, clickedButton) {
