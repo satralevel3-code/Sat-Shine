@@ -154,7 +154,7 @@ function showLocationRequestPopup(status, clickedButton) {
     `, status, 'Request Location');
 }
 
-function showLocationPopup(content, status = null, buttonText = 'OK') {
+function showLocationPopup(content, status = null, buttonText = 'OK', callback = null) {
     // Create overlay
     const overlay = document.createElement('div');
     overlay.style.cssText = `
@@ -182,12 +182,14 @@ function showLocationPopup(content, status = null, buttonText = 'OK') {
         box-shadow: 0 10px 30px rgba(0,0,0,0.3);
         text-align: center;
         font-family: Arial, sans-serif;
+        max-height: 80vh;
+        overflow-y: auto;
     `;
     
     popup.innerHTML = `
         ${content}
         <div class="mt-4">
-            ${status ? `<button class="btn btn-primary me-2" onclick="handleLocationPopupAction('${status}', '${buttonText}')">${buttonText}</button>` : ''}
+            ${status ? `<button class="btn btn-primary me-2" onclick="handleLocationPopupAction('${status}', '${buttonText}', ${callback ? 'true' : 'false'})">${buttonText}</button>` : ''}
             <button class="btn btn-secondary" onclick="closeLocationPopup()">Cancel</button>
         </div>
     `;
@@ -195,13 +197,24 @@ function showLocationPopup(content, status = null, buttonText = 'OK') {
     overlay.appendChild(popup);
     document.body.appendChild(overlay);
     overlay.id = 'locationPopup';
+    
+    // Store callback for later use
+    if (callback) {
+        window.locationPopupCallback = callback;
+    }
 }
 
-function handleLocationPopupAction(status, action) {
+function handleLocationPopupAction(status, action, hasCallback) {
     closeLocationPopup();
-    const clickedButton = document.querySelector(`[onclick="markAttendance('${status}')"]`);
-    if (action === 'Request Location' || action === 'Try Again') {
-        startGPSCapture(status, clickedButton);
+    
+    if (hasCallback === 'true' && window.locationPopupCallback) {
+        window.locationPopupCallback();
+        window.locationPopupCallback = null;
+    } else {
+        const clickedButton = document.querySelector(`[onclick="markAttendance('${status}')"]`);
+        if (action === 'Request Location' || action === 'Try Again' || action === 'Retry') {
+            startGPSCapture(status, clickedButton);
+        }
     }
 }
 
@@ -214,15 +227,27 @@ function closeLocationPopup() {
 }
 
 function startGPSCapture(status, clickedButton) {
-    clickedButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Getting high-accuracy GPS...';
+    clickedButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Getting location...';
     clickedButton.disabled = true;
     
-    // Try multiple GPS attempts for better accuracy
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    
+    // iPhone-specific location options
+    const gpsOptions = {
+        enableHighAccuracy: true,
+        timeout: isIOS ? 30000 : 20000, // Longer timeout for iPhone
+        maximumAge: 0
+    };
+    
     let attempts = 0;
-    const maxAttempts = 2;
+    const maxAttempts = isIOS ? 3 : 2; // More attempts for iPhone
     
     function tryGPS() {
         attempts++;
+        
+        if (isIOS && attempts === 1) {
+            clickedButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Requesting iPhone location...';
+        }
         
         navigator.geolocation.getCurrentPosition(
             (position) => {
@@ -231,106 +256,135 @@ function startGPSCapture(status, clickedButton) {
                 const accuracy = position.coords.accuracy;
                 const timestamp = new Date().toISOString();
                 
-                // Validate GPS accuracy
-                if (accuracy > 100 && attempts < maxAttempts) {
-                    clickedButton.innerHTML = `<i class="fas fa-spinner fa-spin me-2"></i>Improving accuracy... (${accuracy.toFixed(1)}m, attempt ${attempts}/${maxAttempts})`;
-                    setTimeout(tryGPS, 2000);
+                console.log(`GPS Success: ${lat}, ${lng}, accuracy: ${accuracy}m`);
+                
+                // More lenient accuracy for iPhone
+                const maxAccuracy = isIOS ? 200 : 100;
+                
+                if (accuracy > maxAccuracy && attempts < maxAttempts) {
+                    clickedButton.innerHTML = `<i class="fas fa-spinner fa-spin me-2"></i>Improving accuracy... (${accuracy.toFixed(1)}m, ${attempts}/${maxAttempts})`;
+                    setTimeout(tryGPS, isIOS ? 3000 : 2000);
                     return;
                 }
                 
-                if (accuracy > 100) {
+                if (accuracy > maxAccuracy) {
                     showLocationPopup(`
-                        <h5><i class="fas fa-signal text-warning me-2"></i>Low GPS Accuracy</h5>
-                        <p>GPS accuracy is too low (${accuracy.toFixed(1)}m).</p>
-                        <p><strong>Please:</strong></p>
-                        <div class="text-start">
-                            • Move to an open outdoor area<br>
-                            • Away from tall buildings<br>
-                            • Ensure clear sky view<br>
-                            • Try again
-                        </div>
-                    `);
-                    resetButtons();
+                        <h5><i class="fas fa-signal text-warning me-2"></i>Location Captured with Low Accuracy</h5>
+                        <p>GPS accuracy: ${accuracy.toFixed(1)}m</p>
+                        <p>Would you like to proceed or try again?</p>
+                    `, status, 'Proceed Anyway', () => {
+                        submitAttendance(lat, lng, accuracy, timestamp, status, clickedButton);
+                    });
                     return;
                 }
                 
-                clickedButton.innerHTML = `<i class="fas fa-spinner fa-spin me-2"></i>High accuracy location captured (${accuracy.toFixed(1)}m)`;
-                
+                clickedButton.innerHTML = `<i class="fas fa-check me-2"></i>Location captured (${accuracy.toFixed(1)}m)`;
                 submitAttendance(lat, lng, accuracy, timestamp, status, clickedButton);
             },
             (error) => {
+                console.log(`GPS Error attempt ${attempts}: Code ${error.code}, Message: ${error.message}`);
+                
                 if (attempts < maxAttempts && error.code !== error.PERMISSION_DENIED) {
-                    clickedButton.innerHTML = `<i class="fas fa-spinner fa-spin me-2"></i>Retrying GPS... (attempt ${attempts}/${maxAttempts})`;
-                    setTimeout(tryGPS, 2000);
+                    clickedButton.innerHTML = `<i class="fas fa-spinner fa-spin me-2"></i>Retrying... (${attempts}/${maxAttempts})`;
+                    setTimeout(tryGPS, isIOS ? 3000 : 2000);
                     return;
                 }
                 
-                let errorMsg = '';
-                let instructions = '';
-                
-                switch(error.code) {
-                    case error.PERMISSION_DENIED: 
-                        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-                        if (isIOS) {
-                            showLocationPopup(`
-                                <h5><i class="fas fa-exclamation-triangle text-warning me-2"></i>Location Access Denied</h5>
-                                <p><strong>iPhone users:</strong> Please enable location access in device settings:</p>
-                                <div class="text-start">
-                                    1. Go to <strong>Settings</strong><br>
-                                    2. Tap <strong>Privacy & Security</strong><br>
-                                    3. Tap <strong>Location Services</strong><br>
-                                    4. Turn ON <strong>Location Services</strong><br>
-                                    5. Scroll down and tap <strong>Safari</strong><br>
-                                    6. Select <strong>"While Using App"</strong><br>
-                                    7. Return to this page and try again
-                                </div>
-                            `);
-                        } else {
-                            showLocationPopup(`
-                                <h5><i class="fas fa-exclamation-triangle text-warning me-2"></i>Location Permission Denied</h5>
-                                <p>Please allow location access:</p>
-                                <div class="text-start">
-                                    <strong>Chrome:</strong> Click location icon in address bar → Allow<br>
-                                    <strong>Firefox:</strong> Click shield icon → Allow location<br>
-                                    <strong>Edge:</strong> Click location icon → Allow
-                                </div>
-                            `);
-                        }
-                        break;
-                    case error.POSITION_UNAVAILABLE: 
-                        showLocationPopup(`
-                            <h5><i class="fas fa-satellite-dish text-danger me-2"></i>GPS Unavailable</h5>
-                            <p>Cannot get your location. Please:</p>
-                            <div class="text-start">
-                                • Move to an open area<br>
-                                • Check if location services are enabled<br>
-                                • Try again in a few moments
-                            </div>
-                        `);
-                        break;
-                    case error.TIMEOUT: 
-                        showLocationPopup(`
-                            <h5><i class="fas fa-clock text-warning me-2"></i>GPS Timeout</h5>
-                            <p>Location request timed out. Please:</p>
-                            <div class="text-start">
-                                • Move to an area with better GPS signal<br>
-                                • Ensure you're not indoors<br>
-                                • Try again
-                            </div>
-                        `);
-                        break;
+                // iPhone-specific error handling
+                if (isIOS) {
+                    handleiOSLocationError(error, status);
+                } else {
+                    handleLocationError(error, status);
                 }
                 resetButtons();
             },
-            { 
-                enableHighAccuracy: true, 
-                timeout: 20000, 
-                maximumAge: 0 
-            }
+            gpsOptions
         );
     }
     
     tryGPS();
+}
+
+function handleiOSLocationError(error, status) {
+    switch(error.code) {
+        case error.PERMISSION_DENIED:
+            showLocationPopup(`
+                <h5><i class="fas fa-mobile-alt text-danger me-2"></i>iPhone Location Access Issue</h5>
+                <p><strong>Please check these iPhone settings:</strong></p>
+                <div class="text-start small">
+                    <strong>Step 1:</strong> Settings → Privacy & Security → Location Services<br>
+                    <strong>Step 2:</strong> Ensure "Location Services" is ON<br>
+                    <strong>Step 3:</strong> Scroll down → Safari → "While Using App"<br>
+                    <strong>Step 4:</strong> Also check "Precise Location" is ON<br><br>
+                    <strong>If still not working:</strong><br>
+                    • Close Safari completely and reopen<br>
+                    • Try in Private/Incognito mode<br>
+                    • Restart your iPhone
+                </div>
+            `, status, 'Try Again');
+            break;
+        case error.POSITION_UNAVAILABLE:
+            showLocationPopup(`
+                <h5><i class="fas fa-satellite-dish text-warning me-2"></i>iPhone GPS Issue</h5>
+                <p>iPhone cannot determine your location.</p>
+                <div class="text-start">
+                    • Move outdoors for better GPS signal<br>
+                    • Check if "Precise Location" is enabled<br>
+                    • Try turning Location Services OFF and ON<br>
+                    • Wait a moment and try again
+                </div>
+            `, status, 'Retry');
+            break;
+        case error.TIMEOUT:
+            showLocationPopup(`
+                <h5><i class="fas fa-clock text-info me-2"></i>iPhone GPS Timeout</h5>
+                <p>Location request took too long on iPhone.</p>
+                <div class="text-start">
+                    • Move to an open area<br>
+                    • Ensure good cellular/WiFi signal<br>
+                    • Try again in a few seconds
+                </div>
+            `, status, 'Try Again');
+            break;
+    }
+}
+
+function handleLocationError(error, status) {
+    switch(error.code) {
+        case error.PERMISSION_DENIED:
+            showLocationPopup(`
+                <h5><i class="fas fa-exclamation-triangle text-warning me-2"></i>Location Permission Denied</h5>
+                <p>Please allow location access:</p>
+                <div class="text-start">
+                    <strong>Chrome:</strong> Click location icon in address bar → Allow<br>
+                    <strong>Firefox:</strong> Click shield icon → Allow location<br>
+                    <strong>Edge:</strong> Click location icon → Allow
+                </div>
+            `, status, 'Try Again');
+            break;
+        case error.POSITION_UNAVAILABLE:
+            showLocationPopup(`
+                <h5><i class="fas fa-satellite-dish text-danger me-2"></i>GPS Unavailable</h5>
+                <p>Cannot get your location. Please:</p>
+                <div class="text-start">
+                    • Move to an open area<br>
+                    • Check if location services are enabled<br>
+                    • Try again in a few moments
+                </div>
+            `, status, 'Retry');
+            break;
+        case error.TIMEOUT:
+            showLocationPopup(`
+                <h5><i class="fas fa-clock text-warning me-2"></i>GPS Timeout</h5>
+                <p>Location request timed out. Please:</p>
+                <div class="text-start">
+                    • Move to an area with better GPS signal<br>
+                    • Ensure you're not indoors<br>
+                    • Try again
+                </div>
+            `, status, 'Try Again');
+            break;
+    }
 }
 
 
