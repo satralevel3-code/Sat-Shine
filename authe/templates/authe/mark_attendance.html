@@ -89,14 +89,84 @@ function markAttendance(status) {
         return;
     }
     
-    // Present and Half Day require GPS location with high accuracy
-    clickedButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Getting high-accuracy GPS...';
+    // Check location services and permissions first
+    checkLocationPermissions(status, clickedButton);
+}
+
+function checkLocationPermissions(status, clickedButton) {
+    clickedButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Checking location services...';
     
     if (!navigator.geolocation) {
-        showError('GPS not supported. Cannot mark Present/Half Day without location.');
+        showLocationError('GPS not supported on this device. Cannot mark Present/Half Day without location services.');
         resetButtons();
         return;
     }
+    
+    // Check if location services are enabled
+    if ('permissions' in navigator) {
+        navigator.permissions.query({name: 'geolocation'}).then(function(result) {
+            if (result.state === 'denied') {
+                showLocationPermissionDialog(status, clickedButton);
+            } else if (result.state === 'prompt') {
+                showLocationRequestDialog(status, clickedButton);
+            } else {
+                // Permission granted, proceed with GPS
+                startGPSCapture(status, clickedButton);
+            }
+        }).catch(function() {
+            // Fallback if permissions API not supported
+            startGPSCapture(status, clickedButton);
+        });
+    } else {
+        // Fallback for older browsers
+        startGPSCapture(status, clickedButton);
+    }
+}
+
+function showLocationPermissionDialog(status, clickedButton) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-warning alert-dismissible fade show mt-3';
+    alertDiv.innerHTML = `
+        <h6><i class="fas fa-location-slash me-2"></i>Location Permission Required</h6>
+        <p>To mark Present/Half Day attendance, please:</p>
+        <ol>
+            <li>Enable location services on your device</li>
+            <li>Allow location access for this website</li>
+            <li>Refresh the page and try again</li>
+        </ol>
+        <div class="mt-2">
+            <button class="btn btn-primary btn-sm" onclick="requestLocationPermission('${status}', this.parentElement.parentElement.parentElement)">Try Again</button>
+            <button class="btn btn-secondary btn-sm ms-2" onclick="this.parentElement.parentElement.remove(); resetButtons();">Cancel</button>
+        </div>
+    `;
+    document.querySelector('.card-body').appendChild(alertDiv);
+    resetButtons();
+}
+
+function showLocationRequestDialog(status, clickedButton) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-info alert-dismissible fade show mt-3';
+    alertDiv.innerHTML = `
+        <h6><i class="fas fa-map-marker-alt me-2"></i>Location Access Needed</h6>
+        <p>This app needs access to your location to mark attendance. Please allow location access when prompted.</p>
+        <div class="mt-2">
+            <button class="btn btn-primary btn-sm" onclick="requestLocationPermission('${status}', this.parentElement.parentElement)">Allow Location Access</button>
+            <button class="btn btn-secondary btn-sm ms-2" onclick="this.parentElement.parentElement.remove(); resetButtons();">Cancel</button>
+        </div>
+    `;
+    document.querySelector('.card-body').appendChild(alertDiv);
+    resetButtons();
+}
+
+function requestLocationPermission(status, alertElement) {
+    alertElement.remove();
+    const clickedButton = document.querySelector(`[onclick="markAttendance('${status}')"]`);
+    startGPSCapture(status, clickedButton);
+}
+
+function startGPSCapture(status, clickedButton) {
+    clickedButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Getting high-accuracy GPS...';
+    clickedButton.disabled = true;
     
     // Try multiple GPS attempts for better accuracy
     let attempts = 0;
@@ -115,12 +185,12 @@ function markAttendance(status) {
                 // Validate GPS accuracy
                 if (accuracy > 100 && attempts < maxAttempts) {
                     clickedButton.innerHTML = `<i class="fas fa-spinner fa-spin me-2"></i>Improving accuracy... (${accuracy.toFixed(1)}m, attempt ${attempts}/${maxAttempts})`;
-                    setTimeout(tryGPS, 2000); // Try again after 2 seconds
+                    setTimeout(tryGPS, 2000);
                     return;
                 }
                 
                 if (accuracy > 100) {
-                    showError(`GPS accuracy too low (${accuracy.toFixed(1)}m). Move to open area for better signal and try again.`);
+                    showLocationError(`GPS accuracy too low (${accuracy.toFixed(1)}m). Move to open area for better signal and try again.`);
                     resetButtons();
                     return;
                 }
@@ -130,25 +200,38 @@ function markAttendance(status) {
                 submitAttendance(lat, lng, accuracy, timestamp, status, clickedButton);
             },
             (error) => {
-                if (attempts < maxAttempts) {
+                if (attempts < maxAttempts && error.code !== error.PERMISSION_DENIED) {
                     clickedButton.innerHTML = `<i class="fas fa-spinner fa-spin me-2"></i>Retrying GPS... (attempt ${attempts}/${maxAttempts})`;
                     setTimeout(tryGPS, 2000);
                     return;
                 }
                 
-                let errorMsg = 'GPS Error: ';
+                let errorMsg = '';
+                let instructions = '';
+                
                 switch(error.code) {
                     case error.PERMISSION_DENIED: 
-                        errorMsg += 'Location permission denied. Enable GPS permissions to mark Present/Half Day.';
+                        errorMsg = 'Location permission denied.';
+                        instructions = `
+                            <p><strong>To enable location access:</strong></p>
+                            <ul>
+                                <li><strong>Chrome:</strong> Click the location icon in address bar → Allow</li>
+                                <li><strong>Safari:</strong> Settings → Privacy & Security → Location Services → Website Settings</li>
+                                <li><strong>Mobile:</strong> Settings → Apps → Browser → Permissions → Location</li>
+                            </ul>
+                        `;
                         break;
                     case error.POSITION_UNAVAILABLE: 
-                        errorMsg += 'GPS unavailable. Move to an open area and try again.';
+                        errorMsg = 'GPS unavailable.';
+                        instructions = '<p>Please ensure location services are enabled on your device and try again in an open area.</p>';
                         break;
                     case error.TIMEOUT: 
-                        errorMsg += 'GPS timeout. Try again or move to better GPS coverage area.';
+                        errorMsg = 'GPS timeout.';
+                        instructions = '<p>Move to an area with better GPS coverage and try again.</p>';
                         break;
                 }
-                showError(errorMsg);
+                
+                showLocationError(errorMsg, instructions);
                 resetButtons();
             },
             { 
@@ -160,6 +243,19 @@ function markAttendance(status) {
     }
     
     tryGPS();
+}
+
+function showLocationError(message, instructions = '') {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-danger alert-dismissible fade show mt-3';
+    alertDiv.innerHTML = `
+        <h6><i class="fas fa-exclamation-triangle me-2"></i>Location Error</h6>
+        <p>${message}</p>
+        ${instructions}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.querySelector('.card-body').appendChild(alertDiv);
+    setTimeout(() => alertDiv.remove(), 12000);
 }
 
 function submitAttendance(latitude, longitude, accuracy, timestamp, status, button) {
