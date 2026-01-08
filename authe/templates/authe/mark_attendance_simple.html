@@ -48,11 +48,7 @@
 </div>
 
 <script>
-let isGettingLocation = false;
-
 function markAttendance(status) {
-    if (isGettingLocation) return;
-    
     document.getElementById('statusInput').value = status;
     
     if (status === 'absent') {
@@ -60,79 +56,36 @@ function markAttendance(status) {
         return;
     }
     
-    // Show loading
     const button = event.target;
     const originalText = button.textContent;
     button.textContent = 'Getting Location...';
     button.disabled = true;
-    isGettingLocation = true;
     
-    getAccurateLocation()
-        .then(position => {
-            button.textContent = 'Marking...';
-            document.getElementById('latInput').value = position.coords.latitude;
-            document.getElementById('lngInput').value = position.coords.longitude;
-            document.getElementById('accuracyInput').value = position.coords.accuracy;
-            document.getElementById('attendanceForm').submit();
-        })
-        .catch(error => {
-            alert('Location not available. Please try again.');
-            resetButton(button, originalText);
-        });
-}
-
-async function getAccurateLocation() {
-    let bestPosition = null;
-    let bestAccuracy = Infinity;
-
-    return new Promise((resolve, reject) => {
-        if (!navigator.geolocation) {
-            reject(new Error('Location not supported'));
-            return;
-        }
-
-        const watchId = navigator.geolocation.watchPosition(
-            (position) => {
-                const accuracy = position.coords.accuracy;
-
-                if (accuracy < bestAccuracy) {
-                    bestAccuracy = accuracy;
-                    bestPosition = position;
-                }
-
-                // Accept immediately if good accuracy
-                if (accuracy <= 50) {
-                    navigator.geolocation.clearWatch(watchId);
-                    resolve(position);
-                }
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                button.textContent = 'Marking...';
+                document.getElementById('latInput').value = position.coords.latitude;
+                document.getElementById('lngInput').value = position.coords.longitude;
+                document.getElementById('accuracyInput').value = position.coords.accuracy;
+                document.getElementById('attendanceForm').submit();
             },
-            (error) => {
-                navigator.geolocation.clearWatch(watchId);
-                reject(error);
+            function(error) {
+                alert('Location permission required. Please enable and try again.');
+                button.textContent = originalText;
+                button.disabled = false;
             },
             {
                 enableHighAccuracy: true,
-                maximumAge: 0,
-                timeout: 15000
+                timeout: 10000,
+                maximumAge: 0
             }
         );
-
-        // Stop after 15 seconds
-        setTimeout(() => {
-            navigator.geolocation.clearWatch(watchId);
-            if (bestPosition && bestAccuracy <= 200) {
-                resolve(bestPosition);
-            } else {
-                reject(new Error('Low accuracy'));
-            }
-        }, 15000);
-    });
-}
-
-function resetButton(button, originalText) {
-    button.textContent = originalText;
-    button.disabled = false;
-    isGettingLocation = false;
+    } else {
+        alert('Location services not supported.');
+        button.textContent = originalText;
+        button.disabled = false;
+    }
 }
 </script>
 {% endblock %}
