@@ -36,12 +36,12 @@ try:
             date=today,
             status='present',
             check_in_time=timezone.localtime().time(),
-            latitude=23.0225,
-            longitude=72.5714,
-            location_accuracy=25.0,
+            latitude=23.204692393007157,  # Use your actual coordinates for testing
+            longitude=72.63039540348785,
+            location_accuracy=15.0,
             is_location_valid=True,
-            location_address='Test Location',
-            distance_from_office=100.0
+            location_address='Test Location - Actual GPS',
+            distance_from_office=50.0
         )
         print(f"[OK] Test attendance created: {test_attendance.id}")
         

@@ -57,16 +57,41 @@ function markAttendance(status) {
     }
     
     if (navigator.geolocation) {
+        const options = {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+        };
+        
         navigator.geolocation.getCurrentPosition(
             function(position) {
+                // Check accuracy - reject if too poor
+                if (position.coords.accuracy > 100) {
+                    alert(`GPS accuracy too low (${Math.round(position.coords.accuracy)}m). Please move to an open area and try again.`);
+                    return;
+                }
+                
                 document.getElementById('latInput').value = position.coords.latitude;
                 document.getElementById('lngInput').value = position.coords.longitude;
                 document.getElementById('accuracyInput').value = position.coords.accuracy;
                 document.getElementById('attendanceForm').submit();
             },
             function(error) {
-                alert('Location access required for Present/Half Day. Please enable location and try again.');
-            }
+                let errorMsg = 'Location access required for Present/Half Day. ';
+                switch(error.code) {
+                    case error.PERMISSION_DENIED:
+                        errorMsg += 'Please enable location permission.';
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        errorMsg += 'Location unavailable. Try again.';
+                        break;
+                    case error.TIMEOUT:
+                        errorMsg += 'Location timeout. Try again.';
+                        break;
+                }
+                alert(errorMsg);
+            },
+            options
         );
     } else {
         alert('Location services not supported.');
