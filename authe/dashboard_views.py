@@ -232,29 +232,40 @@ def apply_leave(request):
     
     if request.method == 'POST':
         try:
-            data = json.loads(request.body)
+            # Handle form data instead of JSON
+            if request.content_type == 'application/json':
+                data = json.loads(request.body)
+            else:
+                data = request.POST
+                
             leave_type = data.get('leave_type')
             start_date_str = data.get('start_date')
             end_date_str = data.get('end_date')
             reason = data.get('reason', '')
+            duration = data.get('duration', 'full_day')
             
             # Validate dates
             try:
                 start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
                 end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
             except ValueError:
-                return JsonResponse({'success': False, 'error': 'Invalid date format'}, status=400)
+                messages.error(request, 'Invalid date format')
+                return redirect('apply_leave')
             
             if start_date > end_date:
-                return JsonResponse({'success': False, 'error': 'Start date cannot be after end date'}, status=400)
+                messages.error(request, 'Start date cannot be after end date')
+                return redirect('apply_leave')
             
             # Calculate days requested
             days_diff = (end_date - start_date).days + 1
+            if duration == 'half_day' and days_diff == 1:
+                days_diff = 0.5
             
             # Create leave request
             leave_request = LeaveRequest.objects.create(
                 user=request.user,
                 leave_type=leave_type,
+                duration=duration,
                 start_date=start_date,
                 end_date=end_date,
                 days_requested=days_diff,
@@ -269,20 +280,19 @@ def apply_leave(request):
                 details=f'Type: {leave_type}, Dates: {start_date} to {end_date}, Reason: {reason}'
             )
             
-            return JsonResponse({
-                'success': True,
-                'message': 'Leave application submitted successfully',
-                'leave_id': leave_request.id
-            })
+            messages.success(request, 'Leave application submitted successfully')
+            return redirect('field_dashboard')
             
-        except json.JSONDecodeError:
-            return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
         except Exception as e:
-            return JsonResponse({'success': False, 'error': f'Server error: {str(e)}'}, status=500)
+            messages.error(request, f'Error submitting leave application: {str(e)}')
+            return redirect('apply_leave')
     
     # GET request - return leave application form
+    recent_leaves = LeaveRequest.objects.filter(user=request.user).order_by('-applied_at')[:5]
+    
     context = {
         'user': request.user,
         'leave_types': LeaveRequest.LEAVE_TYPES,
+        'leave_requests': recent_leaves,
     }
     return render(request, 'authe/apply_leave.html', context)
