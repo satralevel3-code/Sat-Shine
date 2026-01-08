@@ -177,3 +177,17 @@ class LeaveRequest(models.Model):
     @property
     def days_count(self):
         return float(self.days_requested)
+
+class Holiday(models.Model):
+    """Holiday model for managing company holidays"""
+    name = models.CharField(max_length=100)
+    date = models.DateField(unique=True)
+    description = models.TextField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['date']
+    
+    def __str__(self):
+        return f"{self.name} - {self.date}"

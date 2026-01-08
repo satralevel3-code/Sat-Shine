@@ -7,7 +7,7 @@ from django.db.models import Q, Count, Case, When, IntegerField
 from django.db import transaction
 from django.core.paginator import Paginator
 from datetime import datetime, timedelta, date, time
-from .models import CustomUser, Attendance, LeaveRequest, AuditLog
+from .models import CustomUser, Attendance, LeaveRequest, AuditLog, Holiday
 from .views import create_audit_log
 import json
 import csv
@@ -236,7 +236,6 @@ def deactivate_employee(request, employee_id):
 def attendance_daily(request):
     """Daily attendance matrix view with month-based navigation"""
     from datetime import datetime, timedelta
-    from .models import Holiday
     
     # Get date range (default: current month)
     today = timezone.localdate()
@@ -259,25 +258,25 @@ def attendance_daily(request):
     dccb_filter = request.GET.get('dccb', '')
     designation_filter = request.GET.get('designation', '')
     
-    # Debug: Print filter values
-    print(f"DEBUG - DCCB Filter: '{dccb_filter}', Designation Filter: '{designation_filter}'")
-    
     # Get employees
     employees = CustomUser.objects.filter(role='field_officer', is_active=True)
-    print(f"DEBUG - Total active employees before filters: {employees.count()}")
     
     if dccb_filter:
         employees = employees.filter(dccb=dccb_filter)
-        print(f"DEBUG - Employees after DCCB filter '{dccb_filter}': {employees.count()}")
     if designation_filter:
         employees = employees.filter(designation=designation_filter)
-        print(f"DEBUG - Employees after designation filter '{designation_filter}': {employees.count()}")
     
     # Generate date range
     date_range = []
     current_date = from_date
-    holidays = Holiday.objects.filter(date__range=[from_date, to_date])
-    holiday_dates = {h.date: h for h in holidays}
+    
+    # Get holidays safely
+    try:
+        holidays = Holiday.objects.filter(date__range=[from_date, to_date])
+        holiday_dates = {h.date: h for h in holidays}
+    except:
+        # If Holiday table doesn't exist or has issues, continue without holidays
+        holiday_dates = {}
     
     while current_date <= to_date:
         is_sunday = current_date.weekday() == 6
