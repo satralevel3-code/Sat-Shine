@@ -90,165 +90,94 @@ def field_dashboard(request):
     return render(request, 'authe/field_dashboard.html', context)
 
 @login_required
-@csrf_exempt
 @require_http_methods(["POST", "GET"])
 def mark_attendance(request):
-    """Attendance marking with three options: Present (GPS), Half Day (GPS), Absent (no GPS)"""
+    """Simplified attendance marking"""
     if request.user.role != 'field_officer':
         return JsonResponse({'error': 'Access denied'}, status=403)
     
     today = timezone.localdate()
-    is_sunday_today = today.weekday() == 6
     
     if request.method == 'POST':
-        # Remove Sunday restriction for testing - allow attendance any day
-        # if is_sunday_today:
-        #     return JsonResponse({
-        #         'success': False, 
-        #         'error': 'Attendance marking not allowed on Sundays'
-        #     }, status=400)
-            
-        try:
-            data = json.loads(request.body)
-            status = data.get('status')  # 'present', 'half_day', 'absent'
-            latitude = data.get('lat')
-            longitude = data.get('lng')
-            accuracy = data.get('accuracy')
-            timestamp = data.get('timestamp')
-            
-            current_time = timezone.localtime().time()
-            
-            # Check if already marked
-            existing = Attendance.objects.filter(user=request.user, date=today).first()
-            if existing:
-                return JsonResponse({'success': False, 'error': 'Attendance already marked for today'}, status=400)
-            
-            # Validate status
-            if status not in ['present', 'half_day', 'absent']:
-                return JsonResponse({'success': False, 'error': 'Invalid attendance status'}, status=400)
-            
-            # GPS validation only for present and half_day
-            if status in ['present', 'half_day']:
-                if latitude is None or longitude is None:
-                    return JsonResponse({'success': False, 'error': 'GPS location required for Present/Half Day status'}, status=400)
-                
-                try:
-                    lat_float = float(latitude)
-                    lng_float = float(longitude)
-                    acc_float = float(accuracy) if accuracy else 999
-                    
-                    # Validate GPS accuracy - reject if too inaccurate
-                    if acc_float > 100:
-                        return JsonResponse({
-                            'success': False, 
-                            'error': f'GPS accuracy too low ({acc_float:.1f}m). Move to open area for better signal and try again.'
-                        }, status=400)
-                    
-                    # Validate coordinate ranges
-                    if not (-90 <= lat_float <= 90 and -180 <= lng_float <= 180):
-                        return JsonResponse({'success': False, 'error': 'Invalid GPS coordinates'}, status=400)
-                    
-                    # Office distance calculation using Haversine formula
-                    office_lat = 23.0225
-                    office_lng = 72.5714
-                    lat_diff = math.radians(lat_float - office_lat)
-                    lng_diff = math.radians(lng_float - office_lng)
-                    a = math.sin(lat_diff/2)**2 + math.cos(math.radians(office_lat)) * math.cos(math.radians(lat_float)) * math.sin(lng_diff/2)**2
-                    c = 2 * math.asin(math.sqrt(a))
-                    distance = 6371000 * c  # Earth radius in meters
-                    
-                    location_data = {
-                        'latitude': lat_float,
-                        'longitude': lng_float,
-                        'location_accuracy': acc_float,
-                        'is_location_valid': True,
-                        'location_address': f'GPS: {acc_float:.1f}m accuracy' + (' (Office)' if distance <= 200 else ' (Remote)'),
-                        'distance_from_office': distance
-                    }
-                    
-                except (ValueError, TypeError):
-                    return JsonResponse({'success': False, 'error': 'Invalid location data format'}, status=400)
-            else:
-                # For absent, no GPS data needed
-                location_data = {
-                    'latitude': None,
-                    'longitude': None,
-                    'location_accuracy': None,
-                    'is_location_valid': False,
-                    'location_address': 'Absent - No location required',
-                    'distance_from_office': None
-                }
-                distance = None
-            
-            # Create attendance record
-            attendance = Attendance.objects.create(
-                user=request.user,
-                date=today,
-                status=status,
-                check_in_time=current_time,
-                **location_data
-            )
-            
-            # Simple audit log without external function
+        # Handle both JSON and form data
+        if request.content_type == 'application/json':
             try:
-                from .models import AuditLog
-                AuditLog.objects.create(
-                    user=request.user,
-                    action='ATTENDANCE_MARKED',
-                    details=f'Status: {status}, Time: {current_time}'
-                )
+                data = json.loads(request.body)
             except:
-                pass  # Continue even if audit log fails
+                return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
+        else:
+            data = request.POST
             
-            # Response message
-            if status == 'present':
-                message = f'Marked Present at {current_time.strftime("%I:%M %p")}'
-            elif status == 'half_day':
-                message = f'Marked Half Day at {current_time.strftime("%I:%M %p")}'
-            else:
-                message = f'Marked Absent at {current_time.strftime("%I:%M %p")}'
-            
-            response_data = {
-                'success': True,
-                'message': message,
+        status = data.get('status')
+        latitude = data.get('lat')
+        longitude = data.get('lng')
+        accuracy = data.get('accuracy')
+        
+        # Check if already marked
+        existing = Attendance.objects.filter(user=request.user, date=today).first()
+        if existing:
+            messages.error(request, 'Attendance already marked for today')
+            return redirect('mark_attendance')
+        
+        # Validate status
+        if status not in ['present', 'half_day', 'absent']:
+            messages.error(request, 'Invalid attendance status')
+            return redirect('mark_attendance')
+        
+        current_time = timezone.localtime().time()
+        
+        # Create attendance record
+        try:
+            attendance_data = {
+                'user': request.user,
+                'date': today,
                 'status': status,
-                'check_in_time': current_time.strftime('%I:%M %p')
+                'check_in_time': current_time,
             }
             
-            # Add detailed location info for present/half_day
-            if status != 'absent' and latitude is not None:
-                response_data.update({
-                    'location': f'{lat_float:.6f}, {lng_float:.6f}',
-                    'accuracy': f'{acc_float:.1f}m',
-                    'office_distance': f'{distance:.0f}m',
-                    'latitude': lat_float,
-                    'longitude': lng_float,
-                    'timing_status': 'On Time' if current_time <= time(10, 0) else 'Late Arrival'
+            # Add GPS data if available
+            if latitude and longitude and status != 'absent':
+                attendance_data.update({
+                    'latitude': float(latitude),
+                    'longitude': float(longitude),
+                    'location_accuracy': float(accuracy) if accuracy else 999,
+                    'is_location_valid': True,
+                    'location_address': f'GPS Location',
+                    'distance_from_office': 0
                 })
             
-            return JsonResponse(response_data)
+            attendance = Attendance.objects.create(**attendance_data)
             
-        except json.JSONDecodeError:
-            return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
+            # Success message
+            messages.success(request, f'Attendance marked as {status.replace("_", " ").title()} at {current_time.strftime("%I:%M %p")}')
+            
+            # Return JSON for AJAX or redirect for form
+            if request.content_type == 'application/json':
+                return JsonResponse({
+                    'success': True,
+                    'message': f'Marked {status}',
+                    'check_in_time': current_time.strftime('%I:%M %p')
+                })
+            else:
+                return redirect('field_dashboard')
+                
         except Exception as e:
-            import traceback
-            return JsonResponse({
-                'success': False, 
-                'error': f'Server error: {str(e)}',
-                'traceback': traceback.format_exc()[:500]
-            }, status=500)
+            messages.error(request, f'Error marking attendance: {str(e)}')
+            if request.content_type == 'application/json':
+                return JsonResponse({'success': False, 'error': str(e)}, status=500)
+            else:
+                return redirect('mark_attendance')
     
-    # GET request - check if already marked today
+    # GET request
     today_attendance = Attendance.objects.filter(user=request.user, date=today).first()
     
     context = {
         'user': request.user,
         'today': today,
         'today_attendance': today_attendance,
-        'is_sunday': is_sunday_today,
         'current_time': timezone.now()
     }
-    return render(request, 'authe/mark_attendance.html', context)
+    return render(request, 'authe/mark_attendance_simple.html', context)
 
 @login_required
 def attendance_history(request):

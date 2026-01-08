@@ -1,0 +1,76 @@
+{% extends 'main/base_unified.html' %}
+
+{% block title %}Mark Attendance{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3>Mark Attendance</h3>
+    </div>
+    <div class="card-body">
+        {% if today_attendance %}
+            <div class="alert alert-info">
+                <h5>Already Marked</h5>
+                <p>Status: {{ today_attendance.get_status_display }}</p>
+                <p>Time: {{ today_attendance.check_in_time|time:"g:i A" }}</p>
+            </div>
+        {% else %}
+            <div class="text-center mb-4">
+                <h5>{{ current_time|date:"l, F d, Y" }}</h5>
+                <p>{{ current_time|date:"g:i A" }}</p>
+            </div>
+
+            <form method="post" id="attendanceForm">
+                {% csrf_token %}
+                <input type="hidden" name="status" id="statusInput">
+                <input type="hidden" name="lat" id="latInput">
+                <input type="hidden" name="lng" id="lngInput">
+                <input type="hidden" name="accuracy" id="accuracyInput">
+                
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-success btn-lg" onclick="markAttendance('present')">
+                        Present
+                    </button>
+                    <button type="button" class="btn btn-warning btn-lg" onclick="markAttendance('half_day')">
+                        Half Day
+                    </button>
+                    <button type="button" class="btn btn-danger btn-lg" onclick="markAttendance('absent')">
+                        Absent
+                    </button>
+                </div>
+            </form>
+        {% endif %}
+        
+        <div class="mt-3">
+            <a href="{% url 'field_dashboard' %}" class="btn btn-secondary">Back to Dashboard</a>
+        </div>
+    </div>
+</div>
+
+<script>
+function markAttendance(status) {
+    document.getElementById('statusInput').value = status;
+    
+    if (status === 'absent') {
+        document.getElementById('attendanceForm').submit();
+        return;
+    }
+    
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                document.getElementById('latInput').value = position.coords.latitude;
+                document.getElementById('lngInput').value = position.coords.longitude;
+                document.getElementById('accuracyInput').value = position.coords.accuracy;
+                document.getElementById('attendanceForm').submit();
+            },
+            function(error) {
+                alert('Location access required for Present/Half Day. Please enable location and try again.');
+            }
+        );
+    } else {
+        alert('Location services not supported.');
+    }
+}
+</script>
+{% endblock %}
