@@ -140,8 +140,8 @@ def mark_attendance(request):
                 accuracy = float(accuracy) if accuracy else 999
                 
                 # Backend validation - reject poor accuracy
-                if accuracy > 100:
-                    messages.error(request, 'Unable to verify location. Please try again in open area.')
+                if accuracy > 200:
+                    messages.error(request, 'Location not available. Please try again.')
                     return redirect('mark_attendance')
                 
                 attendance_data.update({

@@ -69,13 +69,14 @@ function markAttendance(status) {
     
     getAccurateLocation()
         .then(position => {
+            button.textContent = 'Marking...';
             document.getElementById('latInput').value = position.coords.latitude;
             document.getElementById('lngInput').value = position.coords.longitude;
             document.getElementById('accuracyInput').value = position.coords.accuracy;
             document.getElementById('attendanceForm').submit();
         })
         .catch(error => {
-            alert('Unable to verify location. Please try again in open area.');
+            alert('Location not available. Please try again.');
             resetButton(button, originalText);
         });
 }
@@ -119,7 +120,7 @@ async function getAccurateLocation() {
         // Stop after 15 seconds
         setTimeout(() => {
             navigator.geolocation.clearWatch(watchId);
-            if (bestPosition && bestAccuracy <= 100) {
+            if (bestPosition && bestAccuracy <= 200) {
                 resolve(bestPosition);
             } else {
                 reject(new Error('Low accuracy'));
