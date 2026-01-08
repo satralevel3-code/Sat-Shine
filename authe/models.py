@@ -113,13 +113,28 @@ class Attendance(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES)
     check_in_time = models.TimeField(null=True, blank=True)
     check_out_time = models.TimeField(null=True, blank=True)
-    location = models.CharField(max_length=200, null=True, blank=True)
     remarks = models.TextField(null=True, blank=True)
     marked_at = models.DateTimeField(auto_now_add=True)
+    
+    # GPS Location fields
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+    location_accuracy = models.FloatField(null=True, blank=True)
+    location_address = models.CharField(max_length=300, null=True, blank=True)
+    is_location_valid = models.BooleanField(default=False)
+    distance_from_office = models.FloatField(null=True, blank=True)
     
     class Meta:
         unique_together = ['user', 'date']
         ordering = ['-date']
+    
+    @property
+    def timing_status(self):
+        if self.check_in_time and self.check_in_time <= time(9, 30):
+            return 'On Time'
+        elif self.check_in_time:
+            return 'Late Arrival'
+        return 'Not Marked'
     
     def __str__(self):
         return f"{self.user.employee_id} - {self.date} - {self.status}"
