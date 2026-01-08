@@ -61,6 +61,14 @@ function markAttendance(status) {
     button.textContent = 'Getting Location...';
     button.disabled = true;
     
+    // Check if HTTPS is required
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+        alert('Location services require HTTPS. Please use secure connection.');
+        button.textContent = originalText;
+        button.disabled = false;
+        return;
+    }
+    
     if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
             function(position) {
@@ -71,18 +79,33 @@ function markAttendance(status) {
                 document.getElementById('attendanceForm').submit();
             },
             function(error) {
-                alert('Location permission required. Please enable and try again.');
+                let errorMsg = '';
+                switch(error.code) {
+                    case error.PERMISSION_DENIED:
+                        errorMsg = 'Location access denied. Please allow location and refresh page.';
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        errorMsg = 'Location unavailable. Please check GPS/WiFi and try again.';
+                        break;
+                    case error.TIMEOUT:
+                        errorMsg = 'Location timeout. Please try again.';
+                        break;
+                    default:
+                        errorMsg = 'Location error. Please try again.';
+                        break;
+                }
+                alert(errorMsg);
                 button.textContent = originalText;
                 button.disabled = false;
             },
             {
                 enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 0
+                timeout: 15000,
+                maximumAge: 60000
             }
         );
     } else {
-        alert('Location services not supported.');
+        alert('Location services not supported by this browser.');
         button.textContent = originalText;
         button.disabled = false;
     }
