@@ -137,10 +137,17 @@ def mark_attendance(request):
             
             # Add GPS data if available
             if latitude and longitude and status != 'absent':
+                accuracy = float(accuracy) if accuracy else 999
+                
+                # Backend validation - reject poor accuracy
+                if accuracy > 100:
+                    messages.error(request, 'Unable to verify location. Please try again in open area.')
+                    return redirect('mark_attendance')
+                
                 attendance_data.update({
                     'latitude': float(latitude),
                     'longitude': float(longitude),
-                    'location_accuracy': float(accuracy) if accuracy else 999,
+                    'location_accuracy': accuracy,
                     'is_location_valid': True,
                     'location_address': f'GPS Location',
                     'distance_from_office': 0
