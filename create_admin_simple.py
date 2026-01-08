@@ -8,23 +8,21 @@ from authe.models import CustomUser
 # Delete existing admin if exists
 CustomUser.objects.filter(employee_id='MP0001').delete()
 
-# Create admin user
-admin = CustomUser.objects.create_user(
+# Create admin user with only required fields
+admin = CustomUser(
     username='MP0001',
     employee_id='MP0001',
     email='admin@satshine.com',
-    password='Admin@123',
     first_name='ADMIN',
     last_name='USER',
     contact_number='9999999999',
     designation='Manager',
-    role='admin'
+    role='admin',
+    is_staff=True,
+    is_superuser=True,
+    is_active=True
 )
-
-# Set admin permissions
-admin.is_staff = True
-admin.is_superuser = True
-admin.is_active = True
+admin.set_password('Admin@123')
 admin.save()
 
 print("Admin created successfully!")
