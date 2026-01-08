@@ -66,7 +66,7 @@ function markAttendance(status) {
         navigator.geolocation.getCurrentPosition(
             function(position) {
                 // Check accuracy - reject if too poor
-                if (position.coords.accuracy > 100) {
+                if (position.coords.accuracy > 50) {
                     alert(`GPS accuracy too low (${Math.round(position.coords.accuracy)}m). Please move to an open area and try again.`);
                     return;
                 }
