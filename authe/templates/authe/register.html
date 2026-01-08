@@ -186,7 +186,7 @@
             <div id="password2-error" class="field-error" style="display: none;"></div>
         </div>
 
-        <button type="submit" class="btn btn-primary btn-block mt-3" id="submitBtn" disabled>
+        <button type="submit" class="btn btn-primary btn-block mt-3" id="submitBtn">
             Register Employee
         </button>
     </form>
@@ -540,33 +540,30 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Form submission
+    // Form submission - simplified validation
     form.addEventListener('submit', function(e) {
-        // Mark all fields as touched
-        Object.keys(fieldTouched).forEach(field => fieldTouched[field] = true);
+        // Basic validation only
+        const employeeId = fields.employeeId.value.trim();
+        const firstName = fields.firstName.value.trim();
+        const lastName = fields.lastName.value.trim();
+        const email = fields.email.value.trim();
+        const password1 = fields.password1.value;
+        const password2 = fields.password2.value;
         
-        // Validate all fields
-        validateEmployeeId();
-        validateRequired('firstName');
-        validateRequired('lastName');
-        validateRequired('designation');
-        validateContact();
-        validateEmail();
-        validatePassword();
-        validatePasswordConfirm();
-        
-        // Check if form is valid
-        const requiredFields = ['employeeId', 'firstName', 'lastName', 'designation', 'contact', 'email', 'password1', 'password2'];
-        const hasErrors = requiredFields.some(field => !validationState[field]);
-        
-        if (hasErrors) {
+        if (!employeeId || !firstName || !lastName || !email || !password1 || !password2) {
+            showFormAlert('Please fill in all required fields.');
             e.preventDefault();
-            showFormAlert('Registration failed. Please fix the highlighted fields and try again.');
             return false;
         }
         
-        // If validation passes, show loading state and allow form submission
-        submitBtn.innerHTML = 'Creating Profile...';
+        if (password1 !== password2) {
+            showFormAlert('Passwords do not match.');
+            e.preventDefault();
+            return false;
+        }
+        
+        // Show loading state
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Profile...';
         submitBtn.disabled = true;
         return true;
     });

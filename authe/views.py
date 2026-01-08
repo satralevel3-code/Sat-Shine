@@ -97,15 +97,19 @@ def register_view(request):
                     request, 
                     f'Role: {user.role}, Designation: {user.designation}'
                 )
-                # Add success message for login page only
                 messages.success(request, 'Profile created successfully. You may now log in.')
                 return redirect('login')
             except Exception as e:
-                print(f"Registration error: {str(e)}")  # Debug print
-                messages.error(request, f'Registration failed: {str(e)}')
+                # Log the actual error for debugging
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Registration error for {form.cleaned_data.get('employee_id', 'unknown')}: {str(e)}")
+                messages.error(request, 'Registration failed. Please check your information and try again.')
         else:
             # Show specific form errors
-            print(f"Form errors: {form.errors}")  # Debug print
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.debug(f"Form errors: {form.errors}")
             for field, errors in form.errors.items():
                 for error in errors:
                     messages.error(request, f'{field.replace("_", " ").title()}: {error}')
