@@ -1,4 +1,4 @@
-{% extends 'main/base.html' %}
+{% extends 'main/base_unified.html' %}
 
 {% block title %}Mark Attendance - SAT-SHINE{% endblock %}
 
@@ -156,10 +156,12 @@ function submitAttendance(latitude, longitude, accuracy, timestamp, status, butt
         body: JSON.stringify(data)
     })
     .then(response => {
+        console.log('Response status:', response.status);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.json();
     })
     .then(data => {
+        console.log('Response data:', data);
         if (data.success) {
             showSuccess(`Attendance marked successfully<br><strong>Time:</strong> ${data.check_in_time}`);
             setTimeout(() => window.location.reload(), 2000);
@@ -169,6 +171,7 @@ function submitAttendance(latitude, longitude, accuracy, timestamp, status, butt
         }
     })
     .catch(error => {
+        console.error('Attendance marking error:', error);
         showSimpleError('Unable to mark attendance. Please try again.');
         resetButtons();
     });
