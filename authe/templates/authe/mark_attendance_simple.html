@@ -88,7 +88,26 @@ function markAttendance(status) {
                         errorMsg = 'Location unavailable. Please check GPS/WiFi and try again.';
                         break;
                     case error.TIMEOUT:
-                        errorMsg = 'Location timeout. Please try again.';
+                        // Try again with network location on timeout
+                        navigator.geolocation.getCurrentPosition(
+                            function(position) {
+                                button.textContent = 'Marking...';
+                                document.getElementById('latInput').value = position.coords.latitude;
+                                document.getElementById('lngInput').value = position.coords.longitude;
+                                document.getElementById('accuracyInput').value = position.coords.accuracy;
+                                document.getElementById('attendanceForm').submit();
+                            },
+                            function(fallbackError) {
+                                alert('Location timeout. Please try again.');
+                                button.textContent = originalText;
+                                button.disabled = false;
+                            },
+                            {
+                                enableHighAccuracy: false,
+                                timeout: 10000,
+                                maximumAge: 300000
+                            }
+                        );
                         break;
                     default:
                         errorMsg = 'Location error. Please try again.';
@@ -100,8 +119,8 @@ function markAttendance(status) {
             },
             {
                 enableHighAccuracy: true,
-                timeout: 15000,
-                maximumAge: 60000
+                timeout: 30000,
+                maximumAge: 300000
             }
         );
     } else {
