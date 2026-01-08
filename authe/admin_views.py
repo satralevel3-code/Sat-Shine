@@ -534,7 +534,7 @@ def attendance_geo(request):
 @login_required
 @admin_required
 def attendance_geo_data(request):
-    """API endpoint for map loading with lat/lng fields - show all users"""
+    """API endpoint for map loading - simplified version"""
     date_str = request.GET.get('date', timezone.localdate().isoformat())
     status_filter = request.GET.get('status', '')
     
@@ -544,65 +544,68 @@ def attendance_geo_data(request):
         selected_date = timezone.localdate()
     
     try:
-        # Query attendance records with GPS data
+        # Get all attendance records with GPS data
         attendance_query = Attendance.objects.filter(
             latitude__isnull=False,
             longitude__isnull=False
         ).select_related('user')
         
-        # Filter by date first
-        date_filtered = attendance_query.filter(date=selected_date)
+        # Apply date filter
+        if date_str:
+            attendance_query = attendance_query.filter(date=selected_date)
         
-        if date_filtered.exists():
-            # Use records for selected date
-            attendance_query = date_filtered
-        else:
-            # If no data for selected date, show recent GPS data
-            attendance_query = attendance_query.order_by('-date')[:50]
-        
-        # Apply status filter if provided
+        # Apply status filter
         if status_filter:
             attendance_query = attendance_query.filter(status=status_filter)
         
-        # Process ALL records efficiently
+        # If no records for selected date, show recent GPS data
+        if not attendance_query.exists():
+            attendance_query = Attendance.objects.filter(
+                latitude__isnull=False,
+                longitude__isnull=False
+            ).select_related('user').order_by('-date')[:20]
+        
+        # Build response data
         geo_data = []
         for record in attendance_query:
             try:
                 lat = float(record.latitude)
                 lng = float(record.longitude)
                 
+                # Calculate timing status
+                timing_status = 'Not Marked'
+                if record.check_in_time:
+                    if record.check_in_time <= time(9, 30):
+                        timing_status = 'On Time'
+                    else:
+                        timing_status = 'Late Arrival'
+                
                 geo_data.append({
                     'employee_id': record.user.employee_id,
                     'name': f"{record.user.first_name} {record.user.last_name}",
                     'designation': record.user.designation,
-                    'dccb': record.user.dccb or '',
+                    'dccb': record.user.dccb or 'Not Assigned',
                     'status': record.status,
                     'date': record.date.isoformat(),
-                    'is_late': record.check_in_time > time(10, 0) if record.check_in_time else False,
-                    'timing_status': record.timing_status,
-                    'lat': round(lat, 15),
-                    'lng': round(lng, 15),
-                    'marked_at': record.marked_at.strftime('%H:%M') if record.marked_at else '',
-                    'check_in_time': record.check_in_time.strftime('%H:%M') if record.check_in_time else '',
-                    'location_address': record.location_address or f'GPS Location ({lat:.6f}, {lng:.6f})',
-                    'location_accuracy': round(record.location_accuracy) if record.location_accuracy else 0,
-                    'distance_from_office': round(record.distance_from_office) if record.distance_from_office else 0,
-                    'is_location_valid': record.is_location_valid
+                    'lat': lat,
+                    'lng': lng,
+                    'timing_status': timing_status,
+                    'check_in_time': record.check_in_time.strftime('%H:%M') if record.check_in_time else 'Not Marked',
+                    'location_address': record.location_address or f'GPS: {lat:.6f}, {lng:.6f}',
+                    'location_accuracy': int(record.location_accuracy) if record.location_accuracy else 0
                 })
             except (ValueError, TypeError) as e:
-                print(f"Error processing record {record.id}: {e}")
                 continue
         
         return JsonResponse({
             'success': True,
             'count': len(geo_data),
             'selected_date': selected_date.isoformat(),
-            'message': f'Showing {len(geo_data)} GPS attendance records',
+            'message': f'Found {len(geo_data)} GPS attendance records',
             'data': geo_data
         })
         
     except Exception as e:
-        print(f"Error in attendance_geo_data: {e}")
         return JsonResponse({
             'success': False,
             'error': str(e),
