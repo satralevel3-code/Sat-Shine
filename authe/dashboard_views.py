@@ -248,12 +248,16 @@ def apply_leave(request):
             if start_date > end_date:
                 return JsonResponse({'success': False, 'error': 'Start date cannot be after end date'}, status=400)
             
+            # Calculate days requested
+            days_diff = (end_date - start_date).days + 1
+            
             # Create leave request
             leave_request = LeaveRequest.objects.create(
                 user=request.user,
                 leave_type=leave_type,
                 start_date=start_date,
                 end_date=end_date,
+                days_requested=days_diff,
                 reason=reason,
                 status='pending'
             )
@@ -279,6 +283,6 @@ def apply_leave(request):
     # GET request - return leave application form
     context = {
         'user': request.user,
-        'leave_types': LeaveRequest.LEAVE_TYPE_CHOICES,
+        'leave_types': LeaveRequest.LEAVE_TYPES,
     }
     return render(request, 'authe/apply_leave.html', context)
