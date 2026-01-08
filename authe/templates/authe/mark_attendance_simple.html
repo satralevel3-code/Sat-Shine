@@ -79,48 +79,20 @@ function markAttendance(status) {
                 document.getElementById('attendanceForm').submit();
             },
             function(error) {
-                let errorMsg = '';
-                switch(error.code) {
-                    case error.PERMISSION_DENIED:
-                        errorMsg = 'Location access denied. Please allow location and refresh page.';
-                        break;
-                    case error.POSITION_UNAVAILABLE:
-                        errorMsg = 'Location unavailable. Please check GPS/WiFi and try again.';
-                        break;
-                    case error.TIMEOUT:
-                        // Try again with network location on timeout
-                        navigator.geolocation.getCurrentPosition(
-                            function(position) {
-                                button.textContent = 'Marking...';
-                                document.getElementById('latInput').value = position.coords.latitude;
-                                document.getElementById('lngInput').value = position.coords.longitude;
-                                document.getElementById('accuracyInput').value = position.coords.accuracy;
-                                document.getElementById('attendanceForm').submit();
-                            },
-                            function(fallbackError) {
-                                alert('Location timeout. Please try again.');
-                                button.textContent = originalText;
-                                button.disabled = false;
-                            },
-                            {
-                                enableHighAccuracy: false,
-                                timeout: 10000,
-                                maximumAge: 300000
-                            }
-                        );
-                        break;
-                    default:
-                        errorMsg = 'Location error. Please try again.';
-                        break;
+                // On any error, allow manual attendance without GPS
+                const proceed = confirm('Location not available. Mark attendance without GPS location?');
+                if (proceed) {
+                    button.textContent = 'Marking...';
+                    document.getElementById('attendanceForm').submit();
+                } else {
+                    button.textContent = originalText;
+                    button.disabled = false;
                 }
-                alert(errorMsg);
-                button.textContent = originalText;
-                button.disabled = false;
             },
             {
-                enableHighAccuracy: true,
-                timeout: 30000,
-                maximumAge: 300000
+                enableHighAccuracy: false,
+                timeout: 10000,
+                maximumAge: 600000
             }
         );
     } else {
