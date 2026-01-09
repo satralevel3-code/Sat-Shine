@@ -97,6 +97,7 @@ def field_dashboard(request):
         'team_data': team_data,
         'team_members': team_members,
         'current_time': timezone.now(),
+        'debug_attendance': today_attendance.__dict__ if today_attendance else None,  # Debug info
     }
     
     return render(request, 'authe/field_dashboard.html', context)

@@ -272,6 +272,13 @@
         {% endfor %}
     {% endif %}
 
+    <!-- DEBUG INFO (remove in production) -->
+    {% if debug_attendance %}
+    <div class="alert alert-info">
+        <strong>Debug:</strong> Attendance found - Status: {{ today_attendance.status }}, DC Confirmed: {{ today_attendance.is_confirmed_by_dc }}
+    </div>
+    {% endif %}
+
     <!-- PRIMARY ACTION CARDS -->
     <div class="action-cards">
         <!-- Today's Attendance -->
