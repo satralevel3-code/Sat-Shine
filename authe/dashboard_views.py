@@ -23,9 +23,21 @@ def field_dashboard(request):
     storage = messages.get_messages(request)
     storage.used = True
     
-    # Get today's attendance
+    # Get today's attendance - include DC confirmed records
     today = timezone.localdate()
     today_attendance = Attendance.objects.filter(user=request.user, date=today).first()
+    
+    # If no attendance record exists, check if DC has confirmed this user as absent
+    if not today_attendance:
+        # Check if there's a DC confirmed record for this user
+        dc_confirmed_record = Attendance.objects.filter(
+            user=request.user,
+            date=today,
+            is_confirmed_by_dc=True
+        ).first()
+        
+        if dc_confirmed_record:
+            today_attendance = dc_confirmed_record
     
     # Get recent attendance (last 7 days)
     week_ago = today - timedelta(days=7)
@@ -58,7 +70,7 @@ def field_dashboard(request):
             designation__in=['MT', 'Support']
         ).exclude(id=request.user.id).order_by('employee_id')
         
-        # Get today's attendance for team members
+        # Get today's attendance for team members - include DC confirmed records
         team_members = []
         for user in team_users:
             user_attendance = Attendance.objects.filter(user=user, date=today).first()
@@ -85,6 +97,7 @@ def field_dashboard(request):
         'team_data': team_data,
         'team_members': team_members,
         'current_time': timezone.now(),
+        'debug_attendance': today_attendance.__dict__ if today_attendance else None,  # Debug info
     }
     
     return render(request, 'authe/field_dashboard.html', context)

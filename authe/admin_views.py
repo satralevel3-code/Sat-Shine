@@ -51,10 +51,10 @@ def admin_dashboard(request):
         count=Count('id')
     ).order_by('dccb')
     
-    # Attendance KPIs for today
+    # Attendance KPIs for today - include DC confirmed records
     attendance_kpis = Attendance.objects.filter(date=today).aggregate(
         present=Count(Case(When(status='present', then=1), output_field=IntegerField())),
-        absent=Count(Case(When(status='absent', then=1), output_field=IntegerField())),
+        absent=Count(Case(When(Q(status='absent') | Q(is_confirmed_by_dc=True, status='auto_not_marked'), then=1), output_field=IntegerField())),
         half_day=Count(Case(When(status='half_day', then=1), output_field=IntegerField()))
     )
     
@@ -307,10 +307,16 @@ def attendance_daily(request):
         if record.check_in_time and record.check_in_time > time(9, 30):
             is_late = True
         
+        # Determine final status considering DC confirmation
+        final_status = record.status
+        if record.is_confirmed_by_dc and record.status == 'auto_not_marked':
+            final_status = 'absent'  # DC confirmed NM records become Absent
+        
         attendance_dict[record.user.employee_id][record.date] = {
-            'status': record.status,
+            'status': final_status,
             'is_late': is_late,
-            'check_in_time': record.check_in_time
+            'check_in_time': record.check_in_time,
+            'is_dc_confirmed': record.is_confirmed_by_dc
         }
     
     # Prepare final data structure
@@ -322,12 +328,28 @@ def attendance_daily(request):
             date_obj = date_info['date']
             attendance = attendance_dict.get(employee.employee_id, {}).get(date_obj, {})
             
+            # Check if this employee has DC confirmed attendance for dates not in records
+            status = attendance.get('status', 'not_marked')
+            
+            # If no attendance record exists, check if DC has confirmed this employee's attendance
+            if status == 'not_marked':
+                # Check if there's a DC confirmed record that would make this absent
+                dc_confirmed_record = Attendance.objects.filter(
+                    user=employee,
+                    date=date_obj,
+                    is_confirmed_by_dc=True
+                ).first()
+                
+                if dc_confirmed_record:
+                    status = 'absent'  # DC confirmed NM becomes Absent
+            
             employee_attendance.append({
                 'date': date_obj,
-                'status': attendance.get('status', 'not_marked'),
+                'status': status,
                 'is_late': attendance.get('is_late', False),
                 'is_sunday': date_info['is_sunday'],
-                'is_holiday': date_info['is_holiday']
+                'is_holiday': date_info['is_holiday'],
+                'is_dc_confirmed': attendance.get('is_dc_confirmed', False)
             })
         
         attendance_data.append({
@@ -445,10 +467,10 @@ def compact_analytics(request):
     attendance_today = Attendance.objects.filter(date=today)
     total_employees = CustomUser.objects.filter(role='field_officer', is_active=True).count()
     
-    # 1. Attendance Status Distribution
+    # 1. Attendance Status Distribution - include DC confirmed
     status_counts = attendance_today.aggregate(
         present=Count(Case(When(status='present', then=1), output_field=IntegerField())),
-        absent=Count(Case(When(status='absent', then=1), output_field=IntegerField())),
+        absent=Count(Case(When(Q(status='absent') | Q(is_confirmed_by_dc=True, status='auto_not_marked'), then=1), output_field=IntegerField())),
         half_day=Count(Case(When(status='half_day', then=1), output_field=IntegerField()))
     )
     not_marked = total_employees - sum(status_counts.values())
@@ -459,11 +481,11 @@ def compact_analytics(request):
     on_time = attendance_today.filter(status__in=['present', 'half_day'], check_in_time__lte=late_cutoff).count()
     late = attendance_today.filter(status__in=['present', 'half_day'], check_in_time__gt=late_cutoff).count()
     
-    # 3. DCCB Attendance Comparison (top 6 DCCBs)
+    # 3. DCCB Attendance Comparison (top 6 DCCBs) - include DC confirmed
     dccb_stats = []
     dccb_attendance = CustomUser.objects.filter(role='field_officer', is_active=True, dccb__isnull=False).values('dccb').annotate(
         total=Count('id'),
-        present_today=Count(Case(When(attendance__date=today, attendance__status__in=['present', 'half_day'], then=1), output_field=IntegerField()))
+        present_today=Count(Case(When(Q(attendance__date=today, attendance__status__in=['present', 'half_day']) | Q(attendance__date=today, attendance__is_confirmed_by_dc=True, attendance__status='absent'), then=1), output_field=IntegerField()))
     ).order_by('-total')[:6]
     
     for dccb in dccb_attendance:

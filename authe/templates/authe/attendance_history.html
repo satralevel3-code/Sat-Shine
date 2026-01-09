@@ -177,6 +177,10 @@
                             <div class="dot-absent attendance-dot position-relative me-2"></div>
                             <small>Absent</small>
                         </div>
+                        <div class="d-flex align-items-center">
+                            <div class="dot-absent attendance-dot position-relative me-2" style="border: 2px solid #fbbf24; box-shadow: 0 0 4px rgba(251, 191, 36, 0.5);"></div>
+                            <small>DC Confirmed</small>
+                        </div>
                     </div>
                     
                     <!-- Summary Cards -->
@@ -210,7 +214,9 @@ const attendanceData = {
     {% for record in attendance_records %}
     '{{ record.date|date:"Y-m-d" }}': {
         status: '{{ record.status }}',
-        checkIn: '{{ record.check_in_time|time:"H:i" }}'
+        checkIn: '{{ record.check_in_time|time:"H:i" }}',
+        dcConfirmed: {{ record.is_confirmed_by_dc|yesno:"true,false" }},
+        confirmedBy: '{{ record.confirmed_by_dc.employee_id|default:"" }}'
     },
     {% endfor %}
 };
@@ -256,23 +262,39 @@ function generateCalendar(year, month) {
                 dot.classList.add('attendance-dot');
                 
                 const attendance = attendanceData[dateStr];
+                let title = '';
+                
                 if (attendance.status === 'present') {
                     const checkInTime = attendance.checkIn;
                     if (checkInTime && checkInTime > '09:30') {
                         dot.classList.add('dot-late');
                         lateCount++;
+                        title = `Late arrival at ${checkInTime}`;
                     } else {
                         dot.classList.add('dot-present');
+                        title = `Present at ${checkInTime}`;
                     }
                     presentCount++;
                 } else if (attendance.status === 'half_day') {
                     dot.classList.add('dot-half-day');
                     halfDayCount++;
+                    title = 'Half Day';
                 } else if (attendance.status === 'absent' || attendance.status === 'auto_not_marked') {
                     dot.classList.add('dot-absent');
                     absentCount++;
+                    title = 'Absent';
+                    if (attendance.dcConfirmed) {
+                        title += ` (DC Confirmed by ${attendance.confirmedBy})`;
+                    }
                 }
                 
+                if (attendance.dcConfirmed && attendance.status === 'absent') {
+                    // Add visual indicator for DC confirmed records
+                    dot.style.border = '2px solid #fbbf24';
+                    dot.style.boxShadow = '0 0 4px rgba(251, 191, 36, 0.5)';
+                }
+                
+                dot.title = title;
                 cell.appendChild(dot);
             }
             
