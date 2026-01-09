@@ -272,13 +272,6 @@
         {% endfor %}
     {% endif %}
 
-    <!-- DEBUG INFO (remove in production) -->
-    {% if debug_attendance %}
-    <div class="alert alert-info">
-        <strong>Debug:</strong> Attendance found - Status: {{ today_attendance.status }}, DC Confirmed: {{ today_attendance.is_confirmed_by_dc }}
-    </div>
-    {% endif %}
-
     <!-- PRIMARY ACTION CARDS -->
     <div class="action-cards">
         <!-- Today's Attendance -->
@@ -411,8 +404,11 @@
         <div class="team-header">
             <h2 class="team-title">Team Overview</h2>
             <div class="d-flex gap-2">
-                <input type="date" id="confirmDate" class="form-control" value="{{ current_time|date:'Y-m-d' }}">
-                <button class="btn btn-warning" id="confirmBtn" onclick="confirmAttendance()">Confirm Today</button>
+                <label class="form-label me-2">From:</label>
+                <input type="date" id="startDate" class="form-control" value="{{ current_time|date:'Y-m-d' }}">
+                <label class="form-label me-2 ms-2">To:</label>
+                <input type="date" id="endDate" class="form-control" value="{{ current_time|date:'Y-m-d' }}">
+                <button class="btn btn-warning" id="confirmBtn" onclick="confirmAttendance()">Confirm Range</button>
             </div>
         </div>
         
@@ -459,11 +455,17 @@
 
 <script>
 function confirmAttendance() {
-    const date = document.getElementById('confirmDate').value;
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
     const btn = document.getElementById('confirmBtn');
     
-    if (!date) {
-        alert('Please select a date');
+    if (!startDate || !endDate) {
+        alert('Please select both start and end dates');
+        return;
+    }
+    
+    if (new Date(startDate) > new Date(endDate)) {
+        alert('Start date cannot be after end date');
         return;
     }
     
@@ -477,8 +479,8 @@ function confirmAttendance() {
             'X-CSRFToken': '{{ csrf_token }}'
         },
         body: JSON.stringify({
-            start_date: date,
-            end_date: date
+            start_date: startDate,
+            end_date: endDate
         })
     })
     .then(response => response.json())
@@ -496,7 +498,7 @@ function confirmAttendance() {
     })
     .finally(() => {
         btn.disabled = false;
-        btn.innerHTML = 'Confirm Today';
+        btn.innerHTML = 'Confirm Range';
     });
 }
 </script>
