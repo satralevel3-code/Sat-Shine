@@ -409,59 +409,43 @@
     {% if can_view_team %}
     <div class="team-section">
         <div class="team-header">
-            <h2 class="team-title">Team Overview <small class="text-muted">(Last Updated: {{ current_time|date:'H:i:s' }})</small></h2>
+            <h2 class="team-title">Team Overview</h2>
             <div class="d-flex gap-2">
-                <input type="date" id="confirmStartDate" class="form-control" value="{{ current_time|date:'Y-m-d' }}">
-                <input type="date" id="confirmEndDate" class="form-control" value="{{ current_time|date:'Y-m-d' }}">
-                <button class="btn btn-warning" onclick="confirmTeamAttendance()">Confirm Attendance</button>
-                <button class="btn btn-secondary" onclick="location.reload(true)">Refresh</button>
+                <input type="date" id="confirmDate" class="form-control" value="{{ current_time|date:'Y-m-d' }}">
+                <button class="btn btn-warning" id="confirmBtn" onclick="confirmAttendance()">Confirm Today</button>
             </div>
-        </div>
-        
-        <div class="alert alert-info">
-            <strong>DC Confirmation:</strong> Review and confirm team attendance. Not marked records will be automatically set to Absent.
         </div>
         
         {% if team_data %}
         <div class="table-responsive">
-            <table class="table table-hover" id="teamTable">
+            <table class="table table-hover">
                 <thead class="table-dark">
                     <tr>
-                        <th>SR No.</th>
                         <th>EMP Code</th>
                         <th>Name</th>
-                        <th>DCCB</th>
-                        <th>Attendance Status</th>
+                        <th>Status</th>
                         <th>DC Confirmed</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for member in team_members %}
                     <tr>
-                        <td>{{ forloop.counter }}</td>
                         <td>{{ member.employee_id }}</td>
                         <td>{{ member.first_name }} {{ member.last_name }}</td>
-                        <td>{{ member.dccb }}</td>
-                        <td class="attendance-status-cell">
+                        <td>
                             {% if member.today_attendance %}
-                                {% if member.today_attendance.status == 'present' %}
-                                    <span class="badge bg-success">Present</span>
-                                {% elif member.today_attendance.status == 'absent' %}
-                                    <span class="badge bg-danger">Absent</span>
-                                {% elif member.today_attendance.status == 'half_day' %}
-                                    <span class="badge bg-warning">Half Day</span>
-                                {% else %}
-                                    <span class="badge bg-secondary">{{ member.today_attendance.get_status_display }}</span>
-                                {% endif %}
+                                <span class="badge bg-{% if member.today_attendance.status == 'present' %}success{% elif member.today_attendance.status == 'absent' %}danger{% else %}warning{% endif %}">
+                                    {{ member.today_attendance.status|title }}
+                                </span>
                             {% else %}
-                                <span class="badge bg-secondary not-marked">Not Marked</span>
+                                <span class="badge bg-secondary">Not Marked</span>
                             {% endif %}
                         </td>
-                        <td class="dc-status-cell">
-                            {% if member.today_attendance and member.today_attendance.is_confirmed_by_dc %}
-                                <span class="badge bg-success dc-confirmed">Done</span>
+                        <td>
+                            {% if member.today_attendance.is_confirmed_by_dc %}
+                                <span class="badge bg-success">Done</span>
                             {% else %}
-                                <span class="badge bg-warning dc-pending">Pending</span>
+                                <span class="badge bg-warning">Pending</span>
                             {% endif %}
                         </td>
                     </tr>
@@ -469,150 +453,51 @@
                 </tbody>
             </table>
         </div>
-        {% else %}
-        <div class="text-center py-4">
-            <i class="fas fa-users fa-2x text-muted mb-3"></i>
-            <p class="text-muted">No team members found.</p>
-        </div>
         {% endif %}
     </div>
     {% endif %}
-</div>
 
 <script>
-// Table search functionality
-function filterTeamTable() {
-    const input = document.getElementById('teamSearch');
-    const filter = input.value.toUpperCase();
-    const table = document.getElementById('teamTable');
-    const tbody = table.getElementsByTagName('tbody')[0];
-    const rows = tbody.getElementsByTagName('tr');
+function confirmAttendance() {
+    const date = document.getElementById('confirmDate').value;
+    const btn = document.getElementById('confirmBtn');
     
-    let visibleCount = 0;
-    
-    for (let i = 0; i < rows.length; i++) {
-        const empCode = rows[i].getElementsByTagName('td')[1].textContent;
-        const name = rows[i].getElementsByTagName('td')[2].textContent;
-        
-        if (empCode.toUpperCase().indexOf(filter) > -1 || name.toUpperCase().indexOf(filter) > -1) {
-            rows[i].style.display = '';
-            visibleCount++;
-            // Update serial number
-            rows[i].getElementsByTagName('td')[0].textContent = visibleCount;
-        } else {
-            rows[i].style.display = 'none';
-        }
-    }
-}
-
-// Update time every minute
-function updateTime() {
-    const now = new Date();
-    const options = { 
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-    };
-    document.getElementById('current-time').textContent = now.toLocaleDateString('en-GB', options);
-}
-
-updateTime();
-setInterval(updateTime, 60000);
-
-// Auto-dismiss messages on dashboard
-document.addEventListener('DOMContentLoaded', function() {
-    // Remove any persistent messages immediately on dashboard load
-    const messages = document.querySelectorAll('.alert');
-    messages.forEach(function(message) {
-        setTimeout(function() {
-            if (message && message.parentNode) {
-                message.remove();
-            }
-        }, 100); // Remove almost immediately
-    });
-});
-
-// DC Confirmation functionality
-function confirmTeamAttendance() {
-    const startDate = document.getElementById('confirmStartDate').value;
-    const endDate = document.getElementById('confirmEndDate').value;
-    
-    if (!startDate || !endDate) {
-        alert('Please select both start and end dates');
+    if (!date) {
+        alert('Please select a date');
         return;
     }
     
-    if (confirm(`Confirm team attendance from ${startDate} to ${endDate}? Not marked records will be set to Absent.`)) {
-        // Disable button during processing
-        const confirmBtn = document.querySelector('button[onclick="confirmTeamAttendance()"]');
-        confirmBtn.disabled = true;
-        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
-        
-        fetch('{% url "confirm_team_attendance" %}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-            },
-            body: JSON.stringify({
-                start_date: startDate,
-                end_date: endDate
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert(data.message);
-                // Force page reload to show updated data
-                location.reload(true);
-            } else {
-                alert('Error: ' + data.error);
-            }
-        })
-        .catch(error => {
-            alert('Network error: ' + error);
-        })
-        .finally(() => {
-            // Re-enable button
-            confirmBtn.disabled = false;
-            confirmBtn.innerHTML = 'Confirm Attendance';
-        });
-    }
-}
-
-// Update team table after confirmation
-function updateTeamTable() {
-    const tableBody = document.querySelector('#teamTable tbody');
-    if (!tableBody) return;
+    btn.disabled = true;
+    btn.innerHTML = 'Processing...';
     
-    const rows = tableBody.querySelectorAll('tr');
-    
-    rows.forEach(row => {
-        // Update attendance status from "Not Marked" to "Absent"
-        const statusCell = row.querySelector('.attendance-status-cell');
-        if (statusCell) {
-            const statusBadge = statusCell.querySelector('.not-marked');
-            if (statusBadge) {
-                statusBadge.className = 'badge bg-danger';
-                statusBadge.textContent = 'Absent';
-            }
+    fetch('/auth/confirm-team-attendance/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            start_date: date,
+            end_date: date
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Attendance confirmed successfully!');
+            window.location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Unknown error'));
         }
-        
-        // Update DC confirmation from "Pending" to "Done"
-        const dcCell = row.querySelector('.dc-status-cell');
-        if (dcCell) {
-            const dcBadge = dcCell.querySelector('.dc-pending');
-            if (dcBadge) {
-                dcBadge.className = 'badge bg-success dc-confirmed';
-                dcBadge.textContent = 'Done';
-            }
-        }
+    })
+    .catch(error => {
+        alert('Network error. Please try again.');
+        console.error('Error:', error);
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = 'Confirm Today';
     });
-    
-    console.log('Team table updated successfully');
 }
 </script>
 {% endblock %}
