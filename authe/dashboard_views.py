@@ -19,10 +19,6 @@ def field_dashboard(request):
         messages.error(request, 'Access denied. Field Officer privileges required.')
         return redirect('admin_dashboard')
     
-    # Clear all messages on dashboard load to prevent persistence
-    storage = messages.get_messages(request)
-    storage.used = True
-    
     # Get today's attendance - include DC confirmed records
     today = timezone.localdate()
     today_attendance = Attendance.objects.filter(user=request.user, date=today).first()
