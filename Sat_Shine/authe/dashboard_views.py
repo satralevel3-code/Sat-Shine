@@ -23,9 +23,21 @@ def field_dashboard(request):
     storage = messages.get_messages(request)
     storage.used = True
     
-    # Get today's attendance
+    # Get today's attendance - include DC confirmed records
     today = timezone.localdate()
     today_attendance = Attendance.objects.filter(user=request.user, date=today).first()
+    
+    # If no attendance record exists, check if DC has confirmed this user as absent
+    if not today_attendance:
+        # Check if there's a DC confirmed record for this user
+        dc_confirmed_record = Attendance.objects.filter(
+            user=request.user,
+            date=today,
+            is_confirmed_by_dc=True
+        ).first()
+        
+        if dc_confirmed_record:
+            today_attendance = dc_confirmed_record
     
     # Get recent attendance (last 7 days)
     week_ago = today - timedelta(days=7)
