@@ -40,6 +40,7 @@ urlpatterns = [
     path('attendance-history/', dashboard_views.attendance_history, name='attendance_history'),
     path('attendance/summary/', dashboard_views.attendance_summary, name='attendance_summary'),
     path('apply-leave/', dashboard_views.apply_leave, name='apply_leave'),
+    path('confirm-team-attendance/', dashboard_views.confirm_team_attendance, name='confirm_team_attendance'),
     
     # AJAX validation endpoints
     path('validate-employee-id/', views.validate_employee_id, name='validate_employee_id'),

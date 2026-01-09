@@ -7,7 +7,7 @@ from django.db.models import Q, Count
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from datetime import datetime, timedelta, time
-from .models import CustomUser, Attendance, LeaveRequest
+from .models import CustomUser, Attendance, LeaveRequest, AttendanceAuditLog
 from .views import create_audit_log
 import json
 import math
@@ -296,3 +296,72 @@ def apply_leave(request):
         'leave_requests': recent_leaves,
     }
     return render(request, 'authe/apply_leave.html', context)
+
+@login_required
+@require_http_methods(["POST"])
+def confirm_team_attendance(request):
+    """DC confirmation of team attendance"""
+    if request.user.role != 'field_officer' or request.user.designation != 'DC':
+        return JsonResponse({'error': 'Access denied. DC privileges required.'}, status=403)
+    
+    try:
+        data = json.loads(request.body)
+        start_date_str = data.get('start_date')
+        end_date_str = data.get('end_date')
+        
+        # Parse dates
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        
+        # Get team members
+        team_members = CustomUser.objects.filter(
+            role='field_officer',
+            dccb=request.user.dccb,
+            designation__in=['MT', 'Support']
+        ).exclude(id=request.user.id)
+        
+        confirmed_count = 0
+        
+        # Process each team member's attendance
+        for member in team_members:
+            current_date = start_date
+            while current_date <= end_date:
+                attendance, created = Attendance.objects.get_or_create(
+                    user=member,
+                    date=current_date,
+                    defaults={
+                        'status': 'absent',
+                        'is_confirmed_by_dc': True,
+                        'confirmed_by_dc': request.user,
+                        'dc_confirmed_at': timezone.now()
+                    }
+                )
+                
+                if not created and not attendance.is_confirmed_by_dc:
+                    attendance.is_confirmed_by_dc = True
+                    attendance.confirmed_by_dc = request.user
+                    attendance.dc_confirmed_at = timezone.now()
+                    attendance.save()
+                
+                confirmed_count += 1
+                current_date += timedelta(days=1)
+        
+        # Create audit log
+        AttendanceAuditLog.objects.create(
+            action_type='DC_CONFIRMATION',
+            dc_user=request.user,
+            affected_employee_count=team_members.count(),
+            date_range_start=start_date,
+            date_range_end=end_date,
+            ip_address=request.META.get('REMOTE_ADDR'),
+            details=f'Confirmed attendance for {team_members.count()} team members'
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Attendance confirmed for {team_members.count()} team members',
+            'confirmed_records': confirmed_count
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)

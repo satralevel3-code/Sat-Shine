@@ -108,6 +108,11 @@ class Attendance(models.Model):
         ('auto_not_marked', 'Auto Not Marked'),
     ]
     
+    CONFIRMATION_SOURCE_CHOICES = [
+        ('DC', 'DC'),
+        ('ADMIN', 'Admin'),
+    ]
+    
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     date = models.DateField(default=timezone.now)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES)
@@ -123,6 +128,22 @@ class Attendance(models.Model):
     location_address = models.CharField(max_length=300, null=True, blank=True)
     is_location_valid = models.BooleanField(default=False)
     distance_from_office = models.FloatField(null=True, blank=True)
+    
+    # DC Confirmation fields
+    is_confirmed_by_dc = models.BooleanField(default=False)
+    confirmed_by_dc = models.ForeignKey(
+        CustomUser,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='dc_confirmations'
+    )
+    dc_confirmed_at = models.DateTimeField(null=True, blank=True)
+    confirmation_source = models.CharField(
+        max_length=20,
+        choices=CONFIRMATION_SOURCE_CHOICES,
+        default='DC'
+    )
     
     class Meta:
         unique_together = ['user', 'date']
@@ -177,6 +198,29 @@ class LeaveRequest(models.Model):
     @property
     def days_count(self):
         return float(self.days_requested)
+
+class AttendanceAuditLog(models.Model):
+    """Audit log for attendance confirmation actions"""
+    ACTION_TYPES = [
+        ('DC_CONFIRMATION', 'DC Confirmation'),
+        ('ADMIN_OVERRIDE', 'Admin Override'),
+        ('BULK_UPDATE', 'Bulk Update'),
+    ]
+    
+    action_type = models.CharField(max_length=20, choices=ACTION_TYPES)
+    dc_user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='audit_actions')
+    affected_employee_count = models.IntegerField()
+    date_range_start = models.DateField()
+    date_range_end = models.DateField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    details = models.TextField(blank=True, null=True)
+    
+    class Meta:
+        ordering = ['-timestamp']
+    
+    def __str__(self):
+        return f"{self.action_type} by {self.dc_user.employee_id} - {self.timestamp}"
 
 class Holiday(models.Model):
     """Holiday model for managing company holidays"""
