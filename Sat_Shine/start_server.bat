@@ -1,12 +1,4 @@
 @echo off
-<<<<<<< HEAD
-REM Windows development server for SAT-SHINE
-
-echo Starting SAT-SHINE Development Server...
-cd Sat_shine
-set DJANGO_SETTINGS_MODULE=Sat_Shine.settings.development
-env\Scripts\python.exe manage.py runserver 127.0.0.1:8000
-=======
 echo ========================================
 echo    SAT-SHINE Development Server
 echo ========================================
@@ -46,4 +38,3 @@ echo.
 python manage.py runserver 127.0.0.1:8000
 
 pause
->>>>>>> bddc073dc40844144f1546bf65ec3173df6783fe

@@ -4,13 +4,6 @@ __pycache__/
 *$py.class
 *.so
 .Python
-<<<<<<< HEAD
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-=======
 build/
 develop-eggs/
 dist/
@@ -26,7 +19,6 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
->>>>>>> bddc073dc40844144f1546bf65ec3173df6783fe
 
 # Django
 *.log
@@ -34,18 +26,13 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 media/
-<<<<<<< HEAD
-=======
 staticfiles/
->>>>>>> bddc073dc40844144f1546bf65ec3173df6783fe
 
 # Environment variables
 .env
 .env.local
 .env.production
 
-<<<<<<< HEAD
-=======
 # Virtual environments
 env/
 env_new/
@@ -54,21 +41,11 @@ ENV/
 env.bak/
 venv.bak/
 
->>>>>>> bddc073dc40844144f1546bf65ec3173df6783fe
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
-<<<<<<< HEAD
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Static files (will be collected in production)
-staticfiles/
-=======
 *~
 
 # OS
@@ -97,4 +74,3 @@ osgeo4w-setup.exe
 
 # Migration backups
 *_backup.py
->>>>>>> bddc073dc40844144f1546bf65ec3173df6783fe
