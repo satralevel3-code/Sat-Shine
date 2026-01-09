@@ -3,7 +3,7 @@
 
 {% csrf_token %}
 
-{% block title %}Field Dashboard - SAT-SHINE{% endblock %}
+{% block title %}Field Dashboard - SAT-SHINE (v{{ current_time|date:'His' }}){% endblock %}
 
 {% block extra_css %}
 <style>
@@ -409,11 +409,12 @@
     {% if can_view_team %}
     <div class="team-section">
         <div class="team-header">
-            <h2 class="team-title">Team Overview</h2>
+            <h2 class="team-title">Team Overview <small class="text-muted">(Last Updated: {{ current_time|date:'H:i:s' }})</small></h2>
             <div class="d-flex gap-2">
                 <input type="date" id="confirmStartDate" class="form-control" value="{{ current_time|date:'Y-m-d' }}">
                 <input type="date" id="confirmEndDate" class="form-control" value="{{ current_time|date:'Y-m-d' }}">
                 <button class="btn btn-warning" onclick="confirmTeamAttendance()">Confirm Attendance</button>
+                <button class="btn btn-secondary" onclick="location.reload(true)">Refresh</button>
             </div>
         </div>
         
@@ -565,8 +566,8 @@ function confirmTeamAttendance() {
         .then(data => {
             if (data.success) {
                 alert(data.message);
-                // Update table rows instead of full reload
-                updateTeamTable();
+                // Force page reload to show updated data
+                location.reload(true);
             } else {
                 alert('Error: ' + data.error);
             }
