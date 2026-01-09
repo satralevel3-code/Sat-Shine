@@ -458,7 +458,7 @@
                         </td>
                         <td>
                             {% if member.today_attendance and member.today_attendance.is_confirmed_by_dc %}
-                                <span class="badge bg-success">Confirmed</span>
+                                <span class="badge bg-success">Done</span>
                             {% else %}
                                 <span class="badge bg-warning">Pending</span>
                             {% endif %}
@@ -545,6 +545,11 @@ function confirmTeamAttendance() {
     }
     
     if (confirm(`Confirm team attendance from ${startDate} to ${endDate}? Not marked records will be set to Absent.`)) {
+        // Disable button during processing
+        const confirmBtn = document.querySelector('button[onclick="confirmTeamAttendance()"]');
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        
         fetch('{% url "confirm_team_attendance" %}', {
             method: 'POST',
             headers: {
@@ -560,15 +565,46 @@ function confirmTeamAttendance() {
         .then(data => {
             if (data.success) {
                 alert(data.message);
-                location.reload();
+                // Update table rows instead of full reload
+                updateTeamTable();
             } else {
                 alert('Error: ' + data.error);
             }
         })
         .catch(error => {
             alert('Network error: ' + error);
+        })
+        .finally(() => {
+            // Re-enable button
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = 'Confirm Attendance';
         });
     }
+}
+
+// Update team table after confirmation
+function updateTeamTable() {
+    const tableBody = document.querySelector('#teamTable tbody');
+    const rows = tableBody.querySelectorAll('tr');
+    
+    rows.forEach(row => {
+        const statusCell = row.cells[4]; // Attendance Status column
+        const dcCell = row.cells[5]; // DC Confirmed column
+        
+        // Update status from "Not Marked" to "Absent"
+        const statusBadge = statusCell.querySelector('.badge');
+        if (statusBadge && statusBadge.textContent.trim() === 'Not Marked') {
+            statusBadge.className = 'badge bg-danger';
+            statusBadge.textContent = 'Absent';
+        }
+        
+        // Update DC confirmation from "Pending" to "Done"
+        const dcBadge = dcCell.querySelector('.badge');
+        if (dcBadge && dcBadge.textContent.trim() === 'Pending') {
+            dcBadge.className = 'badge bg-success';
+            dcBadge.textContent = 'Done';
+        }
+    });
 }
 </script>
 {% endblock %}
