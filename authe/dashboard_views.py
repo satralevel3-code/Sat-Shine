@@ -338,7 +338,7 @@ def confirm_team_attendance(request):
                     user=member,
                     date=current_date,
                     defaults={
-                        'status': 'absent',  # NM becomes Absent
+                        'status': 'absent',  # Only for new records (Not Marked)
                         'is_confirmed_by_dc': True,
                         'confirmed_by_dc': request.user,
                         'dc_confirmed_at': timezone.now(),
@@ -346,17 +346,9 @@ def confirm_team_attendance(request):
                     }
                 )
                 
-                # If record exists but not confirmed, confirm it
-                if not created and not attendance.is_confirmed_by_dc:
-                    attendance.is_confirmed_by_dc = True
-                    attendance.confirmed_by_dc = request.user
-                    attendance.dc_confirmed_at = timezone.now()
-                    attendance.confirmation_source = 'DC'
-                    attendance.save()
-                
-                # If record exists and was NM (no status), mark as absent
-                elif not created and not attendance.status:
-                    attendance.status = 'absent'
+                # Only confirm existing records, don't change their status
+                if not created:
+                    # Only update DC confirmation, preserve existing status
                     attendance.is_confirmed_by_dc = True
                     attendance.confirmed_by_dc = request.user
                     attendance.dc_confirmed_at = timezone.now()
