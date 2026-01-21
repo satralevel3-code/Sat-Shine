@@ -2,12 +2,23 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.core.validators import RegexValidator
 from django.utils import timezone
+from datetime import time
 import re
+import uuid
+import json
 
 class CustomUser(AbstractUser):
     ROLE_CHOICES = [
         ('field_officer', 'Field Officer'),
+        ('dc', 'DC'),
+        ('mt', 'MT'),
+        ('support', 'Support'),
+        ('associate', 'Associate'),
         ('admin', 'Admin'),
+        ('hr', 'HR'),
+        ('manager', 'Manager'),
+        ('delivery_head', 'Delivery Head'),
+        ('super_admin', 'Super Admin'),
     ]
     
     DESIGNATION_CHOICES = [
@@ -57,6 +68,12 @@ class CustomUser(AbstractUser):
     dccb = models.CharField(max_length=20, choices=DCCB_CHOICES, blank=True, null=True)
     reporting_manager = models.CharField(max_length=100, blank=True, null=True)
     
+    # Enterprise fields for MMP
+    role_level = models.IntegerField(default=1)  # 1=Field, 5=DC, 10=Admin
+    can_approve_attendance = models.BooleanField(default=False)
+    can_approve_travel = models.BooleanField(default=False)
+    department = models.CharField(max_length=50, blank=True, null=True)
+    
     USERNAME_FIELD = 'employee_id'
     REQUIRED_FIELDS = ['email', 'first_name', 'last_name']
     
@@ -65,11 +82,34 @@ class CustomUser(AbstractUser):
         if self.employee_id:
             self.employee_id = self.employee_id.upper().strip()
             
-        # Auto-assign role based on employee_id
+        # Auto-assign role and level based on employee_id
         if self.employee_id.startswith('MGJ'):
             self.role = 'field_officer'
+            self.role_level = 1
         elif self.employee_id.startswith('MP'):
             self.role = 'admin'
+            self.role_level = 10
+            self.can_approve_attendance = True
+            
+        # Set role level and permissions
+        role_config = {
+            'field_officer': {'level': 1, 'approve_attendance': False, 'approve_travel': False},
+            'dc': {'level': 5, 'approve_attendance': True, 'approve_travel': False},
+            'mt': {'level': 2, 'approve_attendance': False, 'approve_travel': False},
+            'support': {'level': 2, 'approve_attendance': False, 'approve_travel': False},
+            'associate': {'level': 7, 'approve_attendance': False, 'approve_travel': True},
+            'admin': {'level': 10, 'approve_attendance': True, 'approve_travel': True},
+            'hr': {'level': 10, 'approve_attendance': True, 'approve_travel': True},
+            'manager': {'level': 10, 'approve_attendance': True, 'approve_travel': True},
+            'delivery_head': {'level': 10, 'approve_attendance': True, 'approve_travel': True},
+            'super_admin': {'level': 15, 'approve_attendance': True, 'approve_travel': True},
+        }
+        
+        if self.role in role_config:
+            config = role_config[self.role]
+            self.role_level = config['level']
+            self.can_approve_attendance = config['approve_attendance']
+            self.can_approve_travel = config['approve_travel']
         
         # Convert names and reporting manager to uppercase
         if self.first_name:
@@ -222,16 +262,50 @@ class AttendanceAuditLog(models.Model):
     def __str__(self):
         return f"{self.action_type} by {self.dc_user.employee_id} - {self.timestamp}"
 
-class Holiday(models.Model):
-    """Holiday model for managing company holidays"""
-    name = models.CharField(max_length=100)
-    date = models.DateField(unique=True)
-    description = models.TextField(blank=True, null=True)
-    is_active = models.BooleanField(default=True)
+class TravelRequest(models.Model):
+    """Enterprise travel request workflow"""
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+    
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    from_date = models.DateField()
+    to_date = models.DateField()
+    er_id = models.CharField(max_length=17, validators=[RegexValidator(r'^[A-Z0-9]{17}$')])
+    distance_km = models.IntegerField()
+    address = models.TextField()
+    contact_person = models.CharField(max_length=100)
+    purpose = models.TextField()
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    approved_by = models.ForeignKey(CustomUser, null=True, on_delete=models.SET_NULL, related_name='approved_travels')
+    approved_at = models.DateTimeField(null=True, blank=True)
+    remarks = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     
     class Meta:
-        ordering = ['date']
+        ordering = ['-created_at']
     
     def __str__(self):
-        return f"{self.name} - {self.date}"
+        return f"{self.user.employee_id} - {self.from_date} to {self.to_date}"
+
+class SystemAuditLog(models.Model):
+    """Enterprise immutable audit logging"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4)
+    actor = models.ForeignKey(CustomUser, on_delete=models.PROTECT)
+    action_type = models.CharField(max_length=50)
+    target_table = models.CharField(max_length=50)
+    target_id = models.CharField(max_length=50)
+    old_value = models.JSONField(null=True, blank=True)
+    new_value = models.JSONField(null=True, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField()
+    device_info = models.TextField(null=True, blank=True)
+    
+    class Meta:
+        db_table = 'system_audit_logs'
+        indexes = [
+            models.Index(fields=['timestamp']),
+            models.Index(fields=['actor', 'action_type'])
+        ]

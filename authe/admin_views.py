@@ -7,7 +7,7 @@ from django.db.models import Q, Count, Case, When, IntegerField
 from django.db import transaction
 from django.core.paginator import Paginator
 from datetime import datetime, timedelta, date, time
-from .models import CustomUser, Attendance, LeaveRequest, AuditLog, Holiday
+from .models import CustomUser, Attendance, LeaveRequest, AuditLog
 from .views import create_audit_log
 import json
 import csv

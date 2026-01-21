@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, dashboard_views, admin_views
+from . import views, dashboard_views, admin_views, travel_views, enterprise_admin_views
 from django.shortcuts import redirect
 
 def signup_redirect(request):
@@ -41,6 +41,15 @@ urlpatterns = [
     path('attendance/summary/', dashboard_views.attendance_summary, name='attendance_summary'),
     path('apply-leave/', dashboard_views.apply_leave, name='apply_leave'),
     path('confirm-team-attendance/', dashboard_views.confirm_team_attendance, name='confirm_team_attendance'),
+    
+    # Enterprise Travel Management
+    path('request-travel/', travel_views.request_travel, name='request_travel'),
+    path('approve-travel/<int:travel_id>/', travel_views.approve_travel, name='approve_travel'),
+    path('travel-approvals/', travel_views.travel_approvals, name='travel_approvals'),
+    
+    # Enterprise Admin Dashboard
+    path('enterprise-dashboard/', enterprise_admin_views.enterprise_dashboard, name='enterprise_dashboard'),
+    path('employee-management/', enterprise_admin_views.employee_management, name='employee_management'),
     
     # AJAX validation endpoints
     path('validate-employee-id/', views.validate_employee_id, name='validate_employee_id'),
