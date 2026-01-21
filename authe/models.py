@@ -25,9 +25,32 @@ class CustomUser(AbstractUser):
         ('MT', 'MT'),
         ('DC', 'DC'),
         ('Support', 'Support'),
+        ('Associate', 'Associate'),
         ('Manager', 'Manager'),
         ('HR', 'HR'),
         ('Delivery Head', 'Delivery Head'),
+    ]
+    
+    DEPARTMENT_CHOICES = [
+        ('HR', 'HR'),
+        ('SPMU', 'SPMU'),
+        ('Central Tech Support', 'Central Tech Support'),
+        ('CCR', 'CCR'),
+        ('Field Support', 'Field Support'),
+        ('IT Admin', 'IT Admin'),
+    ]
+    
+    WORKPLACE_CHOICES = [
+        ('DCCB', 'DCCB'),
+        ('PACS', 'PACS'),
+        ('WFH', 'WFH'),
+        ('DR office', 'DR office'),
+        ('DDM office', 'DDM office'),
+        ('Training Centre', 'Training Centre'),
+        ('Cluster', 'Cluster'),
+        ('APMC', 'APMC'),
+        ('Branch', 'Branch'),
+        ('Vendor Office', 'Vendor Office'),
     ]
     
     DCCB_CHOICES = [
@@ -68,11 +91,13 @@ class CustomUser(AbstractUser):
     dccb = models.CharField(max_length=20, choices=DCCB_CHOICES, blank=True, null=True)
     reporting_manager = models.CharField(max_length=100, blank=True, null=True)
     
-    # Enterprise fields for MMP
-    role_level = models.IntegerField(default=1)  # 1=Field, 5=DC, 10=Admin
+    # Enhanced enterprise fields
+    role_level = models.IntegerField(default=1)
     can_approve_attendance = models.BooleanField(default=False)
     can_approve_travel = models.BooleanField(default=False)
-    department = models.CharField(max_length=50, blank=True, null=True)
+    department = models.CharField(max_length=50, choices=DEPARTMENT_CHOICES, blank=True, null=True)
+    multiple_dccb = models.JSONField(default=list, blank=True)  # For Associates
+    date_of_joining = models.DateField(auto_now_add=True)
     
     USERNAME_FIELD = 'employee_id'
     REQUIRED_FIELDS = ['email', 'first_name', 'last_name']
