@@ -50,6 +50,7 @@ urlpatterns = [
     # Enterprise Admin Dashboard
     path('enterprise-dashboard/', enterprise_admin_views.enterprise_dashboard, name='enterprise_dashboard'),
     path('employee-management/', enterprise_admin_views.employee_management, name='employee_management'),
+    path('create-user/', views.register_view, name='create_user'),
     
     # AJAX validation endpoints
     path('validate-employee-id/', views.validate_employee_id, name='validate_employee_id'),

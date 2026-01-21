@@ -85,31 +85,35 @@ def validate_email(request):
     return JsonResponse({'valid': True})
 
 def register_view(request):
-    """User registration view"""
+    """Admin-only user registration"""
+    # Check if user is authenticated and has admin privileges
+    if not request.user.is_authenticated:
+        messages.error(request, 'Please log in to access this page')
+        return redirect('login')
+    
+    if request.user.role_level < 10:
+        messages.error(request, 'Only administrators can create new user accounts')
+        return redirect('field_dashboard')
+    
     if request.method == 'POST':
         form = SignUpForm(request.POST)
         if form.is_valid():
             try:
                 user = form.save()
                 create_audit_log(
-                    user, 
-                    'User Registration', 
+                    request.user, 
+                    'User Created', 
                     request, 
-                    f'Role: {user.role}, Designation: {user.designation}'
+                    f'Created user: {user.employee_id}, Role: {user.role}, By: {request.user.employee_id}'
                 )
-                messages.success(request, 'Profile created successfully. You may now log in.')
-                return redirect('login')
+                messages.success(request, f'User {user.employee_id} created successfully')
+                return redirect('employee_management')
             except Exception as e:
-                # Log the actual error for debugging
                 import logging
                 logger = logging.getLogger(__name__)
-                logger.error(f"Registration error for {form.cleaned_data.get('employee_id', 'unknown')}: {str(e)}")
-                messages.error(request, 'Registration failed. Please check your information and try again.')
+                logger.error(f"User creation error: {str(e)}")
+                messages.error(request, 'User creation failed. Please try again.')
         else:
-            # Show specific form errors
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.debug(f"Form errors: {form.errors}")
             for field, errors in form.errors.items():
                 for error in errors:
                     messages.error(request, f'{field.replace("_", " ").title()}: {error}')
