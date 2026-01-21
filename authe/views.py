@@ -148,8 +148,10 @@ def login_view(request):
                 request.session['last_activity'] = time.time()
                 create_audit_log(user, 'User Login', request, f'Role: {user.role}')
                 
-                # Role-based redirect
-                if user.role == 'admin':
+                # Enhanced role-based redirect
+                if user.role == 'super_admin':
+                    return redirect('super_admin_dashboard')
+                elif user.role in ['admin', 'hr', 'manager', 'delivery_head']:
                     return redirect('admin_dashboard')
                 else:
                     return redirect('field_dashboard')
@@ -176,7 +178,9 @@ def logout_view(request):
 @login_required
 def dashboard_redirect(request):
     """Redirect to appropriate dashboard based on role"""
-    if request.user.role == 'admin':
+    if request.user.role == 'super_admin':
+        return redirect('super_admin_dashboard')
+    elif request.user.role in ['admin', 'hr', 'manager', 'delivery_head']:
         return redirect('admin_dashboard')
     else:
         return redirect('field_dashboard')

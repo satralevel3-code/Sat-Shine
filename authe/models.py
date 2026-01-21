@@ -97,7 +97,7 @@ class CustomUser(AbstractUser):
     can_approve_travel = models.BooleanField(default=False)
     department = models.CharField(max_length=50, choices=DEPARTMENT_CHOICES, blank=True, null=True)
     multiple_dccb = models.JSONField(default=list, blank=True)  # For Associates
-    date_of_joining = models.DateField(auto_now_add=True)
+    date_of_joining = models.DateField(null=True, blank=True)  # HR data, not auto timestamp
     
     USERNAME_FIELD = 'employee_id'
     REQUIRED_FIELDS = ['email', 'first_name', 'last_name']
@@ -173,6 +173,12 @@ class Attendance(models.Model):
         ('auto_not_marked', 'Auto Not Marked'),
     ]
     
+    TIME_STATUS_CHOICES = [
+        ('on_time', 'On Time'),
+        ('late', 'Late'),
+        ('half_day_late', 'Half Day Late'),
+    ]
+    
     CONFIRMATION_SOURCE_CHOICES = [
         ('DC', 'DC'),
         ('ADMIN', 'Admin'),
@@ -183,8 +189,14 @@ class Attendance(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES)
     check_in_time = models.TimeField(null=True, blank=True)
     check_out_time = models.TimeField(null=True, blank=True)
-    remarks = models.TextField(null=True, blank=True)
-    marked_at = models.DateTimeField(auto_now_add=True)
+    
+    # Enhanced attendance fields
+    time_status = models.CharField(max_length=20, choices=TIME_STATUS_CHOICES, default='on_time')
+    travel_required = models.BooleanField(default=False)
+    travel_approved = models.BooleanField(default=False)
+    workplace = models.CharField(max_length=50, choices=CustomUser.WORKPLACE_CHOICES, null=True, blank=True, default='DCCB')
+    task = models.TextField(blank=True, null=True, default='')
+    travel_reason = models.TextField(blank=True, null=True, default='')
     
     # GPS Location fields
     latitude = models.FloatField(null=True, blank=True)
@@ -194,21 +206,17 @@ class Attendance(models.Model):
     is_location_valid = models.BooleanField(default=False)
     distance_from_office = models.FloatField(null=True, blank=True)
     
-    # DC Confirmation fields
+    # Approval workflow
     is_confirmed_by_dc = models.BooleanField(default=False)
-    confirmed_by_dc = models.ForeignKey(
-        CustomUser,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name='dc_confirmations'
-    )
+    confirmed_by_dc = models.ForeignKey(CustomUser, null=True, blank=True, on_delete=models.SET_NULL, related_name='dc_confirmations')
     dc_confirmed_at = models.DateTimeField(null=True, blank=True)
-    confirmation_source = models.CharField(
-        max_length=20,
-        choices=CONFIRMATION_SOURCE_CHOICES,
-        default='DC'
-    )
+    is_approved_by_admin = models.BooleanField(default=False)
+    approved_by_admin = models.ForeignKey(CustomUser, null=True, blank=True, on_delete=models.SET_NULL, related_name='admin_approvals')
+    admin_approved_at = models.DateTimeField(null=True, blank=True)
+    
+    remarks = models.TextField(null=True, blank=True)
+    marked_at = models.DateTimeField(auto_now_add=True)
+    confirmation_source = models.CharField(max_length=20, choices=CONFIRMATION_SOURCE_CHOICES, default='DC')
     
     class Meta:
         unique_together = ['user', 'date']

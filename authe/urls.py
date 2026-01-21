@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, dashboard_views, admin_views, travel_views, enterprise_admin_views
+from . import views, dashboard_views, admin_views, travel_views, enterprise_admin_views, enhanced_attendance_views, super_admin_views
 from django.shortcuts import redirect
 
 def signup_redirect(request):
@@ -47,8 +47,11 @@ urlpatterns = [
     path('approve-travel/<int:travel_id>/', travel_views.approve_travel, name='approve_travel'),
     path('travel-approvals/', travel_views.travel_approvals, name='travel_approvals'),
     
-    # Enterprise Admin Dashboard
-    path('enterprise-dashboard/', enterprise_admin_views.enterprise_dashboard, name='enterprise_dashboard'),
+    # Enhanced attendance marking
+    path('enhanced-mark-attendance/', enhanced_attendance_views.enhanced_mark_attendance, name='enhanced_mark_attendance'),
+    
+    # Super Admin URLs
+    path('super-admin-dashboard/', super_admin_views.super_admin_dashboard, name='super_admin_dashboard'),
     path('employee-management/', enterprise_admin_views.employee_management, name='employee_management'),
     path('create-user/', views.register_view, name='create_user'),
     

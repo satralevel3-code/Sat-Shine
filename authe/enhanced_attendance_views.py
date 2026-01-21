@@ -1,5 +1,3 @@
-# Enhanced Attendance Marking System
-
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -8,6 +6,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from datetime import datetime, time
 from .models import CustomUser, Attendance, TravelRequest
+from .enterprise_permissions import log_enterprise_action
 import json
 import math
 
@@ -27,18 +26,17 @@ def enhanced_mark_attendance(request):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            action = data.get('action')  # 'check_in' or 'check_out'
+            action = data.get('action', 'check_in')
             
-            if action == 'check_in':
+            if action == 'check_out':
+                return handle_check_out(request, today_attendance, data)
+            else:
                 return handle_check_in(request, data, today, current_time)
-            elif action == 'check_out':
-                return handle_check_out(request, today_attendance, current_time)
                 
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)}, status=500)
     
     # GET request - show attendance marking interface
-    # Check if travel is approved for today
     travel_approved = TravelRequest.objects.filter(
         user=request.user,
         from_date__lte=today,
@@ -66,7 +64,7 @@ def handle_check_in(request, data, today, current_time):
     if existing:
         return JsonResponse({'success': False, 'error': 'Already checked in today'}, status=400)
     
-    status = data.get('status')  # 'present', 'half_day', 'absent'
+    status = data.get('status')
     travel_required = data.get('travel_required', False)
     workplace = data.get('workplace')
     travel_reason = data.get('travel_reason', '')
@@ -88,11 +86,16 @@ def handle_check_in(request, data, today, current_time):
         if travel_required and not travel_approved:
             return JsonResponse({'success': False, 'error': 'Travel not approved for today'}, status=400)
         
-        if not travel_required and not travel_approved and travel_reason.strip() == '':
+        if not travel_required and not travel_approved and not travel_reason.strip():
             return JsonResponse({'success': False, 'error': 'Travel reason required when travel not approved'}, status=400)
     
     # Determine time status based on check-in time
-    time_status = 'on_time'\n    if current_time > time(10, 0) and current_time <= time(14, 30):\n        time_status = 'late'\n    elif current_time > time(14, 30):\n        status = 'half_day'  # Force half day for late check-in\n        time_status = 'half_day_late'
+    time_status = 'on_time'
+    if current_time > time(10, 0) and current_time <= time(14, 30):
+        time_status = 'late'
+    elif current_time > time(14, 30):
+        status = 'half_day'  # Force half day for late check-in
+        time_status = 'half_day_late'
     
     # Get GPS location for present/half_day
     latitude = data.get('latitude')
@@ -124,6 +127,20 @@ def handle_check_in(request, data, today, current_time):
         **location_data
     )
     
+    # Enterprise audit logging
+    log_enterprise_action(
+        user=request.user,
+        action_type='ATTENDANCE_CHECKED_IN',
+        target_table='attendance',
+        target_id=attendance.id,
+        new_value={
+            'status': status,
+            'time_status': time_status,
+            'workplace': workplace
+        },
+        ip_address=request.META.get('REMOTE_ADDR')
+    )
+    
     return JsonResponse({
         'success': True,
         'message': f'Checked in as {status.replace("_", " ").title()}',
@@ -132,7 +149,7 @@ def handle_check_in(request, data, today, current_time):
         'time_status': time_status
     })
 
-def handle_check_out(request, attendance_record, current_time):
+def handle_check_out(request, attendance_record, data):
     """Handle check-out process"""
     
     if not attendance_record:
@@ -141,12 +158,13 @@ def handle_check_out(request, attendance_record, current_time):
     if attendance_record.check_out_time:
         return JsonResponse({'success': False, 'error': 'Already checked out'}, status=400)
     
+    current_time = timezone.localtime().time()
+    
     # Validate check-out time window (6:00 PM to 11:00 PM)
     if not (time(18, 0) <= current_time <= time(23, 0)):
         return JsonResponse({'success': False, 'error': 'Check-out allowed only between 6:00 PM and 11:00 PM'}, status=400)
     
     # Get GPS location for check-out
-    data = json.loads(request.body)
     latitude = data.get('latitude')
     longitude = data.get('longitude')
     
@@ -154,10 +172,27 @@ def handle_check_out(request, attendance_record, current_time):
     attendance_record.check_out_time = current_time
     
     if latitude and longitude:
-        # Store check-out location (you might want separate fields for this)
-        attendance_record.remarks = f"Check-out location: {latitude}, {longitude}"
+        # Store check-out location in remarks
+        checkout_location = f"Check-out location: {latitude}, {longitude}"
+        if attendance_record.remarks:
+            attendance_record.remarks += f"\n{checkout_location}"
+        else:
+            attendance_record.remarks = checkout_location
     
     attendance_record.save()
+    
+    # Enterprise audit logging
+    log_enterprise_action(
+        user=request.user,
+        action_type='ATTENDANCE_CHECKED_OUT',
+        target_table='attendance',
+        target_id=attendance_record.id,
+        new_value={
+            'check_out_time': current_time.strftime('%H:%M:%S'),
+            'location': f"{latitude},{longitude}" if latitude else None
+        },
+        ip_address=request.META.get('REMOTE_ADDR')
+    )
     
     return JsonResponse({
         'success': True,
