@@ -54,6 +54,14 @@ def field_dashboard(request):
         user=request.user
     ).order_by('-applied_at')[:5]
     
+    # Get pending travel requests (for MT, DC, Support)
+    pending_travel_requests = 0
+    if request.user.designation in ['MT', 'DC', 'Support']:
+        pending_travel_requests = TravelRequest.objects.filter(
+            user=request.user,
+            status='pending'
+        ).count()
+    
     # Check if user can view team data (DC only)
     can_view_team = request.user.designation == 'DC'
     team_data = None
@@ -90,6 +98,7 @@ def field_dashboard(request):
         'recent_attendance': recent_attendance,
         'pending_leaves': pending_leaves,
         'recent_leaves': recent_leaves,
+        'pending_travel_requests': pending_travel_requests,
         'can_view_team': can_view_team,
         'team_data': team_data,
         'team_members': team_members,
@@ -121,6 +130,7 @@ def mark_attendance(request):
         latitude = data.get('lat')
         longitude = data.get('lng')
         accuracy = data.get('accuracy')
+        manual_location = data.get('manual_location')
         
         # Check if already marked
         existing = Attendance.objects.filter(user=request.user, date=today).first()
@@ -153,6 +163,14 @@ def mark_attendance(request):
                     'is_location_valid': True,
                     'location_address': f'GPS Location',
                     'distance_from_office': 0
+                })
+            elif manual_location and status != 'absent':
+                # Handle manual location for HTTP environments
+                attendance_data.update({
+                    'location_address': manual_location,
+                    'is_location_valid': False,  # Mark as manual entry
+                    'distance_from_office': 0,
+                    'location_accuracy': 999  # Indicate manual entry
                 })
             
             attendance = Attendance.objects.create(**attendance_data)

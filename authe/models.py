@@ -217,6 +217,7 @@ class Attendance(models.Model):
     remarks = models.TextField(null=True, blank=True)
     marked_at = models.DateTimeField(auto_now_add=True)
     confirmation_source = models.CharField(max_length=20, choices=CONFIRMATION_SOURCE_CHOICES, default='DC')
+    is_leave_day = models.BooleanField(default=False)  # Mark if this absence is due to approved leave
     
     class Meta:
         unique_together = ['user', 'date']
@@ -261,6 +262,7 @@ class LeaveRequest(models.Model):
     applied_at = models.DateTimeField(auto_now_add=True)
     approved_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_leaves')
     approved_at = models.DateTimeField(null=True, blank=True)
+    admin_remarks = models.TextField(null=True, blank=True)  # Admin comments on approval/rejection
     
     class Meta:
         ordering = ['-applied_at']
@@ -296,21 +298,32 @@ class AttendanceAuditLog(models.Model):
         return f"{self.action_type} by {self.dc_user.employee_id} - {self.timestamp}"
 
 class TravelRequest(models.Model):
-    """Enterprise travel request workflow"""
+    """Enhanced travel request workflow"""
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('approved', 'Approved'),
         ('rejected', 'Rejected'),
     ]
     
+    DURATION_CHOICES = [
+        ('full_day', 'Full Day'),
+        ('half_day', 'Half Day'),
+    ]
+    
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     from_date = models.DateField()
     to_date = models.DateField()
-    er_id = models.CharField(max_length=17, validators=[RegexValidator(r'^[A-Z0-9]{17}$')])
+    duration = models.CharField(max_length=10, choices=DURATION_CHOICES, default='full_day')
+    days_count = models.DecimalField(max_digits=4, decimal_places=1, default=1.0)
+    request_to = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='travel_requests_to_approve', null=True, blank=True)
+    
+    # Travel details
+    er_id = models.CharField(max_length=17, validators=[RegexValidator(r'^[A-Z0-9]{17}$', 'ER ID must be 17 characters')])
     distance_km = models.IntegerField()
     address = models.TextField()
     contact_person = models.CharField(max_length=100)
     purpose = models.TextField()
+    
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
     approved_by = models.ForeignKey(CustomUser, null=True, on_delete=models.SET_NULL, related_name='approved_travels')
     approved_at = models.DateTimeField(null=True, blank=True)

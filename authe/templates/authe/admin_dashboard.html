@@ -1,6 +1,12 @@
 {% extends 'main/base_unified.html' %}
 
+<!-- TEMPLATE: authe/templates/authe/admin_dashboard.html - Updated: 2025-01-06 -->
 {% block title %}Admin Dashboard - SAT-SHINE{% endblock %}
+
+<!-- Cache Busting Meta Tags -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 
 {% block extra_css %}
 <style>
@@ -527,8 +533,8 @@ body {
             </ul>
         </div>
 
-        <!-- Attendance KPIs -->
-        <div class="kpi-card">
+        <!-- Today's Attendance KPI -->
+        <div class="kpi-card" onclick="window.location.href='{% url 'todays_attendance_details' %}'">
             <div class="kpi-header">
                 <div class="kpi-icon present">
                     <i class="fas fa-check"></i>
@@ -538,57 +544,58 @@ body {
                 </div>
             </div>
             
-            <ul class="breakdown-list">
+            <div class="kpi-value">{{ attendance_kpis.present|add:attendance_kpis.half_day|add:attendance_kpis.absent }}</div>
+            <div class="kpi-subtitle">Total marked today</div>
+            
+            <ul class="breakdown-list mt-3">
                 <li class="breakdown-item">
-                    <span class="breakdown-label">Present</span>
-                    <span class="breakdown-value">{{ attendance_kpis.present }}</span>
+                    <span class="breakdown-label" style="color: #059669;">Present</span>
+                    <span class="breakdown-value" style="color: #059669;">{{ attendance_kpis.present }}</span>
                 </li>
                 <li class="breakdown-item">
-                    <span class="breakdown-label">Absent</span>
-                    <span class="breakdown-value">{{ attendance_kpis.absent }}</span>
+                    <span class="breakdown-label" style="color: #dc2626;">Absent</span>
+                    <span class="breakdown-value" style="color: #dc2626;">{{ attendance_kpis.absent }}</span>
                 </li>
                 <li class="breakdown-item">
-                    <span class="breakdown-label">Half Day</span>
-                    <span class="breakdown-value">{{ attendance_kpis.half_day }}</span>
+                    <span class="breakdown-label" style="color: #f59e0b;">Half Day</span>
+                    <span class="breakdown-value" style="color: #f59e0b;">{{ attendance_kpis.half_day }}</span>
                 </li>
                 <li class="breakdown-item">
-                    <span class="breakdown-label">Late Arrivals</span>
-                    <span class="breakdown-value">{{ attendance_kpis.late_arrivals }}</span>
+                    <span class="breakdown-label" style="color: #dc2626;">Late Arrivals</span>
+                    <span class="breakdown-value" style="color: #dc2626;">{{ attendance_kpis.late_arrivals }}</span>
                 </li>
                 <li class="breakdown-item">
-                    <span class="breakdown-label">Not Marked</span>
-                    <span class="breakdown-value">{{ attendance_kpis.not_marked }}</span>
+                    <span class="breakdown-label" style="color: #6b7280;">Not Marked</span>
+                    <span class="breakdown-value" style="color: #6b7280;">{{ attendance_kpis.not_marked }}</span>
                 </li>
             </ul>
         </div>
 
-        <!-- Attendance Progress -->
-        <div class="kpi-card">
+        <!-- Approval Status -->
+        <div class="kpi-card" onclick="window.location.href='{% url 'admin_approval_status' %}'">
             <div class="kpi-header">
-                <div class="kpi-icon progress">
-                    <i class="fas fa-chart-pie"></i>
+                <div class="kpi-icon" style="background: var(--warning-amber);">
+                    <i class="fas fa-clipboard-check"></i>
                 </div>
                 <div>
-                    <h3 class="kpi-title">Marking Progress</h3>
-                    <button class="refresh-btn" onclick="refreshProgress()" title="Refresh">
-                        <i class="fas fa-sync-alt"></i>
-                    </button>
+                    <h3 class="kpi-title">Approval Status</h3>
                 </div>
             </div>
             
-            <div class="progress-circle">
-                <svg width="80" height="80">
-                    <circle class="progress-bg" cx="40" cy="40" r="32"></circle>
-                    <circle class="progress-bar" cx="40" cy="40" r="32" 
-                            stroke-dasharray="0 201" 
-                            id="progressCircle"></circle>
-                </svg>
-                <div class="progress-text" id="progressText">{{ progress_percentage }}%</div>
-            </div>
-            
-            <div class="kpi-subtitle text-center">
-                Real-time attendance marking progress
-            </div>
+            <ul class="breakdown-list">
+                <li class="breakdown-item">
+                    <span class="breakdown-label">DC Confirmations</span>
+                    <span class="breakdown-value">{{ approval_status.dc_pending }}</span>
+                </li>
+                <li class="breakdown-item">
+                    <span class="breakdown-label">Admin Approvals</span>
+                    <span class="breakdown-value">{{ approval_status.admin_pending }}</span>
+                </li>
+                <li class="breakdown-item">
+                    <span class="breakdown-label">Travel Approvals</span>
+                    <span class="breakdown-value">{{ approval_status.travel_pending }}</span>
+                </li>
+            </ul>
         </div>
 
         <!-- Attendance Location Map KPI -->
@@ -881,38 +888,14 @@ new Chart(trendCtx, {
     }
 });
 
-// Initialize progress circle
-function updateProgressCircle(percentage) {
-    const circle = document.getElementById('progressCircle');
-    const text = document.getElementById('progressText');
-    const circumference = 2 * Math.PI * 32; // radius = 32
-    const offset = circumference - (percentage / 100) * circumference;
-    
-    circle.style.strokeDasharray = `${circumference} ${circumference}`;
-    circle.style.strokeDashoffset = offset;
-    text.textContent = `${percentage}%`;
-}
-
-// Refresh progress data
-function refreshProgress() {
-    const refreshBtn = document.querySelector('.refresh-btn i');
-    refreshBtn.classList.add('fa-spin');
-    
-    fetch('{% url "admin_attendance_progress" %}')
-        .then(response => response.json())
-        .then(data => {
-            updateProgressCircle(data.progress_percentage);
-            refreshBtn.classList.remove('fa-spin');
-        })
-        .catch(error => {
-            console.error('Error refreshing progress:', error);
-            refreshBtn.classList.remove('fa-spin');
-        });
+// Approval status functionality - placeholder for future enhancements
+function refreshApprovalStatus() {
+    // Future implementation for real-time approval status updates
+    console.log('Approval status refresh');
 }
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
-    updateProgressCircle({{ progress_percentage }});
     updateDateTime();
     setInterval(updateDateTime, 1000);
 });
@@ -938,8 +921,8 @@ function updateDateTime() {
     document.getElementById('datetimeDisplay').textContent = formatted;
 }
 
-// Auto-refresh progress every 30 seconds
-setInterval(refreshProgress, 30000);
+// Auto-refresh approval status every 30 seconds
+setInterval(refreshApprovalStatus, 30000);
 
 // NOTIFICATION SYSTEM - Simplified for base version
 let notificationDropdownOpen = false;

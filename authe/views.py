@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
-from .forms import SignUpForm, LoginForm
+from .forms import EnhancedSignUpForm, LoginForm
 from .models import CustomUser, AuditLog
 import re
 import json
@@ -37,7 +37,7 @@ def validate_employee_id(request):
     # Validate patterns
     if re.match(r'^MGJ[0-9]{5}$', employee_id):
         role = 'field_officer'
-        designations = [('MT', 'MT'), ('DC', 'DC'), ('Support', 'Support')]
+        designations = [('MT', 'MT'), ('DC', 'DC'), ('Support', 'Support'), ('Associate', 'Associate')]
     elif re.match(r'^MP[0-9]{4}$', employee_id):
         role = 'admin'
         designations = [('Manager', 'Manager'), ('HR', 'HR'), ('Delivery Head', 'Delivery Head')]
@@ -85,45 +85,45 @@ def validate_email(request):
     return JsonResponse({'valid': True})
 
 def register_view(request):
-    """Admin-only user registration"""
-    # Check if user is authenticated and has admin privileges
+    """Simplified admin-only user registration"""
+    # Authentication check
     if not request.user.is_authenticated:
-        messages.error(request, 'Please log in to access this page')
         return redirect('login')
     
+    # Role level check
     if request.user.role_level < 10:
-        messages.error(request, 'Only administrators can create new user accounts')
         return redirect('field_dashboard')
     
-    if request.method == 'POST':
-        form = SignUpForm(request.POST)
-        if form.is_valid():
-            try:
-                user = form.save()
-                create_audit_log(
-                    request.user, 
-                    'User Created', 
-                    request, 
-                    f'Created user: {user.employee_id}, Role: {user.role}, By: {request.user.employee_id}'
-                )
-                messages.success(request, f'User {user.employee_id} created successfully')
-                return redirect('employee_management')
-            except Exception as e:
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.error(f"User creation error: {str(e)}")
-                messages.error(request, 'User creation failed. Please try again.')
-        else:
-            for field, errors in form.errors.items():
-                for error in errors:
-                    messages.error(request, f'{field.replace("_", " ").title()}: {error}')
-    else:
-        form = SignUpForm()
+    success_message = None
     
-    return render(request, 'authe/register.html', {'form': form})
+    if request.method == 'POST':
+        form = EnhancedSignUpForm(request.POST)
+        if form.is_valid():
+            # Save user
+            user = form.save()
+            
+            # Create audit log
+            create_audit_log(
+                request.user, 
+                'User Created', 
+                request, 
+                f'Created user: {user.employee_id}, Role: {user.role}, By: {request.user.employee_id}'
+            )
+            
+            # Show success message and reset form
+            success_message = f'Employee {user.employee_id} ({user.first_name} {user.last_name}) created successfully!'
+            form = EnhancedSignUpForm()  # Reset form
+    else:
+        form = EnhancedSignUpForm()
+    
+    return render(request, 'authe/register.html', {'form': form, 'success_message': success_message})
 
 def login_view(request):
     """User login view with enhanced error handling"""
+    # Force fresh CSRF token
+    from django.middleware.csrf import get_token
+    get_token(request)
+    
     if request.method == 'POST':
         form = LoginForm(request.POST)
         if form.is_valid():
@@ -153,6 +153,8 @@ def login_view(request):
                     return redirect('super_admin_dashboard')
                 elif user.role in ['admin', 'hr', 'manager', 'delivery_head']:
                     return redirect('admin_dashboard')
+                elif user.designation == 'Associate':
+                    return redirect('associate_dashboard')
                 else:
                     return redirect('field_dashboard')
             else:
@@ -182,5 +184,7 @@ def dashboard_redirect(request):
         return redirect('super_admin_dashboard')
     elif request.user.role in ['admin', 'hr', 'manager', 'delivery_head']:
         return redirect('admin_dashboard')
+    elif request.user.designation == 'Associate':
+        return redirect('associate_dashboard')
     else:
         return redirect('field_dashboard')

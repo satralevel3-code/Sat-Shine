@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, dashboard_views, admin_views, travel_views, enterprise_admin_views, enhanced_attendance_views, super_admin_views
+from . import views, dashboard_views, admin_views, travel_views, associate_views, enterprise_admin_views, enhanced_attendance_views, super_admin_views, bulk_upload_views, simple_redirect, test_views, debug_views
 from django.shortcuts import redirect
 
 def signup_redirect(request):
@@ -16,6 +16,7 @@ urlpatterns = [
     path('dashboard/', views.dashboard_redirect, name='dashboard'),
     path('field-dashboard/', dashboard_views.field_dashboard, name='field_dashboard'),
     path('admin-dashboard/', admin_views.admin_dashboard, name='admin_dashboard'),
+    path('associate-dashboard/', associate_views.associate_dashboard, name='associate_dashboard'),
     
     # Admin URLs
     path('admin/employees/', admin_views.employee_list, name='admin_employee_list'),
@@ -34,6 +35,15 @@ urlpatterns = [
     path('admin/leaves/', admin_views.leave_requests, name='admin_leave_requests'),
     path('admin/leaves/<int:leave_id>/decide/', admin_views.decide_leave, name='decide_leave'),
     path('admin/export/employees/', admin_views.export_employees, name='export_employees'),
+    path('admin/export/travel-requests/', admin_views.export_travel_requests, name='export_travel_requests'),
+    path('admin/todays-attendance/', admin_views.todays_attendance_details, name='todays_attendance_details'),
+    
+    # Approval System URLs
+    path('admin/approval-status/', admin_views.approval_status, name='admin_approval_status'),
+    path('admin/dc-confirmation/', admin_views.dc_confirmation, name='admin_dc_confirmation'),
+    path('admin/admin-approval/', admin_views.admin_approval, name='admin_admin_approval'),
+    path('admin/travel-approval/', admin_views.travel_approval, name='admin_travel_approval'),
+    path('admin/bulk-approve-attendance/', admin_views.bulk_approve_attendance, name='bulk_approve_attendance'),
     
     # Field Officer URLs
     path('mark-attendance/', dashboard_views.mark_attendance, name='mark_attendance'),
@@ -42,18 +52,39 @@ urlpatterns = [
     path('apply-leave/', dashboard_views.apply_leave, name='apply_leave'),
     path('confirm-team-attendance/', dashboard_views.confirm_team_attendance, name='confirm_team_attendance'),
     
-    # Enterprise Travel Management
-    path('request-travel/', travel_views.request_travel, name='request_travel'),
-    path('approve-travel/<int:travel_id>/', travel_views.approve_travel, name='approve_travel'),
-    path('travel-approvals/', travel_views.travel_approvals, name='travel_approvals'),
+    # Travel Request URLs
+    path('travel-requests/', travel_views.travel_request_dashboard, name='travel_request_dashboard'),
+    path('create-travel-request/', travel_views.create_travel_request, name='create_travel_request'),
+    path('export-travel-requests/', travel_views.export_travel_requests, name='export_travel_requests'),
+    path('get-associate-for-dccb/', travel_views.get_associate_for_dccb, name='get_associate_for_dccb'),
+    
+    # Associate URLs
+    path('associate/mark-attendance/', associate_views.associate_mark_attendance, name='associate_mark_attendance'),
+    path('associate/attendance-status/', associate_views.get_attendance_status, name='associate_attendance_status'),
+    path('associate/travel-approvals/', travel_views.associate_travel_approvals, name='associate_travel_approvals'),
+    path('associate/approve-travel/<int:travel_id>/', travel_views.approve_travel_request, name='approve_travel_request'),
+    path('travel-request-details/<int:request_id>/', associate_views.travel_request_details, name='travel_request_details'),
+    path('auth/travel-request-details/<int:request_id>/', associate_views.travel_request_details, name='admin_travel_request_details'),
     
     # Enhanced attendance marking
     path('enhanced-mark-attendance/', enhanced_attendance_views.enhanced_mark_attendance, name='enhanced_mark_attendance'),
     
     # Super Admin URLs
     path('super-admin-dashboard/', super_admin_views.super_admin_dashboard, name='super_admin_dashboard'),
-    path('employee-management/', enterprise_admin_views.employee_management, name='employee_management'),
+    path('employee-management/', simple_redirect.employee_management_redirect, name='employee_management'),
     path('create-user/', views.register_view, name='create_user'),
+    
+    # Bulk Upload URLs
+    path('bulk-upload/', bulk_upload_views.bulk_upload_view, name='bulk_upload'),
+    path('bulk-upload/preview/', bulk_upload_views.bulk_upload_preview, name='bulk_upload_preview'),
+    path('download-template/', bulk_upload_views.download_template, name='download_template'),
+    
+    # Test URLs
+    path('test-employees/', test_views.test_employee_list, name='test_employee_list'),
+    
+    # Debug URLs (Admin only)
+    path('debug/travel-requests/', debug_views.debug_travel_requests, name='debug_travel_requests'),
+    path('debug/create-sample-travel/', debug_views.create_sample_travel_request, name='create_sample_travel_request'),
     
     # AJAX validation endpoints
     path('validate-employee-id/', views.validate_employee_id, name='validate_employee_id'),

@@ -4,6 +4,7 @@
 
 {% block content %}
 <style>
+/* Attendance Status Design Tokens */
 :root {
     --primary-navy: #1e3a8a;
     --accent-blue: #2563EB;
@@ -11,6 +12,17 @@
     --warning-amber: #f59e0b;
     --error-red: #dc2626;
     --bg-light: #f8fafc;
+    
+    /* Attendance Status Colors */
+    --status-present: #8b5cf6; /* Violet */
+    --status-absent: #800000; /* Maroon */
+    --status-half-day: #006400; /* Dark Green */
+    --status-late: #dc2626; /* Red for clock icon */
+    
+    /* Approval Status Colors */
+    --dc-confirmed-bg: #fef3c7; /* Yellow background */
+    --admin-approved-bg: #8b5cf6; /* Violet background */
+    --admin-approved-text: #ffffff; /* White text */
 }
 
 .page-header {
@@ -83,13 +95,93 @@
     min-width: 60px;
     height: 50px;
     line-height: 1.2;
+    position: relative;
+    font-weight: bold;
+    font-size: 14px;
 }
 
-.status-p { background: #dcfce7; color: #166534; }
-.status-a { background: #fef2f2; color: #991b1b; }
-.status-h { background: #fef3c7; color: #92400e; }
-.status-nm { background: #f3f4f6; color: #374151; }
-.status-hol { background: #e0f2fe; color: #0277bd; }
+/* Attendance Status Indicators */
+.status-present {
+    color: var(--status-present);
+    background: white;
+}
+
+.status-absent {
+    color: var(--status-absent);
+    background: white;
+}
+
+.status-half-day {
+    color: var(--status-half-day);
+    background: white;
+}
+
+.status-holiday {
+    color: black;
+    background: #f5f5f5;
+}
+
+/* Late Arrival Indicator */
+.late-indicator {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    color: var(--status-late);
+    font-size: 10px;
+}
+
+/* DC Confirmation Status */
+.dc-confirmed {
+    background-color: var(--dc-confirmed-bg) !important;
+}
+
+/* Admin Approval Status */
+.admin-approved {
+    background-color: var(--admin-approved-bg) !important;
+    color: var(--admin-approved-text) !important;
+}
+
+.admin-approved .late-indicator {
+    color: var(--admin-approved-text) !important;
+}
+
+/* MIS Reports Section */
+.mis-reports-section {
+    margin-top: 2rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.mis-header {
+    background: var(--success-green);
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 8px 8px 0 0;
+}
+
+.mis-body {
+    padding: 1.5rem;
+}
+
+.mis-report-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 1rem;
+    height: 100%;
+}
+
+.mis-report-title {
+    color: var(--primary-navy);
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}
+
+.download-btn-group {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
 
 .sunday-restriction {
     background: linear-gradient(45deg, #fff3cd, #ffeaa7);
@@ -174,18 +266,42 @@
 </div>
 
 <div class="container-fluid">
-    <!-- Filters -->
+    <!-- Dynamic Filters -->
     <div class="card mb-4">
         <div class="card-body">
-            <form method="GET" class="row g-3">
+            <form method="GET" class="row g-3" id="filterForm">
+                <!-- Search Box -->
+                <div class="col-md-3">
+                    <label class="form-label fw-bold">Search</label>
+                    <input type="text" class="form-control" name="search" placeholder="Employee ID, Name, DCCB..." value="{{ search }}" id="searchInput">
+                </div>
+                
+                <!-- Dynamic Date Filters -->
                 <div class="col-md-2">
+                    <label class="form-label fw-bold">Date Range</label>
+                    <select class="form-select" name="date_range" id="dateRangeSelect">
+                        <option value="custom" {% if date_range_filter == 'custom' %}selected{% endif %}>Custom Range</option>
+                        <option value="today" {% if date_range_filter == 'today' %}selected{% endif %}>Today</option>
+                        <option value="yesterday" {% if date_range_filter == 'yesterday' %}selected{% endif %}>Yesterday</option>
+                        <option value="this_week" {% if date_range_filter == 'this_week' %}selected{% endif %}>This Week</option>
+                        <option value="last_week" {% if date_range_filter == 'last_week' %}selected{% endif %}>Last Week</option>
+                        <option value="this_month" {% if date_range_filter == 'this_month' %}selected{% endif %}>This Month</option>
+                        <option value="last_month" {% if date_range_filter == 'last_month' %}selected{% endif %}>Last Month</option>
+                        <option value="last_7_days" {% if date_range_filter == 'last_7_days' %}selected{% endif %}>Last 7 Days</option>
+                        <option value="last_30_days" {% if date_range_filter == 'last_30_days' %}selected{% endif %}>Last 30 Days</option>
+                    </select>
+                </div>
+                
+                <!-- Custom Date Inputs (shown when Custom Range is selected) -->
+                <div class="col-md-2" id="fromDateDiv" style="{% if date_range_filter != 'custom' %}display: none;{% endif %}">
                     <label class="form-label fw-bold">From Date</label>
-                    <input type="date" class="form-control" name="from_date" value="{{ from_date|date:'Y-m-d' }}">
+                    <input type="date" class="form-control" name="from_date" value="{{ from_date|date:'Y-m-d' }}" id="fromDateInput">
                 </div>
-                <div class="col-md-2">
+                <div class="col-md-2" id="toDateDiv" style="{% if date_range_filter != 'custom' %}display: none;{% endif %}">
                     <label class="form-label fw-bold">To Date</label>
-                    <input type="date" class="form-control" name="to_date" value="{{ to_date|date:'Y-m-d' }}">
+                    <input type="date" class="form-control" name="to_date" value="{{ to_date|date:'Y-m-d' }}" id="toDateInput">
                 </div>
+                
                 <div class="col-md-2">
                     <label class="form-label fw-bold">DCCB</label>
                     <select class="form-select" name="dccb">
@@ -195,21 +311,16 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-bold">Designation</label>
-                    <select class="form-select" name="designation">
-                        <option value="">All Designations</option>
-                        {% for value, label in designation_choices %}
-                        <option value="{{ value }}" {% if designation_filter == value %}selected{% endif %}>{{ label }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-2 d-flex align-items-end">
+                
+                <div class="col-md-1 d-flex align-items-end">
                     <button type="submit" class="btn btn-primary me-2">
-                        <i class="fas fa-filter me-1"></i>Apply
+                        <i class="fas fa-search me-1"></i>Filter
                     </button>
-                    <a href="{% url 'admin_attendance_daily' %}" class="btn btn-outline-secondary">
-                        <i class="fas fa-times me-1"></i>Clear
+                </div>
+                
+                <div class="col-md-12 d-flex justify-content-end">
+                    <a href="{% url 'admin_attendance_daily' %}" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-times me-1"></i>Reset All Filters
                     </a>
                 </div>
             </form>
@@ -220,13 +331,14 @@
     <div class="card mb-4">
         <div class="card-body py-2">
             <small class="text-muted">
-                <span class="badge status-p me-2">P</span>Present
-                <span class="badge status-a me-2 ms-2">A</span>Absent
-                <span class="badge status-h me-2 ms-2">H</span>Half Day
-                <span class="badge status-nm me-2 ms-2">NM</span>Not Marked
-                <span class="badge status-hol me-2 ms-2">HOL</span>Holiday
-                <span class="badge sunday-restriction me-2 ms-2">SUN</span>Sunday (No Attendance)
-                <i class="fas fa-clock late-indicator ms-3 me-1"></i>Late Arrival
+                <span style="color: var(--status-present); font-weight: bold;">P</span> Present
+                <span style="color: var(--status-absent); font-weight: bold;" class="ms-3">A</span> Absent
+                <span style="color: var(--status-half-day); font-weight: bold;" class="ms-3">H</span> Half Day
+                <span style="color: black; font-weight: bold;" class="ms-3">HOL</span> Holiday
+                <span style="color: #856404; font-weight: bold;" class="ms-3">SUN</span> Sunday
+                <i class="fas fa-clock ms-3 me-1" style="color: var(--status-late); font-size: 10px;"></i>Late Arrival
+                <span style="background: var(--dc-confirmed-bg); padding: 2px 6px; border-radius: 3px;" class="ms-3">DC Confirmed</span>
+                <span style="background: var(--admin-approved-bg); color: white; padding: 2px 6px; border-radius: 3px;" class="ms-3">Admin Approved</span>
             </small>
         </div>
     </div>
@@ -263,7 +375,7 @@
                         <th class="sticky-left">Employee ID</th>
                         <th class="sticky-left-2">DCCB</th>
                         {% for date in date_range %}
-                        <th class="date-column {% if date.is_sunday %}sunday-column sunday-restriction{% endif %} {% if date.is_holiday %}holiday-column{% endif %}">
+                        <th class="date-column {% if date.is_sunday %}sunday-column sunday-restriction{% endif %} {% if date.is_holiday %}holiday-column{% endif %}" data-date="{{ date.date|date:'Y-m-d' }}">
                             <div>{{ date.date|date:"d" }}</div>
                             <small>{{ date.date|date:"D" }}</small>
                             {% if date.is_sunday %}
@@ -285,25 +397,25 @@
                         </td>
                         <td class="sticky-left-2">{{ employee_data.employee.dccb|default:"-" }}</td>
                         {% for attendance in employee_data.attendance_list %}
-                        <td class="attendance-cell {% if attendance.is_sunday %}sunday-column sunday-restriction{% endif %} {% if attendance.is_holiday %}holiday-column{% endif %}">
+                        <td class="attendance-cell {% if attendance.is_sunday %}sunday-column{% endif %} {% if attendance.is_holiday %}holiday-column{% endif %} {% if attendance.is_dc_confirmed %}dc-confirmed{% endif %} {% if attendance.is_admin_approved %}admin-approved{% endif %}">
                             {% if attendance.is_sunday %}
-                                <span class="badge sunday-restriction">Sunday</span>
+                                <span class="status-holiday">SUN</span>
                             {% elif attendance.is_holiday %}
-                                <span class="badge status-hol">HOL</span>
+                                <span class="status-holiday">HOL</span>
                             {% elif attendance.status == 'present' %}
-                                <span class="badge status-p">P</span>
+                                <span class="status-present">P</span>
                                 {% if attendance.is_late %}
-                                <br><i class="fas fa-clock late-indicator" title="Late Arrival"></i>
+                                <i class="fas fa-clock late-indicator" title="Late Check-in"></i>
                                 {% endif %}
                             {% elif attendance.status == 'absent' %}
-                                <span class="badge status-a">A</span>
+                                <span class="status-absent">A</span>
                             {% elif attendance.status == 'half_day' %}
-                                <span class="badge status-h">H</span>
+                                <span class="status-half-day">H</span>
                                 {% if attendance.is_late %}
-                                <br><i class="fas fa-clock late-indicator" title="Late Arrival"></i>
+                                <i class="fas fa-clock late-indicator" title="Late Check-in"></i>
                                 {% endif %}
                             {% else %}
-                                <span class="badge status-nm">NM</span>
+                                <span style="color: #6b7280;">—</span>
                             {% endif %}
                         </td>
                         {% endfor %}
@@ -321,62 +433,64 @@
         </div>
     </div>
 
-    <!-- Reports Download Section -->
-    <div class="card">
-        <div class="card-header bg-success text-white">
+    <!-- MIS Reports & Downloads Section -->
+    <div class="mis-reports-section">
+        <div class="mis-header">
             <h5 class="mb-0">
-                <i class="fas fa-download me-2"></i>
-                Reports & Downloads
+                <i class="fas fa-chart-bar me-2"></i>
+                MIS Reports & Downloads
             </h5>
         </div>
-        <div class="card-body">
+        <div class="mis-body">
             <div class="row g-4">
-                <!-- DCCB-wise Report -->
+                <!-- DCCB-wise Attendance Summary -->
                 <div class="col-md-6">
-                    <div class="border rounded p-3 h-100">
-                        <h6 class="text-primary mb-3">
-                            <i class="fas fa-building me-2"></i>DCCB-wise Report
+                    <div class="mis-report-card">
+                        <h6 class="mis-report-title">
+                            <i class="fas fa-building me-2"></i>DCCB-wise Attendance Summary
                         </h6>
-                        <form id="dccbReportForm" class="d-flex flex-column gap-2">
-                            <select class="form-select" name="report_dccb" required>
-                                <option value="">Select DCCB</option>
+                        <p class="text-muted small mb-3">Comprehensive attendance summary by DCCB with totals and aggregations</p>
+                        <form id="dccbSummaryForm" class="d-flex flex-column gap-2">
+                            <select class="form-select form-select-sm" name="summary_dccb">
+                                <option value="">All DCCBs</option>
                                 {% for value, label in dccb_choices %}
                                 <option value="{{ value }}">{{ label }}</option>
                                 {% endfor %}
                             </select>
-                            <div class="btn-group" role="group">
-                                <button type="button" class="btn btn-success btn-sm" onclick="downloadDCCBReport('csv')">
-                                    <i class="fas fa-file-csv me-1"></i>CSV
-                                </button>
-                                <button type="button" class="btn btn-success btn-sm" onclick="downloadDCCBReport('excel')">
+                            <div class="download-btn-group">
+                                <button type="button" class="btn btn-success btn-sm" onclick="downloadDCCBSummary('xlsx')">
                                     <i class="fas fa-file-excel me-1"></i>Excel
+                                </button>
+                                <button type="button" class="btn btn-success btn-sm" onclick="downloadDCCBSummary('csv')">
+                                    <i class="fas fa-file-csv me-1"></i>CSV
                                 </button>
                             </div>
                         </form>
                     </div>
                 </div>
 
-                <!-- Date Range Report -->
+                <!-- Total Attendance List (Employee-Level) -->
                 <div class="col-md-6">
-                    <div class="border rounded p-3 h-100">
-                        <h6 class="text-primary mb-3">
-                            <i class="fas fa-calendar-range me-2"></i>Date Range Report
+                    <div class="mis-report-card">
+                        <h6 class="mis-report-title">
+                            <i class="fas fa-users me-2"></i>Total Attendance List (Employee-Level)
                         </h6>
-                        <form id="dateRangeForm" class="d-flex flex-column gap-2">
+                        <p class="text-muted small mb-3">Detailed employee-level attendance with time status and marking information</p>
+                        <form id="employeeListForm" class="d-flex flex-column gap-2">
                             <div class="row g-2">
                                 <div class="col-6">
-                                    <input type="date" class="form-control form-control-sm" name="report_from" placeholder="From Date" required>
+                                    <input type="date" class="form-control form-control-sm" name="emp_from_date" value="{{ from_date|date:'Y-m-d' }}">
                                 </div>
                                 <div class="col-6">
-                                    <input type="date" class="form-control form-control-sm" name="report_to" placeholder="To Date" required>
+                                    <input type="date" class="form-control form-control-sm" name="emp_to_date" value="{{ to_date|date:'Y-m-d' }}">
                                 </div>
                             </div>
-                            <div class="btn-group" role="group">
-                                <button type="button" class="btn btn-primary btn-sm" onclick="downloadDateRangeReport('csv')">
-                                    <i class="fas fa-file-csv me-1"></i>CSV
-                                </button>
-                                <button type="button" class="btn btn-primary btn-sm" onclick="downloadDateRangeReport('excel')">
+                            <div class="download-btn-group">
+                                <button type="button" class="btn btn-primary btn-sm" onclick="downloadEmployeeList('xlsx')">
                                     <i class="fas fa-file-excel me-1"></i>Excel
+                                </button>
+                                <button type="button" class="btn btn-primary btn-sm" onclick="downloadEmployeeList('csv')">
+                                    <i class="fas fa-file-csv me-1"></i>CSV
                                 </button>
                             </div>
                         </form>
@@ -388,6 +502,141 @@
 </div>
 
 <script>
+// Dynamic Date Range Handling
+document.addEventListener('DOMContentLoaded', function() {
+    const dateRangeSelect = document.getElementById('dateRangeSelect');
+    const fromDateDiv = document.getElementById('fromDateDiv');
+    const toDateDiv = document.getElementById('toDateDiv');
+    const fromDateInput = document.getElementById('fromDateInput');
+    const toDateInput = document.getElementById('toDateInput');
+    const searchInput = document.getElementById('searchInput');
+    const filterForm = document.getElementById('filterForm');
+    
+    // Handle date range selection
+    dateRangeSelect.addEventListener('change', function() {
+        const selectedRange = this.value;
+        
+        if (selectedRange === 'custom') {
+            fromDateDiv.style.display = 'block';
+            toDateDiv.style.display = 'block';
+        } else {
+            fromDateDiv.style.display = 'none';
+            toDateDiv.style.display = 'none';
+            
+            // Calculate dates based on selection
+            const today = new Date();
+            let fromDate, toDate;
+            
+            switch (selectedRange) {
+                case 'today':
+                    fromDate = toDate = today;
+                    break;
+                case 'yesterday':
+                    fromDate = toDate = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+                    break;
+                case 'this_week':
+                    const startOfWeek = new Date(today);
+                    startOfWeek.setDate(today.getDate() - today.getDay());
+                    fromDate = startOfWeek;
+                    toDate = today;
+                    break;
+                case 'last_week':
+                    const lastWeekEnd = new Date(today);
+                    lastWeekEnd.setDate(today.getDate() - today.getDay() - 1);
+                    const lastWeekStart = new Date(lastWeekEnd);
+                    lastWeekStart.setDate(lastWeekEnd.getDate() - 6);
+                    fromDate = lastWeekStart;
+                    toDate = lastWeekEnd;
+                    break;
+                case 'this_month':
+                    fromDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                    toDate = today;
+                    break;
+                case 'last_month':
+                    fromDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                    toDate = new Date(today.getFullYear(), today.getMonth(), 0);
+                    break;
+                case 'last_7_days':
+                    fromDate = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    toDate = today;
+                    break;
+                case 'last_30_days':
+                    fromDate = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+                    toDate = today;
+                    break;
+            }
+            
+            // Set the calculated dates
+            if (fromDate && toDate) {
+                fromDateInput.value = fromDate.toISOString().split('T')[0];
+                toDateInput.value = toDate.toISOString().split('T')[0];
+            }
+        }
+    });
+    
+    // Auto-submit on date range change (except custom)
+    dateRangeSelect.addEventListener('change', function() {
+        if (this.value !== 'custom') {
+            setTimeout(() => filterForm.submit(), 100);
+        }
+    });
+    
+    // Auto-submit on DCCB change
+    const dccbSelect = document.querySelector('select[name="dccb"]');
+    if (dccbSelect) {
+        dccbSelect.addEventListener('change', function() {
+            filterForm.submit();
+        });
+    }
+    
+    // Search functionality with debounce
+    let searchTimeout;
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            if (this.value.length >= 2 || this.value.length === 0) {
+                filterForm.submit();
+            }
+        }, 500); // 500ms delay
+    });
+    
+    // Update month display on page load
+    const fromDate = new Date('{{ from_date|date:"Y-m-d" }}');
+    const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    
+    const monthDisplay = document.getElementById('monthDisplay');
+    if (monthDisplay) {
+        const monthName = monthNames[fromDate.getMonth()];
+        const year = fromDate.getFullYear();
+        monthDisplay.textContent = `${monthName} ${year}`;
+    }
+    
+    // Auto-scroll to today's column if showing current month
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const fromDateStr = '{{ from_date|date:"Y-m-d" }}';
+    const toDateStr = '{{ to_date|date:"Y-m-d" }}';
+    
+    if (todayStr >= fromDateStr && todayStr <= toDateStr) {
+        setTimeout(() => {
+            const todayColumn = document.querySelector(`th[data-date="${todayStr}"]`);
+            if (todayColumn) {
+                const tableContainer = document.querySelector('.table-container');
+                if (tableContainer) {
+                    const containerWidth = tableContainer.clientWidth;
+                    const columnLeft = todayColumn.offsetLeft;
+                    const frozenWidth = 220; // Width of frozen columns (Employee ID + DCCB)
+                    const scrollPosition = columnLeft - frozenWidth - 50; // 50px padding
+                    tableContainer.scrollLeft = Math.max(0, scrollPosition);
+                }
+            }
+        }, 300);
+    }
+});
+
 function exportData(format) {
     const params = new URLSearchParams(window.location.search);
     params.set('format', format);
@@ -424,6 +673,7 @@ function navigateMonth(direction) {
     const params = new URLSearchParams(window.location.search);
     params.set('from_date', fromDateStr);
     params.set('to_date', toDateStr);
+    params.set('date_range', 'custom'); // Set to custom when navigating months
     
     // Add smooth loading indicator
     showLoadingIndicator();
@@ -447,45 +697,24 @@ function showLoadingIndicator() {
     });
 }
 
-// Update month display on page load
-document.addEventListener('DOMContentLoaded', function() {
-    const fromDate = new Date('{{ from_date|date:"Y-m-d" }}');
-    const monthNames = [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
-    ];
+// Download DCCB Summary Report
+function downloadDCCBSummary(format) {
+    const form = document.getElementById('dccbSummaryForm');
+    const dccb = form.querySelector('[name="summary_dccb"]').value;
     
-    const monthDisplay = document.getElementById('monthDisplay');
-    if (monthDisplay) {
-        const monthName = monthNames[fromDate.getMonth()];
-        const year = fromDate.getFullYear();
-        monthDisplay.textContent = `${monthName} ${year}`;
-    }
-});
-
-// Download DCCB-wise report
-function downloadDCCBReport(format) {
-    const form = document.getElementById('dccbReportForm');
-    const dccb = form.querySelector('[name="report_dccb"]').value;
-    
-    if (!dccb) {
-        alert('Please select a DCCB');
-        return;
-    }
-    
-    const params = new URLSearchParams();
-    params.set('dccb', dccb);
+    const params = new URLSearchParams(window.location.search);
+    if (dccb) params.set('dccb', dccb);
     params.set('format', format);
-    params.set('report_type', 'dccb');
+    params.set('report_type', 'dccb_summary');
     
     window.location.href = '{% url "export_attendance_daily" %}?' + params.toString();
 }
 
-// Download date range report
-function downloadDateRangeReport(format) {
-    const form = document.getElementById('dateRangeForm');
-    const fromDate = form.querySelector('[name="report_from"]').value;
-    const toDate = form.querySelector('[name="report_to"]').value;
+// Download Employee List Report
+function downloadEmployeeList(format) {
+    const form = document.getElementById('employeeListForm');
+    const fromDate = form.querySelector('[name="emp_from_date"]').value;
+    const toDate = form.querySelector('[name="emp_to_date"]').value;
     
     if (!fromDate || !toDate) {
         alert('Please select both from and to dates');
@@ -501,7 +730,7 @@ function downloadDateRangeReport(format) {
     params.set('from_date', fromDate);
     params.set('to_date', toDate);
     params.set('format', format);
-    params.set('report_type', 'date_range');
+    params.set('report_type', 'employee_list');
     
     window.location.href = '{% url "export_attendance_daily" %}?' + params.toString();
 }

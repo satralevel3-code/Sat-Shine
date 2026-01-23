@@ -1,5 +1,3 @@
-# Enterprise Admin Dashboard for MMP
-
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -62,15 +60,5 @@ def enterprise_dashboard(request):
 
 @login_required
 def employee_management(request):
-    """Enterprise employee management"""
-    if request.user.role_level < 10:
-        return JsonResponse({'error': 'Admin privileges required'}, status=403)
-    
-    employees = CustomUser.objects.filter(is_active=True).order_by('employee_id')
-    
-    context = {
-        'user': request.user,
-        'employees': employees,
-    }
-    
-    return render(request, 'authe/employee_management.html', context)
+    """Redirect to admin employee list"""
+    return redirect('admin_employee_list')

@@ -337,6 +337,28 @@
             </div>
             <a href="{% url 'apply_leave' %}" class="btn btn-primary btn-block">Apply for Leave</a>
         </div>
+
+        <!-- Travel Request (MT, DC, Support only) -->
+        {% if user.designation == 'MT' or user.designation == 'DC' or user.designation == 'Support' %}
+        <div class="action-card">
+            <div class="card-header">
+                <div class="card-icon" style="background: var(--accent-teal);">
+                    <i class="fas fa-route"></i>
+                </div>
+                <div class="card-title">Travel Requests</div>
+            </div>
+            <div class="card-content">
+                {% if pending_travel_requests > 0 %}
+                    <div class="metric-large">{{ pending_travel_requests }}</div>
+                    <div class="metric-label">Pending Requests</div>
+                {% else %}
+                    <div class="status-badge status-present">No Pending</div>
+                    <div class="metric-label">Schedule when needed</div>
+                {% endif %}
+            </div>
+            <a href="{% url 'travel_request_dashboard' %}" class="btn btn-primary btn-block">Manage Travel</a>
+        </div>
+        {% endif %}
     </div>
 
     <!-- Recent Leave Requests -->

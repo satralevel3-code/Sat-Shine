@@ -1,0 +1,254 @@
+{% extends "main/base_unified.html" %}
+
+{% block title %}Bulk Upload Preview{% endblock %}
+
+{% block extra_css %}
+<style>
+.preview-card {
+    background: white;
+    border-radius: 12px;
+    padding: 32px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    border: 1px solid #e5e7eb;
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+}
+
+.preview-header {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+.preview-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--primary-navy);
+    margin-bottom: 8px;
+}
+
+.preview-subtitle {
+    color: var(--text-secondary);
+    font-size: 16px;
+}
+
+.summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 32px;
+}
+
+.summary-card {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    border: 1px solid #e5e7eb;
+}
+
+.summary-number {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--primary-navy);
+    margin-bottom: 8px;
+}
+
+.summary-label {
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.preview-table-container {
+    max-height: 500px;
+    overflow-y: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    margin-bottom: 24px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+}
+
+.role-badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.role-field {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.role-admin {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.warning-box {
+    background: #fffbeb;
+    border: 1px solid #fed7aa;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 24px;
+}
+
+.warning-title {
+    color: #92400e;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.warning-text {
+    color: #92400e;
+    font-size: 14px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="preview-card">
+    <div class="preview-header">
+        <h1 class="preview-title">Bulk Upload Preview</h1>
+        <p class="preview-subtitle">Review employee data before final creation</p>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="summary-cards">
+        <div class="summary-card">
+            <div class="summary-number">{{ total_count }}</div>
+            <div class="summary-label">Total Employees</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-number">
+                {% with field_count=0 %}
+                    {% for employee in preview_data %}
+                        {% if employee.employee_id|slice:":3" == "MGJ" %}
+                            {% with field_count=field_count|add:1 %}{% endwith %}
+                        {% endif %}
+                    {% endfor %}
+                    {{ field_count }}
+                {% endwith %}
+            </div>
+            <div class="summary-label">Field Officers</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-number">
+                {% with admin_count=0 %}
+                    {% for employee in preview_data %}
+                        {% if employee.employee_id|slice:":2" == "MP" %}
+                            {% with admin_count=admin_count|add:1 %}{% endwith %}
+                        {% endif %}
+                    {% endfor %}
+                    {{ admin_count }}
+                {% endwith %}
+            </div>
+            <div class="summary-label">Admin Users</div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-number">
+                {% with dept_count=preview_data|length %}
+                    {% regroup preview_data by department as dept_groups %}
+                    {{ dept_groups|length }}
+                {% endwith %}
+            </div>
+            <div class="summary-label">Departments</div>
+        </div>
+    </div>
+
+    <!-- Warning Box -->
+    <div class="warning-box">
+        <div class="warning-title">⚠️ Important Notice</div>
+        <div class="warning-text">
+            This action will create {{ total_count }} new employee accounts with login credentials. 
+            Please ensure all data is correct before proceeding. This action cannot be undone.
+        </div>
+    </div>
+
+    <!-- Preview Table -->
+    <div class="preview-table-container">
+        <table class="table table-hover">
+            <thead class="table-dark sticky-top">
+                <tr>
+                    <th>Employee ID</th>
+                    <th>Full Name</th>
+                    <th>Role</th>
+                    <th>Designation</th>
+                    <th>Department</th>
+                    <th>Contact</th>
+                    <th>DCCB</th>
+                    <th>Email</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for employee in preview_data %}
+                <tr>
+                    <td>
+                        <strong>{{ employee.employee_id }}</strong>
+                    </td>
+                    <td>{{ employee.first_name }} {{ employee.last_name }}</td>
+                    <td>
+                        {% if employee.employee_id|slice:":3" == "MGJ" %}
+                            <span class="role-badge role-field">Field Officer</span>
+                        {% else %}
+                            <span class="role-badge role-admin">Admin User</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ employee.designation }}</td>
+                    <td>{{ employee.department }}</td>
+                    <td>{{ employee.contact_number }}</td>
+                    <td>
+                        {% if employee.dccb %}
+                            {{ employee.dccb }}
+                        {% elif employee.multiple_dccb %}
+                            {{ employee.multiple_dccb|join:", " }}
+                        {% else %}
+                            <span class="text-muted">N/A</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ employee.email }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="action-buttons">
+        <a href="{% url 'bulk_upload' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Upload
+        </a>
+        <form method="post" style="display: inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success" id="createBtn">
+                <i class="fas fa-users"></i> Create {{ total_count }} Employees
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const createBtn = document.getElementById('createBtn');
+    const form = createBtn.closest('form');
+
+    form.addEventListener('submit', function(e) {
+        // Show confirmation dialog
+        if (!confirm(`Are you sure you want to create {{ total_count }} employee accounts? This action cannot be undone.`)) {
+            e.preventDefault();
+            return false;
+        }
+
+        // Show loading state
+        createBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Employees...';
+        createBtn.disabled = true;
+    });
+});
+</script>
+{% endblock %}
