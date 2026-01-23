@@ -1105,33 +1105,45 @@ def export_attendance_daily(request):
         from datetime import datetime, timedelta
         
         today = timezone.localdate()
-        from_date_str = request.GET.get('from_date', (today - timedelta(days=today.weekday())).isoformat())
+        from_date_str = request.GET.get('from_date', today.replace(day=1).isoformat())
         to_date_str = request.GET.get('to_date', today.isoformat())
         
         try:
             from_date = datetime.strptime(from_date_str, '%Y-%m-%d').date()
             to_date = datetime.strptime(to_date_str, '%Y-%m-%d').date()
         except ValueError:
-            from_date = today - timedelta(days=today.weekday())
+            from_date = today.replace(day=1)
             to_date = today
         
         dccb_filter = request.GET.get('dccb', '')
         
-        if report_type == 'dccb_summary':
-            return export_dccb_summary(request, format_type, from_date, to_date, dccb_filter)
-        elif report_type == 'employee_list':
-            return export_employee_list(request, format_type, from_date, to_date)
-        else:
-            # Standard export (existing functionality)
-            return export_standard_attendance(request, format_type, from_date, to_date, dccb_filter)
+        # Simple CSV export
+        employees = CustomUser.objects.filter(role='field_officer', is_active=True)
+        if dccb_filter:
+            employees = employees.filter(dccb=dccb_filter)
+        
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="attendance_{from_date}_{to_date}.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow(['Employee ID', 'Name', 'DCCB', 'Designation', 'Status'])
+        
+        for emp in employees:
+            writer.writerow([
+                emp.employee_id,
+                f'{emp.first_name} {emp.last_name}',
+                emp.dccb or '',
+                emp.designation,
+                'Active' if emp.is_active else 'Inactive'
+            ])
+        
+        return response
             
     except Exception as e:
-        # Return error as CSV for debugging
         response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = f'attachment; filename="error_daily_attendance_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+        response['Content-Disposition'] = f'attachment; filename="error_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
         writer = csv.writer(response)
-        writer.writerow(['Error', 'Details'])
-        writer.writerow(['Export Error', str(e)])
+        writer.writerow(['Error', str(e)])
         return response
 
 def export_dccb_summary(request, format_type, from_date, to_date, dccb_filter):

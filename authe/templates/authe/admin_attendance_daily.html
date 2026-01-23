@@ -248,19 +248,6 @@
                     DAILY ATTENDANCE
                 </h2>
             </div>
-            <div class="col-auto">
-                <div class="export-buttons">
-                    <button class="btn btn-light btn-sm" onclick="exportData('csv')">
-                        <i class="fas fa-file-csv me-1"></i>CSV
-                    </button>
-                    <button class="btn btn-light btn-sm" onclick="exportData('excel')">
-                        <i class="fas fa-file-excel me-1"></i>Excel
-                    </button>
-                    <button class="btn btn-light btn-sm" onclick="exportData('pdf')">
-                        <i class="fas fa-file-pdf me-1"></i>PDF
-                    </button>
-                </div>
-            </div>
         </div>
     </div>
 </div>
@@ -636,12 +623,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 300);
     }
 });
-
-function exportData(format) {
-    const params = new URLSearchParams(window.location.search);
-    params.set('format', format);
-    window.location.href = '{% url "export_attendance_daily" %}?' + params.toString();
-}
 
 // Month navigation functionality
 function navigateMonth(direction) {
