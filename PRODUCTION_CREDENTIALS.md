@@ -2,6 +2,7 @@
 
 ## 🚀 Production URL
 **Live Application**: https://web-production-6396f.up.railway.app/
+**Login Page**: https://web-production-6396f.up.railway.app/auth/login/
 
 ## 👤 Default Admin Credentials
 
@@ -54,14 +55,14 @@ Access: Travel request approval, simple attendance
 If users don't exist, run this command in Railway console:
 
 ```bash
-python manage.py create_admin
+python create_production_admin.py
 ```
 
 This will create all default users automatically.
 
 ## 🔐 Login Process
 
-1. Visit: https://web-production-6396f.up.railway.app/login/
+1. Visit: https://web-production-6396f.up.railway.app/auth/login/
 2. Enter Employee ID (not email)
 3. Enter Password
 4. System will auto-redirect based on role:
@@ -91,8 +92,9 @@ The application is fully mobile-responsive:
 
 ### Can't Login?
 1. Ensure using Employee ID (not email)
-2. Check if users exist by running: `python manage.py create_admin`
-3. Verify database connection in Railway logs
+2. Use correct URL: /auth/login/ (not /login/)
+3. Check if users exist by running: `python create_production_admin.py`
+4. Verify database connection in Railway logs
 
 ### Database Issues?
 1. Check Railway PostgreSQL service status
@@ -101,4 +103,4 @@ The application is fully mobile-responsive:
 
 ---
 
-**🎯 Quick Login**: Use **MP0001** / **SatShine@2024** for immediate admin access
+**🎯 Quick Login**: Use **MP0001** / **SatShine@2024** at https://web-production-6396f.up.railway.app/auth/login/
