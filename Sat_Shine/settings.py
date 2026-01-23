@@ -20,7 +20,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-key-change-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True  # Enable debug for testing
+DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
 # Railway automatically provides RAILWAY_STATIC_URL and other variables
 RAILWAY_ENVIRONMENT = os.environ.get('RAILWAY_ENVIRONMENT')
@@ -46,6 +46,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Static files for production
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -148,8 +149,10 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Only enable security settings in production
+# Security Settings - Production Ready
 if not DEBUG:
+    # HTTPS Security
+    SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_BROWSER_XSS_FILTER = True
@@ -157,6 +160,11 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
+    SECURE_REFERRER_POLICY = 'same-origin'
+    
+    # Additional Security Headers
+    X_FRAME_OPTIONS = 'DENY'
+    SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
 else:
     # Development settings
     SECURE_SSL_REDIRECT = False

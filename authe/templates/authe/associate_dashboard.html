@@ -448,7 +448,7 @@
                 {% endif %}
             </div>
             {% if not today_attendance %}
-                <a href="{% url 'mark_attendance' %}" class="btn btn-primary btn-block">Mark Attendance</a>
+                <a href="{% url 'associate_mark_attendance_page' %}" class="btn btn-primary btn-block">Mark Attendance</a>
             {% else %}
                 <button class="btn btn-secondary btn-block" disabled>Already Marked</button>
             {% endif %}
@@ -611,6 +611,9 @@
 </div>
 
 <script>
+let currentRequestId = null;
+
+// Simple Attendance Marking Functions
 let currentRequestId = null;
 
 function scrollToTravelSection() {

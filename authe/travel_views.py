@@ -170,6 +170,10 @@ def create_travel_request(request):
                 purpose=purpose
             )
             
+            # Send notification to Associate
+            from .notification_service import notify_travel_request
+            notify_travel_request(travel_request)
+            
             return JsonResponse({
                 'success': True,
                 'message': 'Travel request submitted successfully'
@@ -198,11 +202,18 @@ def associate_travel_approvals(request):
     duration = request.GET.get('duration', '')
     status = request.GET.get('status', '')
     
-    # Get travel requests for Associate's DCCBs
-    travel_requests = TravelRequest.objects.filter(
-        request_to=request.user,
-        from_date__range=[from_date, to_date]
-    ).select_related('user')
+    # Get travel requests for Associate's assigned DCCBs
+    if request.user.designation == 'Associate':
+        user_dccbs = request.user.multiple_dccb or []
+        travel_requests = TravelRequest.objects.filter(
+            user__dccb__in=user_dccbs,
+            from_date__range=[from_date, to_date]
+        ).select_related('user')
+    else:
+        # Admins can see all travel requests
+        travel_requests = TravelRequest.objects.filter(
+            from_date__range=[from_date, to_date]
+        ).select_related('user')
     
     # Apply filters
     if employee_id:
@@ -248,10 +259,22 @@ def associate_travel_approvals(request):
 @login_required
 def approve_travel_request(request, travel_id):
     """Approve or reject travel request"""
-    if request.user.designation != 'Associate':
+    travel_request = get_object_or_404(TravelRequest, id=travel_id)
+    
+    # Allow both Associates and Admins to approve travel requests
+    if request.user.designation != 'Associate' and request.user.role_level < 10:
         return JsonResponse({'success': False, 'error': 'Access denied'})
     
-    travel_request = get_object_or_404(TravelRequest, id=travel_id, request_to=request.user)
+    # Associates can only approve requests for their assigned DCCBs
+    if request.user.designation == 'Associate':
+        user_dccbs = request.user.multiple_dccb or []
+        requester_dccb = travel_request.user.dccb
+        
+        if requester_dccb not in user_dccbs:
+            return JsonResponse({
+                'success': False, 
+                'error': f'You can only approve requests from your assigned DCCBs: {user_dccbs}'
+            })
     
     if request.method == 'POST':
         try:
@@ -268,6 +291,30 @@ def approve_travel_request(request, travel_id):
                 travel_request.approved_at = timezone.now()
                 travel_request.remarks = remarks
                 travel_request.save()
+                
+                # If approved, update existing attendance records to mark travel as approved
+                # Do NOT auto-create attendance - let user mark their own attendance
+                if action == 'approve':
+                    from .models import Attendance
+                    from datetime import timedelta
+                    
+                    current_date = travel_request.from_date
+                    while current_date <= travel_request.to_date:
+                        # Only update existing attendance records, don't create new ones
+                        existing_attendance = Attendance.objects.filter(
+                            user=travel_request.user,
+                            date=current_date
+                        ).first()
+                        
+                        if existing_attendance:
+                            existing_attendance.travel_approved = True
+                            existing_attendance.save()
+                        
+                        current_date += timedelta(days=1)
+                
+                # Send notification to user about approval/rejection
+                from .notification_service import notify_travel_approval
+                notify_travel_approval(travel_request, action == 'approve')
             
             return JsonResponse({
                 'success': True,

@@ -67,8 +67,18 @@
     z-index: 10;
 }
 
+.sticky-left-3 {
+    position: sticky;
+    left: 220px;
+    background: white;
+    z-index: 20;
+    border-right: 2px solid #dee2e6;
+    min-width: 100px;
+}
+
 .table thead th.sticky-left,
-.table thead th.sticky-left-2 {
+.table thead th.sticky-left-2,
+.table thead th.sticky-left-3 {
     z-index: 30;
 }
 
@@ -320,6 +330,7 @@
             <small class="text-muted">
                 <span style="color: var(--status-present); font-weight: bold;">P</span> Present
                 <span style="color: var(--status-absent); font-weight: bold;" class="ms-3">A</span> Absent
+                <span style="color: var(--status-absent); font-weight: bold;" class="ms-3">L</span> Leave
                 <span style="color: var(--status-half-day); font-weight: bold;" class="ms-3">H</span> Half Day
                 <span style="color: black; font-weight: bold;" class="ms-3">HOL</span> Holiday
                 <span style="color: #856404; font-weight: bold;" class="ms-3">SUN</span> Sunday
@@ -334,12 +345,6 @@
     <div class="card">
         <div class="card-header bg-primary text-white">
             <div class="row align-items-center">
-                <div class="col">
-                    <h5 class="mb-0">
-                        <i class="fas fa-calendar-alt me-2"></i>
-                        <span id="monthDisplay">{{ from_date|date:"F Y" }}</span>
-                    </h5>
-                </div>
                 <div class="col-auto">
                     <div class="btn-group" role="group">
                         <button type="button" class="btn btn-outline-light btn-sm month-nav-btn" onclick="navigateMonth('prev')" title="Previous Month">
@@ -353,22 +358,32 @@
                         </button>
                     </div>
                 </div>
+                <div class="col">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calendar-alt me-2"></i>
+                        <span id="monthDisplay">{{ from_date|date:"F Y"|upper }}</span>
+                    </h5>
+                </div>
+                <div class="col-auto">
+                    <small>{{ attendance_data|length }} employees</small>
+                </div>
             </div>
         </div>
         <div class="table-container">
             <table class="table table-bordered table-sm mb-0">
                 <thead class="table-dark sticky-top">
                     <tr>
-                        <th class="sticky-left">Employee ID</th>
+                        <th class="sticky-left">Emp ID</th>
                         <th class="sticky-left-2">DCCB</th>
+                        <th class="sticky-left-3">Designation</th>
                         {% for date in date_range %}
                         <th class="date-column {% if date.is_sunday %}sunday-column sunday-restriction{% endif %} {% if date.is_holiday %}holiday-column{% endif %}" data-date="{{ date.date|date:'Y-m-d' }}">
-                            <div>{{ date.date|date:"d" }}</div>
-                            <small>{{ date.date|date:"D" }}</small>
+                            <div class="fw-bold">{{ date.date|date:"d" }}</div>
+                            <small class="text-uppercase">{{ date.date|date:"D" }}</small>
                             {% if date.is_sunday %}
                             <div><small class="text-warning fw-bold">SUN</small></div>
                             {% elif date.is_holiday %}
-                            <div><small class="text-info">HOL</small></div>
+                            <div><small class="text-info fw-bold">HOL</small></div>
                             {% endif %}
                         </th>
                         {% endfor %}
@@ -378,11 +393,12 @@
                     {% for employee_data in attendance_data %}
                     <tr>
                         <td class="sticky-left fw-bold text-primary">
-                            <a href="{% url 'admin_employee_attendance_history' employee_data.employee.employee_id %}" class="text-decoration-none fw-bold text-primary" title="View Attendance History">
+                            <a href="{% url 'admin_employee_attendance_history' employee_data.employee.employee_id %}" class="text-decoration-none fw-bold text-primary" title="View History">
                                 {{ employee_data.employee.employee_id }}
                             </a>
                         </td>
-                        <td class="sticky-left-2">{{ employee_data.employee.dccb|default:"-" }}</td>
+                        <td class="sticky-left-2 small">{{ employee_data.employee.dccb|default:"-" }}</td>
+                        <td class="sticky-left-3 small">{{ employee_data.employee.designation|default:"-" }}</td>
                         {% for attendance in employee_data.attendance_list %}
                         <td class="attendance-cell {% if attendance.is_sunday %}sunday-column{% endif %} {% if attendance.is_holiday %}holiday-column{% endif %} {% if attendance.is_dc_confirmed %}dc-confirmed{% endif %} {% if attendance.is_admin_approved %}admin-approved{% endif %}">
                             {% if attendance.is_sunday %}
@@ -395,7 +411,11 @@
                                 <i class="fas fa-clock late-indicator" title="Late Check-in"></i>
                                 {% endif %}
                             {% elif attendance.status == 'absent' %}
-                                <span class="status-absent">A</span>
+                                {% if attendance.is_leave_day %}
+                                    <span class="status-absent" title="On Approved Leave">L</span>
+                                {% else %}
+                                    <span class="status-absent">A</span>
+                                {% endif %}
                             {% elif attendance.status == 'half_day' %}
                                 <span class="status-half-day">H</span>
                                 {% if attendance.is_late %}
@@ -409,7 +429,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="{{ date_range|length|add:2 }}" class="text-center py-4">
+                        <td colspan="{{ date_range|length|add:3 }}" class="text-center py-4">
                             <i class="fas fa-users text-muted mb-2" style="font-size: 2rem;"></i>
                             <div class="text-muted">No employees found for the selected criteria</div>
                         </td>
@@ -436,48 +456,40 @@
                         <h6 class="mis-report-title">
                             <i class="fas fa-building me-2"></i>DCCB-wise Attendance Summary
                         </h6>
-                        <p class="text-muted small mb-3">Comprehensive attendance summary by DCCB with totals and aggregations</p>
+                        <p class="text-muted small mb-3">Daily attendance summary by DCCB with check-in times and status counts</p>
                         <form id="dccbSummaryForm" class="d-flex flex-column gap-2">
-                            <select class="form-select form-select-sm" name="summary_dccb">
-                                <option value="">All DCCBs</option>
-                                {% for value, label in dccb_choices %}
-                                <option value="{{ value }}">{{ label }}</option>
-                                {% endfor %}
-                            </select>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label class="form-label small">Date</label>
+                                    <input type="date" class="form-control form-control-sm" name="summary_date" value="{{ from_date|date:'Y-m-d' }}">
+                                </div>
+                            </div>
                             <div class="download-btn-group">
-                                <button type="button" class="btn btn-success btn-sm" onclick="downloadDCCBSummary('xlsx')">
-                                    <i class="fas fa-file-excel me-1"></i>Excel
-                                </button>
                                 <button type="button" class="btn btn-success btn-sm" onclick="downloadDCCBSummary('csv')">
-                                    <i class="fas fa-file-csv me-1"></i>CSV
+                                    <i class="fas fa-file-csv me-1"></i>Download CSV
                                 </button>
                             </div>
                         </form>
                     </div>
                 </div>
 
-                <!-- Total Attendance List (Employee-Level) -->
+                <!-- Daily Attendance Report -->
                 <div class="col-md-6">
                     <div class="mis-report-card">
                         <h6 class="mis-report-title">
-                            <i class="fas fa-users me-2"></i>Total Attendance List (Employee-Level)
+                            <i class="fas fa-calendar-day me-2"></i>Daily Attendance Report
                         </h6>
-                        <p class="text-muted small mb-3">Detailed employee-level attendance with time status and marking information</p>
-                        <form id="employeeListForm" class="d-flex flex-column gap-2">
+                        <p class="text-muted small mb-3">Complete daily attendance report with employee details</p>
+                        <form id="dailyAttendanceForm" class="d-flex flex-column gap-2">
                             <div class="row g-2">
                                 <div class="col-6">
-                                    <input type="date" class="form-control form-control-sm" name="emp_from_date" value="{{ from_date|date:'Y-m-d' }}">
-                                </div>
-                                <div class="col-6">
-                                    <input type="date" class="form-control form-control-sm" name="emp_to_date" value="{{ to_date|date:'Y-m-d' }}">
+                                    <label class="form-label small">Date</label>
+                                    <input type="date" class="form-control form-control-sm" name="daily_date" value="{{ from_date|date:'Y-m-d' }}">
                                 </div>
                             </div>
                             <div class="download-btn-group">
-                                <button type="button" class="btn btn-primary btn-sm" onclick="downloadEmployeeList('xlsx')">
-                                    <i class="fas fa-file-excel me-1"></i>Excel
-                                </button>
-                                <button type="button" class="btn btn-primary btn-sm" onclick="downloadEmployeeList('csv')">
-                                    <i class="fas fa-file-csv me-1"></i>CSV
+                                <button type="button" class="btn btn-primary btn-sm" onclick="downloadDailyAttendance('csv')">
+                                    <i class="fas fa-file-csv me-1"></i>Download CSV
                                 </button>
                             </div>
                         </form>
@@ -510,63 +522,68 @@ document.addEventListener('DOMContentLoaded', function() {
             fromDateDiv.style.display = 'none';
             toDateDiv.style.display = 'none';
             
-            // Calculate dates based on selection
-            const today = new Date();
-            let fromDate, toDate;
+        // Calculate dates based on selection
+        const today = new Date();
+        let fromDate, toDate;
+        
+        switch (selectedRange) {
+            case 'today':
+                fromDate = toDate = today;
+                break;
+            case 'yesterday':
+                fromDate = toDate = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+                break;
+            case 'this_week':
+                const startOfWeek = new Date(today);
+                startOfWeek.setDate(today.getDate() - today.getDay());
+                fromDate = startOfWeek;
+                toDate = today;
+                break;
+            case 'last_week':
+                const lastWeekEnd = new Date(today);
+                lastWeekEnd.setDate(today.getDate() - today.getDay() - 1);
+                const lastWeekStart = new Date(lastWeekEnd);
+                lastWeekStart.setDate(lastWeekEnd.getDate() - 6);
+                fromDate = lastWeekStart;
+                toDate = lastWeekEnd;
+                break;
+            case 'this_month':
+                fromDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                // Get last day of current month
+                toDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                break;
+            case 'last_month':
+                // Get first day of last month
+                fromDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                // Get last day of last month
+                toDate = new Date(today.getFullYear(), today.getMonth(), 0);
+                break;
+            case 'last_7_days':
+                fromDate = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+                toDate = today;
+                break;
+            case 'last_30_days':
+                fromDate = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+                toDate = today;
+                break;
+        }
             
-            switch (selectedRange) {
-                case 'today':
-                    fromDate = toDate = today;
-                    break;
-                case 'yesterday':
-                    fromDate = toDate = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-                    break;
-                case 'this_week':
-                    const startOfWeek = new Date(today);
-                    startOfWeek.setDate(today.getDate() - today.getDay());
-                    fromDate = startOfWeek;
-                    toDate = today;
-                    break;
-                case 'last_week':
-                    const lastWeekEnd = new Date(today);
-                    lastWeekEnd.setDate(today.getDate() - today.getDay() - 1);
-                    const lastWeekStart = new Date(lastWeekEnd);
-                    lastWeekStart.setDate(lastWeekEnd.getDate() - 6);
-                    fromDate = lastWeekStart;
-                    toDate = lastWeekEnd;
-                    break;
-                case 'this_month':
-                    fromDate = new Date(today.getFullYear(), today.getMonth(), 1);
-                    toDate = today;
-                    break;
-                case 'last_month':
-                    fromDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-                    toDate = new Date(today.getFullYear(), today.getMonth(), 0);
-                    break;
-                case 'last_7_days':
-                    fromDate = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-                    toDate = today;
-                    break;
-                case 'last_30_days':
-                    fromDate = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-                    toDate = today;
-                    break;
-            }
-            
-            // Set the calculated dates
-            if (fromDate && toDate) {
-                fromDateInput.value = fromDate.toISOString().split('T')[0];
-                toDateInput.value = toDate.toISOString().split('T')[0];
-            }
+        // Set the calculated dates
+        if (fromDate && toDate) {
+            fromDateInput.value = fromDate.toISOString().split('T')[0];
+            toDateInput.value = toDate.toISOString().split('T')[0];
+        }
         }
     });
     
     // Auto-submit on date range change (except custom)
-    dateRangeSelect.addEventListener('change', function() {
-        if (this.value !== 'custom') {
-            setTimeout(() => filterForm.submit(), 100);
-        }
-    });
+    if (dateRangeSelect) {
+        dateRangeSelect.addEventListener('change', function() {
+            if (this.value !== 'custom') {
+                setTimeout(() => filterForm.submit(), 100);
+            }
+        });
+    }
     
     // Auto-submit on DCCB change
     const dccbSelect = document.querySelector('select[name="dccb"]');
@@ -598,7 +615,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (monthDisplay) {
         const monthName = monthNames[fromDate.getMonth()];
         const year = fromDate.getFullYear();
-        monthDisplay.textContent = `${monthName} ${year}`;
+        monthDisplay.textContent = `${monthName.toUpperCase()} ${year}`;
     }
     
     // Auto-scroll to today's column if showing current month
@@ -615,7 +632,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (tableContainer) {
                     const containerWidth = tableContainer.clientWidth;
                     const columnLeft = todayColumn.offsetLeft;
-                    const frozenWidth = 220; // Width of frozen columns (Employee ID + DCCB)
+                    const frozenWidth = 320; // Width of frozen columns (Emp ID + DCCB + Designation)
                     const scrollPosition = columnLeft - frozenWidth - 50; // 50px padding
                     tableContainer.scrollLeft = Math.max(0, scrollPosition);
                 }
@@ -627,23 +644,22 @@ document.addEventListener('DOMContentLoaded', function() {
 // Month navigation functionality
 function navigateMonth(direction) {
     const currentFromDate = new Date('{{ from_date|date:"Y-m-d" }}');
-    const currentToDate = new Date('{{ to_date|date:"Y-m-d" }}');
     
     let newFromDate, newToDate;
     
     if (direction === 'prev') {
-        // Previous month
+        // Previous month - subtract 1 month
         newFromDate = new Date(currentFromDate.getFullYear(), currentFromDate.getMonth() - 1, 1);
-        newToDate = new Date(currentFromDate.getFullYear(), currentFromDate.getMonth(), 0); // Last day of previous month
+        newToDate = new Date(currentFromDate.getFullYear(), currentFromDate.getMonth(), 0);
     } else if (direction === 'next') {
-        // Next month
+        // Next month - add 1 month
         newFromDate = new Date(currentFromDate.getFullYear(), currentFromDate.getMonth() + 1, 1);
-        newToDate = new Date(currentFromDate.getFullYear(), currentFromDate.getMonth() + 2, 0); // Last day of next month
+        newToDate = new Date(currentFromDate.getFullYear(), currentFromDate.getMonth() + 2, 0);
     } else if (direction === 'current') {
         // Current month
         const today = new Date();
         newFromDate = new Date(today.getFullYear(), today.getMonth(), 1);
-        newToDate = new Date(today.getFullYear(), today.getMonth() + 1, 0); // Last day of current month
+        newToDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
     }
     
     // Format dates for URL
@@ -654,10 +670,7 @@ function navigateMonth(direction) {
     const params = new URLSearchParams(window.location.search);
     params.set('from_date', fromDateStr);
     params.set('to_date', toDateStr);
-    params.set('date_range', 'custom'); // Set to custom when navigating months
-    
-    // Add smooth loading indicator
-    showLoadingIndicator();
+    params.set('date_range', 'custom');
     
     // Navigate to new URL
     window.location.href = window.location.pathname + '?' + params.toString();
@@ -669,49 +682,40 @@ function showLoadingIndicator() {
     if (monthDisplay) {
         monthDisplay.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Loading...';
     }
-    
-    // Disable navigation buttons
-    const navButtons = document.querySelectorAll('.month-nav-btn');
-    navButtons.forEach(btn => {
-        btn.disabled = true;
-        btn.classList.add('disabled');
-    });
 }
 
 // Download DCCB Summary Report
 function downloadDCCBSummary(format) {
     const form = document.getElementById('dccbSummaryForm');
-    const dccb = form.querySelector('[name="summary_dccb"]').value;
+    const date = form.querySelector('[name="summary_date"]').value;
     
-    const params = new URLSearchParams(window.location.search);
-    if (dccb) params.set('dccb', dccb);
+    if (!date) {
+        alert('Please select a date');
+        return;
+    }
+    
+    const params = new URLSearchParams();
+    params.set('date', date);
     params.set('format', format);
     params.set('report_type', 'dccb_summary');
     
     window.location.href = '{% url "export_attendance_daily" %}?' + params.toString();
 }
 
-// Download Employee List Report
-function downloadEmployeeList(format) {
-    const form = document.getElementById('employeeListForm');
-    const fromDate = form.querySelector('[name="emp_from_date"]').value;
-    const toDate = form.querySelector('[name="emp_to_date"]').value;
+// Download Daily Attendance Report
+function downloadDailyAttendance(format) {
+    const form = document.getElementById('dailyAttendanceForm');
+    const date = form.querySelector('[name="daily_date"]').value;
     
-    if (!fromDate || !toDate) {
-        alert('Please select both from and to dates');
-        return;
-    }
-    
-    if (new Date(fromDate) > new Date(toDate)) {
-        alert('From date cannot be later than to date');
+    if (!date) {
+        alert('Please select a date');
         return;
     }
     
     const params = new URLSearchParams();
-    params.set('from_date', fromDate);
-    params.set('to_date', toDate);
+    params.set('date', date);
     params.set('format', format);
-    params.set('report_type', 'employee_list');
+    params.set('report_type', 'daily_attendance');
     
     window.location.href = '{% url "export_attendance_daily" %}?' + params.toString();
 }

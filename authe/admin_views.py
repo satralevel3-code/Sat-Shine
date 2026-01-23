@@ -271,6 +271,7 @@ def deactivate_employee(request, employee_id):
 def attendance_daily(request):
     """Daily attendance matrix view with dynamic filters and search"""
     from datetime import datetime, timedelta
+    from calendar import monthrange
     
     # Get date range and search parameters
     today = timezone.localdate()
@@ -293,10 +294,16 @@ def attendance_daily(request):
         to_date = last_week_end
     elif date_range_filter == 'this_month':
         from_date = today.replace(day=1)
-        to_date = today
+        # Get last day of current month
+        _, last_day = monthrange(today.year, today.month)
+        to_date = today.replace(day=last_day)
     elif date_range_filter == 'last_month':
-        from_date = (today.replace(day=1) - timedelta(days=1)).replace(day=1)
-        to_date = today.replace(day=1) - timedelta(days=1)
+        # Get first day of last month
+        first_day_last_month = (today.replace(day=1) - timedelta(days=1)).replace(day=1)
+        from_date = first_day_last_month
+        # Get last day of last month
+        _, last_day = monthrange(first_day_last_month.year, first_day_last_month.month)
+        to_date = first_day_last_month.replace(day=last_day)
     elif date_range_filter == 'last_7_days':
         from_date = today - timedelta(days=7)
         to_date = today
@@ -306,18 +313,30 @@ def attendance_daily(request):
     elif date_range_filter == 'custom':
         # Use provided dates or default to current month
         from_date_str = request.GET.get('from_date', today.replace(day=1).isoformat())
-        to_date_str = request.GET.get('to_date', today.isoformat())
+        to_date_str = request.GET.get('to_date')
+        
+        # If no to_date provided, calculate full month
+        if not to_date_str:
+            try:
+                temp_date = datetime.strptime(from_date_str, '%Y-%m-%d').date()
+                _, last_day = monthrange(temp_date.year, temp_date.month)
+                to_date_str = temp_date.replace(day=last_day).isoformat()
+            except ValueError:
+                _, last_day = monthrange(today.year, today.month)
+                to_date_str = today.replace(day=last_day).isoformat()
         
         try:
             from_date = datetime.strptime(from_date_str, '%Y-%m-%d').date()
             to_date = datetime.strptime(to_date_str, '%Y-%m-%d').date()
         except ValueError:
             from_date = today.replace(day=1)
-            to_date = today
+            _, last_day = monthrange(today.year, today.month)
+            to_date = today.replace(day=last_day)
     else:
-        # Default to current month
+        # Default to current month (full month)
         from_date = today.replace(day=1)
-        to_date = today
+        _, last_day = monthrange(today.year, today.month)
+        to_date = today.replace(day=last_day)
     
     # Apply filters
     dccb_filter = request.GET.get('dccb', '')
@@ -337,18 +356,20 @@ def attendance_daily(request):
     if dccb_filter:
         employees = employees.filter(dccb=dccb_filter)
     
-    # Generate date range
+    # Generate complete date range
     date_range = []
     current_date = from_date
     
     # Get holidays safely
     try:
+        from .models import Holiday
         holidays = Holiday.objects.filter(date__range=[from_date, to_date])
         holiday_dates = {h.date: h for h in holidays}
-    except:
-        # If Holiday table doesn't exist or has issues, continue without holidays
+    except (ImportError, AttributeError):
+        # If Holiday model doesn't exist, continue without holidays
         holiday_dates = {}
     
+    # Generate all dates in range (including full month)
     while current_date <= to_date:
         is_sunday = current_date.weekday() == 6
         is_holiday = current_date in holiday_dates or is_sunday
@@ -388,7 +409,8 @@ def attendance_daily(request):
             'is_late': is_late,
             'check_in_time': record.check_in_time,
             'is_dc_confirmed': record.is_confirmed_by_dc,
-            'is_admin_approved': record.is_approved_by_admin
+            'is_admin_approved': record.is_approved_by_admin,
+            'is_leave_day': getattr(record, 'is_leave_day', False)
         }
     
     # Prepare final data structure
@@ -422,7 +444,8 @@ def attendance_daily(request):
                 'is_sunday': date_info['is_sunday'],
                 'is_holiday': date_info['is_holiday'],
                 'is_dc_confirmed': attendance.get('is_dc_confirmed', False),
-                'is_admin_approved': attendance.get('is_admin_approved', False)
+                'is_admin_approved': attendance.get('is_admin_approved', False),
+                'is_leave_day': attendance.get('is_leave_day', False)
             })
         
         attendance_data.append({
@@ -439,6 +462,8 @@ def attendance_daily(request):
         'date_range_filter': date_range_filter,
         'dccb_filter': dccb_filter,
         'dccb_choices': CustomUser.DCCB_CHOICES,
+        'current_month': from_date.strftime('%B %Y'),
+        'total_days': len(date_range),
     }
     
     return render(request, 'authe/admin_attendance_daily.html', context)
@@ -547,6 +572,10 @@ def decide_leave(request, leave_id):
                 request,
                 f'Before: {before_data}, After: {after_data}'
             )
+            
+            # Send notification to user
+            from .notification_service import notify_leave_approval
+            notify_leave_approval(leave_request, action == 'approve')
         
         return JsonResponse({
             'success': True,
@@ -1100,44 +1129,18 @@ def export_attendance_daily(request):
     """Export daily attendance data with MIS report support"""
     try:
         format_type = request.GET.get('format', 'csv')
-        report_type = request.GET.get('report_type', 'standard')
-        
-        from datetime import datetime, timedelta
-        
-        today = timezone.localdate()
-        from_date_str = request.GET.get('from_date', today.replace(day=1).isoformat())
-        to_date_str = request.GET.get('to_date', today.isoformat())
+        report_type = request.GET.get('report_type', 'daily_attendance')
+        date_str = request.GET.get('date', timezone.localdate().isoformat())
         
         try:
-            from_date = datetime.strptime(from_date_str, '%Y-%m-%d').date()
-            to_date = datetime.strptime(to_date_str, '%Y-%m-%d').date()
+            selected_date = datetime.strptime(date_str, '%Y-%m-%d').date()
         except ValueError:
-            from_date = today.replace(day=1)
-            to_date = today
+            selected_date = timezone.localdate()
         
-        dccb_filter = request.GET.get('dccb', '')
-        
-        # Simple CSV export
-        employees = CustomUser.objects.filter(role='field_officer', is_active=True)
-        if dccb_filter:
-            employees = employees.filter(dccb=dccb_filter)
-        
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = f'attachment; filename="attendance_{from_date}_{to_date}.csv"'
-        
-        writer = csv.writer(response)
-        writer.writerow(['Employee ID', 'Name', 'DCCB', 'Designation', 'Status'])
-        
-        for emp in employees:
-            writer.writerow([
-                emp.employee_id,
-                f'{emp.first_name} {emp.last_name}',
-                emp.dccb or '',
-                emp.designation,
-                'Active' if emp.is_active else 'Inactive'
-            ])
-        
-        return response
+        if report_type == 'dccb_summary':
+            return export_dccb_daily_summary(selected_date)
+        else:
+            return export_daily_attendance_report(selected_date)
             
     except Exception as e:
         response = HttpResponse(content_type='text/csv')
@@ -1145,6 +1148,98 @@ def export_attendance_daily(request):
         writer = csv.writer(response)
         writer.writerow(['Error', str(e)])
         return response
+
+def export_dccb_daily_summary(selected_date):
+    """Export DCCB-wise daily attendance summary"""
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="dccb_summary_{selected_date.strftime("%Y%m%d")}.csv"'
+    
+    writer = csv.writer(response)
+    writer.writerow(['DCCB', 'Date', 'Check In Time', 'Present', 'Absent', 'Half Day', 'Not Marked', 'Late (Y/N)'])
+    
+    # Get all DCCBs
+    dccbs = CustomUser.objects.filter(role='field_officer', is_active=True, dccb__isnull=False).values_list('dccb', flat=True).distinct()
+    
+    total_present = total_absent = total_half_day = total_not_marked = total_late = 0
+    
+    for dccb in dccbs:
+        employees = CustomUser.objects.filter(role='field_officer', is_active=True, dccb=dccb)
+        attendance_records = Attendance.objects.filter(user__in=employees, date=selected_date)
+        
+        present = attendance_records.filter(status='present').count()
+        absent = attendance_records.filter(status='absent').count()
+        half_day = attendance_records.filter(status='half_day').count()
+        not_marked = employees.count() - attendance_records.count()
+        late = attendance_records.filter(check_in_time__gt=time(9, 30)).count()
+        
+        # Get earliest check-in time for this DCCB
+        earliest_checkin = attendance_records.filter(check_in_time__isnull=False).order_by('check_in_time').first()
+        checkin_time = earliest_checkin.check_in_time.strftime('%H:%M') if earliest_checkin else 'N/A'
+        
+        writer.writerow([
+            dccb,
+            selected_date.strftime('%Y-%m-%d'),
+            checkin_time,
+            present,
+            absent,
+            half_day,
+            not_marked,
+            'Y' if late > 0 else 'N'
+        ])
+        
+        total_present += present
+        total_absent += absent
+        total_half_day += half_day
+        total_not_marked += not_marked
+        total_late += late
+    
+    # Grand Total row
+    writer.writerow([
+        'GRAND TOTAL',
+        selected_date.strftime('%Y-%m-%d'),
+        'N/A',
+        total_present,
+        total_absent,
+        total_half_day,
+        total_not_marked,
+        'Y' if total_late > 0 else 'N'
+    ])
+    
+    return response
+
+def export_daily_attendance_report(selected_date):
+    """Export daily attendance report"""
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="daily_attendance_{selected_date.strftime("%Y%m%d")}.csv"'
+    
+    writer = csv.writer(response)
+    writer.writerow(['Employee ID', 'Name', 'DCCB', 'Designation', 'Status', 'Check In Time', 'Late (Y/N)'])
+    
+    employees = CustomUser.objects.filter(role='field_officer', is_active=True).order_by('dccb', 'employee_id')
+    
+    for employee in employees:
+        attendance = Attendance.objects.filter(user=employee, date=selected_date).first()
+        
+        if attendance:
+            status = attendance.get_status_display()
+            checkin_time = attendance.check_in_time.strftime('%H:%M') if attendance.check_in_time else 'N/A'
+            is_late = 'Y' if attendance.check_in_time and attendance.check_in_time > time(9, 30) else 'N'
+        else:
+            status = 'Not Marked'
+            checkin_time = 'N/A'
+            is_late = 'N'
+        
+        writer.writerow([
+            employee.employee_id,
+            f'{employee.first_name} {employee.last_name}',
+            employee.dccb or 'Not Assigned',
+            employee.designation,
+            status,
+            checkin_time,
+            is_late
+        ])
+    
+    return response
 
 def export_dccb_summary(request, format_type, from_date, to_date, dccb_filter):
     """Export DCCB-wise attendance summary"""
@@ -1377,6 +1472,17 @@ def update_attendance_status(request):
         attendance.remarks = admin_remarks
         attendance.save()
         
+        # Notify user if MT or Support
+        if attendance.user.designation in ['MT', 'Support']:
+            from .notification_service import create_notification
+            create_notification(
+                recipient=attendance.user,
+                notification_type='system_alert',
+                title='Attendance Updated by Admin',
+                message=f'Your attendance status has been updated to {new_status} by Admin {request.user.employee_id}',
+                priority='medium'
+            )
+        
         # Create audit log
         after_data = f"Status: {attendance.status}, Time: {attendance.check_in_time}"
         create_audit_log(
@@ -1513,25 +1619,35 @@ def admin_approval(request):
     designation_filter = request.GET.get('designation', '')
     approval_status_filter = request.GET.get('approval_status', '')
     
-    # Get DC confirmed attendance records only
-    attendance_query = Attendance.objects.filter(
-        date__range=[from_date, to_date],
-        is_confirmed_by_dc=True
+    # Get attendance records for admin approval
+    # Associates: Direct admin approval (no DC confirmation needed)
+    # MT/DC/Support: Require DC confirmation first
+    base_query = Attendance.objects.filter(
+        date__range=[from_date, to_date]
+    ).filter(
+        Q(user__designation='Associate') |  # Associates can be approved directly
+        Q(user__designation__in=['MT', 'DC', 'Support'], is_confirmed_by_dc=True)  # Others need DC confirmation first
     ).select_related('user')
     
-    if employee_id_filter:
-        attendance_query = attendance_query.filter(user__employee_id__icontains=employee_id_filter)
-    if dccb_filter:
-        attendance_query = attendance_query.filter(user__dccb=dccb_filter)
-    if designation_filter:
-        attendance_query = attendance_query.filter(user__designation=designation_filter)
+    # Apply approval status filter
     if approval_status_filter == 'pending':
-        attendance_query = attendance_query.filter(is_approved_by_admin=False)
+        attendance_records = base_query.filter(is_approved_by_admin=False)
     elif approval_status_filter == 'approved':
-        attendance_query = attendance_query.filter(is_approved_by_admin=True)
+        attendance_records = base_query.filter(is_approved_by_admin=True)
+    else:
+        attendance_records = base_query  # Show all (both pending and approved)
+    
+    attendance_records = attendance_records.order_by('-date', 'user__employee_id')
+    
+    if employee_id_filter:
+        attendance_records = attendance_records.filter(user__employee_id__icontains=employee_id_filter)
+    if dccb_filter:
+        attendance_records = attendance_records.filter(user__dccb=dccb_filter)
+    if designation_filter:
+        attendance_records = attendance_records.filter(user__designation=designation_filter)
     
     # Pagination
-    paginator = Paginator(attendance_query, 50)
+    paginator = Paginator(attendance_records, 50)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
@@ -1809,16 +1925,24 @@ def bulk_approve_attendance(request):
             return JsonResponse({'success': False, 'error': 'No attendance records selected'}, status=400)
         
         with transaction.atomic():
-            # Update attendance records
-            updated_count = Attendance.objects.filter(
+            # Get attendance records before update to notify users
+            attendance_records = Attendance.objects.filter(
                 id__in=attendance_ids,
                 is_confirmed_by_dc=True,
                 is_approved_by_admin=False
-            ).update(
+            ).select_related('user')
+            
+            # Update attendance records
+            updated_count = attendance_records.update(
                 is_approved_by_admin=True,
                 approved_by_admin=request.user,
                 admin_approved_at=timezone.now()
             )
+            
+            # Notify users about admin approval
+            from .notification_service import notify_admin_approval_to_user
+            for attendance in attendance_records:
+                notify_admin_approval_to_user(attendance.user, request.user)
             
             # Convert NM to Absent for approved records
             Attendance.objects.filter(

@@ -517,6 +517,7 @@ body {
                     <th>Location</th>
                     <th>DC Confirmation</th>
                     <th>Approval Status</th>
+                    <th>Remarks</th>
                 </tr>
             </thead>
             <tbody>
@@ -567,16 +568,16 @@ body {
                     </td>
                     <td>
                         {% if attendance.travel_required %}
-                            <span style="color: var(--accent-blue); font-weight: 600;">Yes</span>
+                            <span style="color: var(--success-green); font-weight: 600;">Yes</span>
                         {% else %}
-                            <span style="color: var(--text-secondary);">No</span>
+                            <span style="color: var(--error-red); font-weight: 600;">No</span>
                         {% endif %}
                     </td>
                     <td>
                         {% if attendance.travel_approved %}
                             <span style="color: var(--success-green); font-weight: 600;">Yes</span>
                         {% else %}
-                            <span style="color: var(--text-secondary);">No</span>
+                            <span style="color: var(--error-red); font-weight: 600;">No</span>
                         {% endif %}
                     </td>
                     <td>{{ attendance.task|default:"NM"|truncatechars:30 }}</td>
@@ -604,6 +605,13 @@ body {
                             <span class="approval-approved">Approved</span>
                         {% else %}
                             <span class="approval-pending">Pending</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if attendance.remarks %}
+                            <a href="#" class="btn btn-sm btn-outline-primary" onclick="showComment('{{ attendance.user.employee_id }}', '{{ attendance.remarks|escapejs }}')">Comment</a>
+                        {% else %}
+                            NM
                         {% endif %}
                     </td>
                 </tr>
@@ -645,6 +653,10 @@ function showLocation(lat, lng) {
     // Open Google Maps with the location
     const url = `https://www.google.com/maps?q=${lat},${lng}`;
     window.open(url, '_blank');
+}
+
+function showComment(employeeId, comment) {
+    alert(`Comment for ${employeeId}:\n\n${comment}`);
 }
 
 // Auto-submit form on date change and debounced search

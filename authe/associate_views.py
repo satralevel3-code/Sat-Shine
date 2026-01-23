@@ -10,6 +10,11 @@ from .models import CustomUser, Attendance, LeaveRequest, TravelRequest
 import json
 
 @login_required
+def associate_mark_attendance_page(request):
+    """Associate mark attendance page"""
+    return render(request, 'authe/associate_mark_attendance.html')
+
+@login_required
 def associate_dashboard(request):
     """Associate dashboard with travel request management"""
     if request.user.designation != 'Associate':
@@ -91,154 +96,68 @@ def associate_dashboard(request):
 
 @login_required
 def associate_mark_attendance(request):
-    """Enhanced attendance marking for Associates"""
-    if request.user.designation != 'Associate':
-        return JsonResponse({'success': False, 'error': 'Access denied'})
-    
+    """Simple Associate attendance marking - Present/Half Day/Absent with GPS auto-fetch"""
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            action = data.get('action')  # 'check_in', 'half_day', 'absent', 'check_out'
+            status = data.get('status')  # 'present', 'half_day', 'absent'
+            latitude = data.get('latitude')
+            longitude = data.get('longitude')
+            
+            # Validate status
+            if status not in ['present', 'half_day', 'absent']:
+                return JsonResponse({'success': False, 'error': 'Invalid status'})
             
             today = timezone.localdate()
-            current_time = timezone.localtime().time()
             
-            # Check if attendance already exists
-            attendance, created = Attendance.objects.get_or_create(
+            # Check if attendance already marked
+            existing_attendance = Attendance.objects.filter(
+                user=request.user,
+                date=today
+            ).first()
+            
+            if existing_attendance:
+                return JsonResponse({
+                    'success': False, 
+                    'error': 'Attendance already marked for today'
+                })
+            
+            # Create attendance record
+            attendance = Attendance.objects.create(
                 user=request.user,
                 date=today,
-                defaults={'status': 'absent', 'marked_at': timezone.now()}
+                status=status,
+                latitude=latitude if status != 'absent' else None,
+                longitude=longitude if status != 'absent' else None,
+                check_in_time=timezone.localtime().time() if status != 'absent' else None,
+                marked_at=timezone.now()
             )
             
-            if action == 'absent':
-                attendance.status = 'absent'
-                attendance.check_in_time = None
-                attendance.check_out_time = None
-                attendance.workplace = None
-                attendance.task = None
-                attendance.travel_reason = None
-                attendance.save()
-                
-                return JsonResponse({
-                    'success': True,
-                    'message': 'Marked as absent successfully'
-                })
-            
-            elif action in ['check_in', 'half_day']:
-                # Validate required fields
-                workplace = data.get('workplace')
-                task = data.get('task', '')
-                travel_required = data.get('travel_required')
-                travel_reason = data.get('travel_reason', '')
-                
-                if not workplace:
-                    return JsonResponse({
-                        'success': False,
-                        'error': 'Workplace is required'
-                    })
-                
-                # Check if travel is required but no reason given when no approved travel
-                approved_travel_today = TravelRequest.objects.filter(
-                    user=request.user,
-                    from_date__lte=today,
-                    to_date__gte=today,
-                    status='approved'
-                ).exists()
-                
-                if travel_required == 'no' and approved_travel_today and not travel_reason:
-                    return JsonResponse({
-                        'success': False,
-                        'error': 'Travel reason is required when declining approved travel'
-                    })
-                
-                # Update attendance
-                attendance.status = 'present' if action == 'check_in' else 'half_day'
-                attendance.check_in_time = current_time
-                attendance.workplace = workplace
-                attendance.task = task
-                attendance.travel_required = travel_required == 'yes'
-                attendance.travel_reason = travel_reason
-                
-                # Capture GPS location (placeholder - implement GPS capture)
-                attendance.latitude = data.get('latitude')
-                attendance.longitude = data.get('longitude')
-                attendance.location_accuracy = data.get('accuracy')
-                attendance.location_address = data.get('address', '')
-                
-                attendance.save()
-                
-                return JsonResponse({
-                    'success': True,
-                    'message': f'Attendance marked as {attendance.get_status_display()} successfully'
-                })
-            
-            elif action == 'check_out':
-                if not attendance or attendance.status == 'absent':
-                    return JsonResponse({
-                        'success': False,
-                        'error': 'Cannot check out without checking in first'
-                    })
-                
-                # Check if it's after 2:30 PM
-                if current_time < time(14, 30):
-                    return JsonResponse({
-                        'success': False,
-                        'error': 'Check out is only available after 2:30 PM'
-                    })
-                
-                attendance.check_out_time = current_time
-                attendance.save()
-                
-                return JsonResponse({
-                    'success': True,
-                    'message': 'Checked out successfully'
-                })
-            
-            else:
-                return JsonResponse({
-                    'success': False,
-                    'error': 'Invalid action'
-                })
-                
-        except Exception as e:
             return JsonResponse({
-                'success': False,
-                'error': str(e)
+                'success': True,
+                'message': f'Attendance marked as {status.title()}'
             })
+            
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'error': 'Invalid JSON data'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
     
     return JsonResponse({'success': False, 'error': 'Invalid request method'})
 
 @login_required
 def get_attendance_status(request):
     """Get current attendance status for Associate"""
-    if request.user.designation != 'Associate':
-        return JsonResponse({'success': False, 'error': 'Access denied'})
-    
     today = timezone.localdate()
     attendance = Attendance.objects.filter(user=request.user, date=today).first()
-    
-    # Check approved travel for today
-    approved_travel_today = TravelRequest.objects.filter(
-        user=request.user,
-        from_date__lte=today,
-        to_date__gte=today,
-        status='approved'
-    ).exists()
-    
-    current_time = timezone.localtime().time()
-    can_check_out = current_time >= time(14, 30)
     
     return JsonResponse({
         'success': True,
         'attendance': {
             'status': attendance.status if attendance else None,
             'check_in_time': attendance.check_in_time.strftime('%H:%M') if attendance and attendance.check_in_time else None,
-            'check_out_time': attendance.check_out_time.strftime('%H:%M') if attendance and attendance.check_out_time else None,
-            'workplace': attendance.workplace if attendance else None,
         },
-        'approved_travel_today': approved_travel_today,
-        'can_check_out': can_check_out,
-        'current_time': current_time.strftime('%H:%M')
+        'current_time': timezone.localtime().time().strftime('%H:%M')
     })
 
 @login_required

@@ -355,3 +355,45 @@ class SystemAuditLog(models.Model):
             models.Index(fields=['timestamp']),
             models.Index(fields=['actor', 'action_type'])
         ]
+
+class Notification(models.Model):
+    """System notifications and alerts"""
+    NOTIFICATION_TYPES = [
+        ('check_in_reminder', 'Check-in Reminder'),
+        ('travel_request', 'Travel Request'),
+        ('travel_approval', 'Travel Approval'),
+        ('leave_request', 'Leave Request'),
+        ('leave_approval', 'Leave Approval'),
+        ('system_alert', 'System Alert'),
+    ]
+    
+    PRIORITY_LEVELS = [
+        ('low', 'Low'),
+        ('medium', 'Medium'),
+        ('high', 'High'),
+        ('urgent', 'Urgent'),
+    ]
+    
+    recipient = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='notifications')
+    notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES)
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    priority = models.CharField(max_length=10, choices=PRIORITY_LEVELS, default='medium')
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)  # Auto-expire notifications
+    related_object_id = models.CharField(max_length=50, null=True, blank=True)  # For clearing related notifications
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.recipient.employee_id} - {self.title}"
+    
+    @property
+    def is_expired(self):
+        """Check if notification has expired"""
+        if self.expires_at:
+            return timezone.now() > self.expires_at
+        return False

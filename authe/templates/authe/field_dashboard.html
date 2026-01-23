@@ -284,12 +284,15 @@
             </div>
             <div class="card-content">
                 {% if today_attendance %}
-                    {% if today_attendance.status == 'absent' and today_attendance.is_confirmed_by_dc %}
-                        <div class="status-badge" style="background: #fef2f2; color: #991b1b; border: 2px solid #fbbf24;">Absent (DC Confirmed)</div>
-                        <div class="metric-label">Confirmed by {{ today_attendance.confirmed_by_dc.employee_id }}</div>
+                    {% if today_attendance.status == 'absent' %}
+                        <div class="status-badge status-absent">Absent</div>
+                        <div class="metric-label">Marked at {{ today_attendance.check_in_time|time:"g:i A"|default:"N/A" }}</div>
                     {% else %}
-                        <div class="status-badge status-present">{{ today_attendance.get_status_display }}</div>
-                        <div class="metric-label">Marked at {{ today_attendance.marked_at|time:"g:i A" }}</div>
+                        <div class="status-badge status-present">Attendance Marked</div>
+                        <div class="metric-label">Check-in: {{ today_attendance.check_in_time|time:"g:i A" }}</div>
+                        {% if today_attendance.check_out_time %}
+                            <div class="metric-label">Check-out: {{ today_attendance.check_out_time|time:"g:i A" }}</div>
+                        {% endif %}
                     {% endif %}
                 {% else %}
                     <div class="status-badge status-pending">Not Marked</div>
@@ -298,8 +301,16 @@
             </div>
             {% if not today_attendance %}
                 <a href="{% url 'mark_attendance' %}" class="btn btn-primary btn-block">Mark Attendance</a>
+            {% elif today_attendance.status != 'absent' and not today_attendance.check_out_time %}
+                <a href="{% url 'mark_attendance' %}" class="btn btn-warning btn-block">Check Out</a>
             {% else %}
-                <button class="btn btn-disabled btn-block" disabled>Already Marked</button>
+                <button class="btn btn-disabled btn-block" disabled>
+                    {% if today_attendance.check_out_time %}
+                        Day Completed
+                    {% else %}
+                        Marked as Absent
+                    {% endif %}
+                </button>
             {% endif %}
         </div>
 

@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, dashboard_views, admin_views, travel_views, associate_views, enterprise_admin_views, enhanced_attendance_views, super_admin_views, bulk_upload_views, simple_redirect, test_views, debug_views
+from . import views, dashboard_views, admin_views, travel_views, associate_views, enterprise_admin_views, enhanced_attendance_views, super_admin_views, bulk_upload_views, simple_redirect, test_views, debug_views, notification_views, reports_views
 from django.shortcuts import redirect
 
 def signup_redirect(request):
@@ -47,6 +47,7 @@ urlpatterns = [
     
     # Field Officer URLs
     path('mark-attendance/', dashboard_views.mark_attendance, name='mark_attendance'),
+    path('check-out/', dashboard_views.check_out, name='check_out'),
     path('attendance-history/', dashboard_views.attendance_history, name='attendance_history'),
     path('attendance/summary/', dashboard_views.attendance_summary, name='attendance_summary'),
     path('apply-leave/', dashboard_views.apply_leave, name='apply_leave'),
@@ -60,6 +61,7 @@ urlpatterns = [
     
     # Associate URLs
     path('associate/mark-attendance/', associate_views.associate_mark_attendance, name='associate_mark_attendance'),
+    path('associate/mark-attendance-page/', associate_views.associate_mark_attendance_page, name='associate_mark_attendance_page'),
     path('associate/attendance-status/', associate_views.get_attendance_status, name='associate_attendance_status'),
     path('associate/travel-approvals/', travel_views.associate_travel_approvals, name='associate_travel_approvals'),
     path('associate/approve-travel/<int:travel_id>/', travel_views.approve_travel_request, name='approve_travel_request'),
@@ -90,4 +92,17 @@ urlpatterns = [
     path('validate-employee-id/', views.validate_employee_id, name='validate_employee_id'),
     path('validate-contact/', views.validate_contact, name='validate_contact'),
     path('validate-email/', views.validate_email, name='validate_email'),
+    
+    # Notification URLs
+    path('notifications/', notification_views.get_notifications, name='get_notifications'),
+    path('notifications/<int:notification_id>/read/', notification_views.mark_notification_read, name='mark_notification_read'),
+    path('notifications/mark-all-read/', notification_views.mark_all_notifications_read, name='mark_all_notifications_read'),
+    
+    # Reports & Analytics URLs
+    path('reports/', reports_views.reports_analytics_dashboard, name='reports_analytics_dashboard'),
+    path('reports/attendance-analytics-api/', reports_views.attendance_analytics_api, name='attendance_analytics_api'),
+    path('reports/attendance-trend-api/', reports_views.attendance_trend_api, name='attendance_trend_api'),
+    path('reports/filtered-attendance-list/', reports_views.filtered_attendance_list, name='filtered_attendance_list'),
+    path('reports/export-master-employee/', reports_views.export_master_employee_report, name='export_master_employee_report'),
+    path('reports/export-master-attendance/', reports_views.export_master_attendance_report, name='export_master_attendance_report'),
 ]
