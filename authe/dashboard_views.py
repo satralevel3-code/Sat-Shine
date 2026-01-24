@@ -402,7 +402,7 @@ def apply_leave(request):
 @login_required
 @require_http_methods(["POST"])
 def confirm_team_attendance(request):
-    """DC confirmation of team attendance"""
+    """DC confirmation of team attendance with travel request validation"""
     if request.user.role != 'field_officer' or request.user.designation != 'DC':
         return JsonResponse({'error': 'Access denied. DC privileges required.'}, status=403)
     
@@ -423,11 +423,62 @@ def confirm_team_attendance(request):
         ).exclude(id=request.user.id)
         
         confirmed_count = 0
+        blocked_records = []
         
         # Process each team member's attendance
         for member in team_members:
             current_date = start_date
             while current_date <= end_date:
+                # Check for pending travel requests
+                has_pending_travel = TravelRequest.objects.filter(
+                    user=member,
+                    from_date__lte=current_date,
+                    to_date__gte=current_date,
+                    status='pending'
+                ).exists()
+                
+                if has_pending_travel:
+                    # Find responsible Associate
+                    responsible_associate = None
+                    associates = CustomUser.objects.filter(
+                        designation='Associate',
+                        is_active=True
+                    )
+                    
+                    for assoc in associates:
+                        if assoc.multiple_dccb and member.dccb in assoc.multiple_dccb:
+                            responsible_associate = assoc
+                            break
+                    
+                    blocked_records.append({
+                        'employee_id': member.employee_id,
+                        'date': current_date,
+                        'reason': f'Pending travel request approval from Associate {responsible_associate.employee_id if responsible_associate else "(Not Found)"}'
+                    })
+                    
+                    # Send notification to DC about blocked confirmation
+                    from .notification_service import NotificationService
+                    NotificationService.create_notification(
+                        recipient=request.user,
+                        notification_type='system_alert',
+                        title='Attendance Confirmation Blocked',
+                        message=f'Cannot confirm attendance for {member.employee_id} on {current_date} due to pending travel request approval.',
+                        priority='high'
+                    )
+                    
+                    # Send notification to Associate
+                    if responsible_associate:
+                        NotificationService.create_notification(
+                            recipient=responsible_associate,
+                            notification_type='travel_request',
+                            title='Urgent: Travel Request Approval Required',
+                            message=f'DC {request.user.employee_id} cannot confirm attendance for {member.employee_id} on {current_date}. Please review pending travel request.',
+                            priority='urgent'
+                        )
+                    
+                    current_date += timedelta(days=1)
+                    continue
+                
                 attendance, created = Attendance.objects.get_or_create(
                     user=member,
                     date=current_date,
@@ -464,7 +515,7 @@ def confirm_team_attendance(request):
             date_range_start=start_date,
             date_range_end=end_date,
             ip_address=request.META.get('REMOTE_ADDR'),
-            details=f'Confirmed attendance for {team_members.count()} team members'
+            details=f'Confirmed attendance for {team_members.count()} team members. Blocked: {len(blocked_records)} records due to pending travel requests.'
         )
         
         # Send notification to Admin
@@ -472,10 +523,15 @@ def confirm_team_attendance(request):
         date_range_str = f"{start_date} to {end_date}" if start_date != end_date else str(start_date)
         notify_dc_confirmation(request.user, confirmed_count, date_range_str)
         
+        response_message = f'Attendance confirmed for {team_members.count()} team members'
+        if blocked_records:
+            response_message += f'. {len(blocked_records)} records blocked due to pending travel requests.'
+        
         return JsonResponse({
             'success': True,
-            'message': f'Attendance confirmed for {team_members.count()} team members',
-            'confirmed_records': confirmed_count
+            'message': response_message,
+            'confirmed_records': confirmed_count,
+            'blocked_records': blocked_records
         })
         
     except Exception as e:

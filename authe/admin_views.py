@@ -15,7 +15,26 @@ from io import StringIO
 from django.template.loader import render_to_string
 from django.views.decorators.http import require_http_methods
 
-def admin_required(view_func):
+def check_pending_travel_requests(user, attendance_date):
+    """Check if user has pending travel requests for the given date"""
+    return TravelRequest.objects.filter(
+        user=user,
+        from_date__lte=attendance_date,
+        to_date__gte=attendance_date,
+        status='pending'
+    ).exists()
+
+def get_responsible_associate(user_dccb):
+    """Get the Associate responsible for a given DCCB"""
+    associates = CustomUser.objects.filter(
+        designation='Associate',
+        is_active=True
+    )
+    
+    for assoc in associates:
+        if assoc.multiple_dccb and user_dccb in assoc.multiple_dccb:
+            return assoc
+    return None
     """Decorator to ensure only admin users can access admin views"""
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
@@ -1533,7 +1552,7 @@ def approval_status(request):
 @login_required
 @admin_required
 def dc_confirmation(request):
-    """DC confirmation screen with filters"""
+    """DC confirmation screen with travel request validation"""
     from datetime import datetime, timedelta
     
     # Get date range (default: last 7 days)
@@ -1566,6 +1585,15 @@ def dc_confirmation(request):
     if employee_id_filter:
         attendance_query = attendance_query.filter(user__employee_id__icontains=employee_id_filter)
     
+    # Check for travel request restrictions
+    blocked_records = []
+    for attendance in attendance_query:
+        if check_pending_travel_requests(attendance.user, attendance.date):
+            blocked_records.append({
+                'attendance': attendance,
+                'reason': 'Pending travel request approval required'
+            })
+    
     # Pagination
     paginator = Paginator(attendance_query, 50)
     page_number = request.GET.get('page')
@@ -1578,6 +1606,7 @@ def dc_confirmation(request):
         'dccb_filter': dccb_filter,
         'employee_id_filter': employee_id_filter,
         'dccb_choices': CustomUser.DCCB_CHOICES,
+        'blocked_records': blocked_records,
     }
     
     return render(request, 'authe/admin_dc_confirmation.html', context)
@@ -1585,7 +1614,7 @@ def dc_confirmation(request):
 @login_required
 @admin_required
 def admin_approval(request):
-    """Admin approval screen with bulk approval functionality"""
+    """Admin approval screen with travel request validation"""
     from datetime import datetime, timedelta
     
     # Handle CSV export
@@ -1621,7 +1650,7 @@ def admin_approval(request):
     
     # Get attendance records for admin approval
     # Associates: Direct admin approval (no DC confirmation needed)
-    # DC: Direct admin approval (no DC confirmation needed)
+    # DC: Direct admin approval (no DC confirmation needed) - BUT check travel requests
     # MT/DC/Support: Require DC confirmation first
     base_query = Attendance.objects.filter(
         date__range=[from_date, to_date]
@@ -1647,6 +1676,15 @@ def admin_approval(request):
     if designation_filter:
         attendance_records = attendance_records.filter(user__designation=designation_filter)
     
+    # Check for travel request restrictions for DC users
+    blocked_records = []
+    for attendance in attendance_records:
+        if attendance.user.designation == 'DC' and check_pending_travel_requests(attendance.user, attendance.date):
+            blocked_records.append({
+                'attendance': attendance,
+                'reason': 'Pending travel request approval required'
+            })
+    
     # Pagination
     paginator = Paginator(attendance_records, 50)
     page_number = request.GET.get('page')
@@ -1664,6 +1702,7 @@ def admin_approval(request):
         'designation_choices': CustomUser.DESIGNATION_CHOICES,
         'cycle_start': cycle_start,
         'cycle_end': cycle_end,
+        'blocked_records': blocked_records,
     }
     
     return render(request, 'authe/admin_approval.html', context)
@@ -2030,7 +2069,7 @@ def travel_approval(request):
 @admin_required
 @require_http_methods(["POST"])
 def bulk_approve_attendance(request):
-    """Bulk approve attendance records"""
+    """Bulk approve attendance records with travel request validation"""
     try:
         data = json.loads(request.body)
         attendance_ids = data.get('attendance_ids', [])
@@ -2039,43 +2078,92 @@ def bulk_approve_attendance(request):
             return JsonResponse({'success': False, 'error': 'No attendance records selected'}, status=400)
         
         with transaction.atomic():
-            # Get attendance records before update to notify users
+            # Get attendance records before update to validate and notify users
             attendance_records = Attendance.objects.filter(
                 id__in=attendance_ids,
                 is_confirmed_by_dc=True,
                 is_approved_by_admin=False
             ).select_related('user')
             
-            # Update attendance records
-            updated_count = attendance_records.update(
-                is_approved_by_admin=True,
-                approved_by_admin=request.user,
-                admin_approved_at=timezone.now()
-            )
+            blocked_records = []
+            approved_records = []
             
-            # Notify users about admin approval
-            from .notification_service import notify_admin_approval_to_user
             for attendance in attendance_records:
-                notify_admin_approval_to_user(attendance.user, request.user)
+                # Check for pending travel requests for DC users
+                if attendance.user.designation == 'DC' and check_pending_travel_requests(attendance.user, attendance.date):
+                    # Find responsible Associate
+                    responsible_associate = get_responsible_associate(attendance.user.dccb)
+                    
+                    blocked_records.append({
+                        'employee_id': attendance.user.employee_id,
+                        'date': attendance.date,
+                        'reason': f'Pending travel request approval from Associate {responsible_associate.employee_id if responsible_associate else "(Not Found)"}'
+                    })
+                    
+                    # Send notification to Admin about blocked approval
+                    from .notification_service import NotificationService
+                    NotificationService.create_notification(
+                        recipient=request.user,
+                        notification_type='system_alert',
+                        title='Attendance Approval Blocked',
+                        message=f'Cannot approve attendance for DC {attendance.user.employee_id} on {attendance.date} due to pending travel request approval.',
+                        priority='high'
+                    )
+                    
+                    # Send notification to Associate
+                    if responsible_associate:
+                        NotificationService.create_notification(
+                            recipient=responsible_associate,
+                            notification_type='travel_request',
+                            title='Urgent: Travel Request Approval Required',
+                            message=f'Admin cannot approve DC attendance for {attendance.user.employee_id} on {attendance.date}. Please review pending travel request.',
+                            priority='urgent'
+                        )
+                    
+                    continue
+                
+                approved_records.append(attendance)
             
-            # Convert NM to Absent for approved records
-            Attendance.objects.filter(
-                id__in=attendance_ids,
-                status='auto_not_marked',
-                is_approved_by_admin=True
-            ).update(status='absent')
+            # Update only non-blocked attendance records
+            if approved_records:
+                approved_ids = [att.id for att in approved_records]
+                updated_count = Attendance.objects.filter(id__in=approved_ids).update(
+                    is_approved_by_admin=True,
+                    approved_by_admin=request.user,
+                    admin_approved_at=timezone.now()
+                )
+                
+                # Notify users about admin approval
+                from .notification_service import notify_admin_approval_to_user
+                for attendance in approved_records:
+                    notify_admin_approval_to_user(attendance.user, request.user)
+                
+                # Convert NM to Absent for approved records
+                Attendance.objects.filter(
+                    id__in=approved_ids,
+                    status='auto_not_marked',
+                    is_approved_by_admin=True
+                ).update(status='absent')
+            else:
+                updated_count = 0
             
             # Create audit log
             create_audit_log(
                 request.user,
-                f'Bulk Attendance Approval: {updated_count} records',
+                f'Bulk Attendance Approval: {updated_count} approved, {len(blocked_records)} blocked',
                 request,
-                f'Approved attendance IDs: {attendance_ids}'
+                f'Approved IDs: {[att.id for att in approved_records]}, Blocked: {len(blocked_records)} due to pending travel requests'
             )
+        
+        response_message = f'Successfully approved {updated_count} attendance records'
+        if blocked_records:
+            response_message += f'. {len(blocked_records)} records blocked due to pending travel requests.'
         
         return JsonResponse({
             'success': True,
-            'message': f'Successfully approved {updated_count} attendance records'
+            'message': response_message,
+            'approved_count': updated_count,
+            'blocked_records': blocked_records
         })
         
     except Exception as e:
