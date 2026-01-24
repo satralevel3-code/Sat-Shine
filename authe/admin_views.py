@@ -1799,6 +1799,119 @@ def export_todays_attendance(request):
         writer.writerow(['Error', 'Details'])
         writer.writerow(['Export Error', str(e)])
         return response
+
+@login_required
+@admin_required
+def employee_attendance_history(request, employee_id):
+    """View individual employee attendance history"""
+    employee = get_object_or_404(CustomUser, employee_id=employee_id, role='field_officer')
+    
+    # Get date range (default: current month)
+    today = timezone.localdate()
+    from_date_str = request.GET.get('from_date', today.replace(day=1).isoformat())
+    to_date_str = request.GET.get('to_date', today.isoformat())
+    
+    try:
+        from_date = datetime.strptime(from_date_str, '%Y-%m-%d').date()
+        to_date = datetime.strptime(to_date_str, '%Y-%m-%d').date()
+    except ValueError:
+        from_date = today.replace(day=1)
+        to_date = today
+    
+    # Get attendance records
+    attendance_records = Attendance.objects.filter(
+        user=employee,
+        date__range=[from_date, to_date]
+    ).order_by('-date')
+    
+    # Calculate statistics
+    total_days = (to_date - from_date).days + 1
+    present_count = attendance_records.filter(status='present').count()
+    absent_count = attendance_records.filter(status='absent').count()
+    half_day_count = attendance_records.filter(status='half_day').count()
+    
+    # Pagination
+    paginator = Paginator(attendance_records, 31)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'employee': employee,
+        'page_obj': page_obj,
+        'from_date': from_date,
+        'to_date': to_date,
+        'stats': {
+            'total_days': total_days,
+            'present': present_count,
+            'absent': absent_count,
+            'half_day': half_day_count,
+            'attendance_percentage': round((present_count + half_day_count * 0.5) / total_days * 100, 1) if total_days > 0 else 0
+        }
+    }
+    
+    return render(request, 'authe/admin_employee_attendance_history.html', context)
+    
+    try:
+        # Get all today's attendance records
+        attendance_records = Attendance.objects.filter(date=today).select_related('user').order_by('check_in_time', 'user__employee_id')
+        
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="todays_attendance_{today.strftime("%Y%m%d")}.csv"'
+        
+        writer = csv.writer(response)
+        
+        # Write header
+        writer.writerow([
+            'Employee ID', 'Employee Name', 'DCCB', 'Designation', 'Check-In Time', 
+            'Check-Out Time', 'Attendance Status', 'Time Status', 'Travel Status', 
+            'Travel Approved', 'Task', 'Work Place', 'Location', 'DC Confirmation', 
+            'Approval Status', 'Remarks'
+        ])
+        
+        # Write data rows
+        for attendance in attendance_records:
+            try:
+                # Determine time status
+                time_status = 'Not Marked'
+                if attendance.check_in_time:
+                    time_status = 'On Time' if attendance.check_in_time <= time(9, 30) else 'Late'
+                
+                # Location info
+                location = ''
+                if attendance.latitude and attendance.longitude:
+                    location = f"{attendance.latitude:.6f}, {attendance.longitude:.6f}"
+                
+                writer.writerow([
+                    attendance.user.employee_id,
+                    f"{attendance.user.first_name} {attendance.user.last_name}",
+                    attendance.user.dccb or 'Not Assigned',
+                    attendance.user.designation,
+                    attendance.check_in_time.strftime('%H:%M') if attendance.check_in_time else 'NM',
+                    attendance.check_out_time.strftime('%H:%M') if attendance.check_out_time else 'NM',
+                    attendance.get_status_display(),
+                    time_status,
+                    'Yes' if attendance.travel_required else 'No',
+                    'Yes' if attendance.travel_approved else 'No',
+                    attendance.task or 'NM',
+                    attendance.workplace or 'NM',
+                    location or 'NM',
+                    'Done' if attendance.is_confirmed_by_dc else 'Pending',
+                    'Approved' if attendance.is_approved_by_admin else 'Pending',
+                    attendance.remarks or 'NM'
+                ])
+            except Exception as e:
+                writer.writerow([f'Error processing record {attendance.id}: {str(e)}', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+        
+        return response
+        
+    except Exception as e:
+        # Return error as CSV
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="error_todays_attendance_{today.strftime("%Y%m%d")}.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['Error', 'Details'])
+        writer.writerow(['Export Error', str(e)])
+        return response
     """Export admin approval attendance records to CSV"""
     try:
         # Get all DC confirmed attendance records
