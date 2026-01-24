@@ -166,13 +166,16 @@ if not DEBUG:
     X_FRAME_OPTIONS = 'DENY'
     SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
 else:
-    # Development settings
+    # Development settings - Force HTTP
     SECURE_SSL_REDIRECT = False
     SESSION_COOKIE_SECURE = False
     CSRF_COOKIE_SECURE = False
     SECURE_HSTS_SECONDS = 0
     SECURE_HSTS_INCLUDE_SUBDOMAINS = False
     SECURE_HSTS_PRELOAD = False
+    # Force local development to use HTTP
+    USE_TZ = True
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '192.168.1.100']
 
 # Session Configuration
 SESSION_COOKIE_AGE = 900  # 15 minutes
