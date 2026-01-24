@@ -37,6 +37,7 @@ urlpatterns = [
     path('admin/export/employees/', admin_views.export_employees, name='export_employees'),
     path('admin/export/travel-requests/', admin_views.export_travel_requests, name='export_travel_requests'),
     path('admin/todays-attendance/', admin_views.todays_attendance_details, name='todays_attendance_details'),
+    path('admin/direct-approval/', admin_views.admin_direct_approval, name='admin_direct_approval'),
     
     # Approval System URLs
     path('admin/approval-status/', admin_views.approval_status, name='admin_approval_status'),

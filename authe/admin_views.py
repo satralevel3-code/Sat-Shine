@@ -1554,12 +1554,12 @@ def dc_confirmation(request):
     dccb_filter = request.GET.get('dccb', '')
     employee_id_filter = request.GET.get('employee_id', '')
     
-    # Get pending DC confirmations only
+    # Get pending DC confirmations only (exclude DC users)
     attendance_query = Attendance.objects.filter(
         date__range=[from_date, to_date],
         is_confirmed_by_dc=False,
         status__in=['present', 'absent', 'half_day']
-    ).select_related('user')
+    ).exclude(user__designation='DC').select_related('user')
     
     if dccb_filter:
         attendance_query = attendance_query.filter(user__dccb=dccb_filter)
@@ -1621,12 +1621,13 @@ def admin_approval(request):
     
     # Get attendance records for admin approval
     # Associates: Direct admin approval (no DC confirmation needed)
+    # DC: Direct admin approval (no DC confirmation needed)
     # MT/DC/Support: Require DC confirmation first
     base_query = Attendance.objects.filter(
         date__range=[from_date, to_date]
     ).filter(
-        Q(user__designation='Associate') |  # Associates can be approved directly
-        Q(user__designation__in=['MT', 'DC', 'Support'], is_confirmed_by_dc=True)  # Others need DC confirmation first
+        Q(user__designation__in=['Associate', 'DC']) |  # Associates and DCs can be approved directly
+        Q(user__designation__in=['MT', 'Support'], is_confirmed_by_dc=True)  # MT/Support need DC confirmation first
     ).select_related('user')
     
     # Apply approval status filter
@@ -2035,51 +2036,63 @@ def export_travel_requests(request):
 
 @login_required
 @admin_required
-def employee_attendance_history(request, employee_id):
-    """View individual employee attendance history"""
-    employee = get_object_or_404(CustomUser, employee_id=employee_id, role='field_officer')
-    
-    # Get date range (default: current month)
-    today = timezone.localdate()
-    from_date_str = request.GET.get('from_date', today.replace(day=1).isoformat())
-    to_date_str = request.GET.get('to_date', today.isoformat())
+def admin_direct_approval(request):
+    """Admin can directly approve DC attendance (bypassing DC confirmation step)"""
+    selected_date = request.GET.get('date', timezone.localdate().isoformat())
     
     try:
-        from_date = datetime.strptime(from_date_str, '%Y-%m-%d').date()
-        to_date = datetime.strptime(to_date_str, '%Y-%m-%d').date()
+        date_obj = datetime.strptime(selected_date, '%Y-%m-%d').date()
     except ValueError:
-        from_date = today.replace(day=1)
-        to_date = today
+        date_obj = timezone.localdate()
     
-    # Get attendance records
-    attendance_records = Attendance.objects.filter(
-        user=employee,
-        date__range=[from_date, to_date]
-    ).order_by('-date')
+    if request.method == 'POST':
+        attendance_ids = request.POST.getlist('attendance_ids')
+        action = request.POST.get('action')
+        
+        if action == 'approve_direct' and attendance_ids:
+            updated_count = 0
+            for att_id in attendance_ids:
+                try:
+                    attendance = Attendance.objects.get(id=att_id)
+                    # Admin directly approves DC attendance, bypassing DC confirmation
+                    attendance.is_confirmed_by_dc = True
+                    attendance.confirmed_by_dc = request.user
+                    attendance.dc_confirmed_at = timezone.now()
+                    attendance.is_approved_by_admin = True
+                    attendance.approved_by_admin = request.user
+                    attendance.admin_approved_at = timezone.now()
+                    attendance.confirmation_source = 'ADMIN'
+                    attendance.save()
+                    updated_count += 1
+                    
+                    # Create notification for the DC
+                    from .notification_service import NotificationService
+                    NotificationService.create_notification(
+                        recipient=attendance.user,
+                        notification_type='system_alert',
+                        title='Attendance Directly Approved by Admin',
+                        message=f'Your attendance for {attendance.date.strftime("%d %b %Y")} has been directly approved by Admin {request.user.employee_id}.',
+                        priority='medium'
+                    )
+                    
+                except Attendance.DoesNotExist:
+                    continue
+            
+            messages.success(request, f'Successfully approved {updated_count} DC attendance records directly.')
+            return redirect('admin_direct_approval')
     
-    # Calculate statistics
-    total_days = (to_date - from_date).days + 1
-    present_count = attendance_records.filter(status='present').count()
-    absent_count = attendance_records.filter(status='absent').count()
-    half_day_count = attendance_records.filter(status='half_day').count()
-    
-    # Pagination
-    paginator = Paginator(attendance_records, 31)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    # Get DC users attendance records that need direct admin approval
+    dc_attendance = Attendance.objects.filter(
+        date=date_obj,
+        user__designation='DC',
+        user__role='field_officer',
+        is_approved_by_admin=False  # Only show unapproved records
+    ).select_related('user').order_by('user__employee_id')
     
     context = {
-        'employee': employee,
-        'page_obj': page_obj,
-        'from_date': from_date,
-        'to_date': to_date,
-        'stats': {
-            'total_days': total_days,
-            'present': present_count,
-            'absent': absent_count,
-            'half_day': half_day_count,
-            'attendance_percentage': round((present_count + half_day_count * 0.5) / total_days * 100, 1) if total_days > 0 else 0
-        }
+        'attendance_records': dc_attendance,
+        'selected_date': date_obj,
+        'today': timezone.localdate(),
     }
     
-    return render(request, 'authe/admin_employee_attendance_history.html', context)
+    return render(request, 'authe/admin_direct_approval.html', context)
