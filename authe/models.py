@@ -130,11 +130,16 @@ class CustomUser(AbstractUser):
             'super_admin': {'level': 15, 'approve_attendance': True, 'approve_travel': True},
         }
         
+        # Apply role-based configuration, but also check designation
         if self.role in role_config:
             config = role_config[self.role]
             self.role_level = config['level']
             self.can_approve_attendance = config['approve_attendance']
             self.can_approve_travel = config['approve_travel']
+        
+        # Override for Associates based on designation
+        if self.designation == 'Associate':
+            self.can_approve_travel = True
         
         # Convert names and reporting manager to uppercase
         if self.first_name:
