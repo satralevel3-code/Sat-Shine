@@ -35,6 +35,18 @@ def get_responsible_associate(user_dccb):
         if assoc.multiple_dccb and user_dccb in assoc.multiple_dccb:
             return assoc
     return None
+
+def admin_required(view_func):
+    """Decorator to ensure only admin users can access admin views"""
+    def wrapper(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            messages.error(request, 'Access denied. Please login.')
+            return redirect('login')
+        if request.user.role_level < 10:
+            messages.error(request, 'Access denied. Admin privileges required.')
+            return redirect('field_dashboard')
+        return view_func(request, *args, **kwargs)
+    return wrapper
     """Decorator to ensure only admin users can access admin views"""
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
