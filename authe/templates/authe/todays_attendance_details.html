@@ -1,0 +1,689 @@
+{% extends 'main/base_unified.html' %}
+
+{% block title %}Today's Attendance Details - SAT-SHINE{% endblock %}
+
+{% block extra_css %}
+<style>
+:root {
+    --primary-navy: #1e3a8a;
+    --accent-blue: #2563EB;
+    --success-green: #059669;
+    --warning-amber: #f59e0b;
+    --error-red: #dc2626;
+    --bg-light: #f8fafc;
+    --card-white: #ffffff;
+    --text-primary: #374151;
+    --text-secondary: #6b7280;
+    --border-light: #e5e7eb;
+    
+    /* Attendance Status Colors */
+    --status-present: #8b5cf6; /* Violet */
+    --status-absent: #800000; /* Maroon */
+    --status-half-day: #006400; /* Dark Green */
+    --status-late: #dc2626; /* Red for clock icon */
+    
+    /* Approval Status Colors */
+    --dc-confirmed-bg: #fef3c7; /* Yellow background */
+    --admin-approved-bg: #8b5cf6; /* Violet background */
+    --admin-approved-text: #ffffff; /* White text */
+}
+
+body {
+    background-color: var(--bg-light);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.main-content {
+    margin-top: 56px;
+    padding: 30px 24px;
+    max-width: 1400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.page-header {
+    margin-bottom: 30px;
+}
+
+.page-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--primary-navy);
+    margin: 0;
+}
+
+.page-subtitle {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 5px 0 0 0;
+}
+
+.back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--accent-blue);
+    text-decoration: none;
+    font-weight: 500;
+    margin-bottom: 20px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+}
+
+.back-btn:hover {
+    background-color: rgba(37, 99, 235, 0.1);
+    color: var(--accent-blue);
+    text-decoration: none;
+}
+
+.summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.summary-card {
+    background: var(--card-white);
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    text-align: center;
+}
+
+.summary-value {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.summary-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.summary-card.present .summary-value { color: var(--success-green); }
+.summary-card.absent .summary-value { color: var(--error-red); }
+.summary-card.half-day .summary-value { color: var(--warning-amber); }
+.summary-card.late .summary-value { color: var(--error-red); }
+.summary-card.total .summary-value { color: var(--primary-navy); }
+
+.filter-section {
+    background: var(--card-white);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    margin-bottom: 24px;
+    position: sticky;
+    top: 76px;
+    z-index: 100;
+}
+
+.filter-grid {
+    display: grid;
+    grid-template-columns: 200px 1fr auto auto;
+    gap: 16px;
+    align-items: end;
+}
+
+.form-group {
+    margin-bottom: 0;
+}
+
+.form-label {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+    display: block;
+    font-size: 14px;
+}
+
+.form-control {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    font-size: 14px;
+    transition: border-color 0.2s;
+}
+
+.form-control:focus {
+    border-color: var(--accent-blue);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.btn {
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: 600;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.btn-primary {
+    background: var(--primary-navy);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: var(--accent-blue);
+}
+
+.btn-secondary {
+    background: var(--text-secondary);
+    color: white;
+}
+
+.btn-success {
+    background: var(--success-green);
+    color: white;
+}
+
+.table-card {
+    background: var(--card-white);
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.table-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-light);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.table-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.table-responsive {
+    overflow-x: auto;
+    max-height: 70vh;
+}
+
+.table {
+    width: 100%;
+    margin: 0;
+    border-collapse: collapse;
+}
+
+.table thead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.table th {
+    background: #f8fafc;
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-light);
+    white-space: nowrap;
+    font-size: 13px;
+}
+
+.table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f3f4f6;
+    color: var(--text-primary);
+    font-size: 13px;
+}
+
+.table tbody tr:hover {
+    background-color: #f9fafb;
+}
+
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    position: relative;
+}
+
+.status-present {
+    color: var(--status-present);
+    background: white;
+}
+
+.status-absent {
+    color: var(--status-absent);
+    background: white;
+}
+
+.status-half-day {
+    color: var(--status-half-day);
+    background: white;
+}
+
+/* Late Arrival Indicator */
+.late-indicator {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    color: var(--status-late);
+    font-size: 10px;
+}
+
+/* DC Confirmation Status */
+.dc-confirmed {
+    background-color: var(--dc-confirmed-bg) !important;
+}
+
+/* Admin Approval Status */
+.admin-approved {
+    background-color: var(--admin-approved-bg) !important;
+    color: var(--admin-approved-text) !important;
+}
+
+.admin-approved .late-indicator {
+    color: var(--admin-approved-text) !important;
+}
+
+.time-on-time {
+    color: var(--success-green);
+    font-weight: 600;
+}
+
+.time-late {
+    color: var(--error-red);
+    font-weight: 600;
+}
+
+.location-btn {
+    background: var(--accent-blue);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.2s;
+}
+
+.location-btn:hover {
+    background: var(--primary-navy);
+}
+
+.location-btn:disabled {
+    background: var(--text-secondary);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.confirmation-done {
+    background: #dcfce7;
+    color: #166534;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.confirmation-pending {
+    background: #fef3c7;
+    color: #92400e;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.approval-approved {
+    background: #dcfce7;
+    color: #166534;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.approval-pending {
+    background: #fee2e2;
+    color: #991b1b;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.pagination {
+    padding: 20px 24px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+}
+
+.pagination a, .pagination span {
+    padding: 8px 12px;
+    border-radius: 4px;
+    text-decoration: none;
+    color: var(--text-primary);
+    border: 1px solid var(--border-light);
+}
+
+.pagination a:hover {
+    background: var(--accent-blue);
+    color: white;
+    border-color: var(--accent-blue);
+}
+
+.pagination .current {
+    background: var(--accent-blue);
+    color: white;
+    border-color: var(--accent-blue);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-secondary);
+}
+
+.empty-state i {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+@media (max-width: 768px) {
+    .filter-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .summary-cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .table-header {
+        flex-direction: column;
+        gap: 16px;
+        align-items: stretch;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <a href="{% url 'admin_dashboard' %}" class="back-btn">
+        <i class="fas fa-arrow-left"></i>
+        Back to Dashboard
+    </a>
+    <h1 class="page-title">Attendance Details</h1>
+    <p class="page-subtitle">{{ selected_date|date:"l, d F Y" }} - Comprehensive attendance overview</p>
+</div>
+
+<!-- Summary Cards -->
+<div class="summary-cards">
+    <div class="summary-card total">
+        <div class="summary-value">{{ summary.total }}</div>
+        <div class="summary-label">Total Records</div>
+    </div>
+    <div class="summary-card present">
+        <div class="summary-value">{{ summary.present }}</div>
+        <div class="summary-label">Present</div>
+    </div>
+    <div class="summary-card absent">
+        <div class="summary-value">{{ summary.absent }}</div>
+        <div class="summary-label">Absent</div>
+    </div>
+    <div class="summary-card half-day">
+        <div class="summary-value">{{ summary.half_day }}</div>
+        <div class="summary-label">Half Day</div>
+    </div>
+    <div class="summary-card late">
+        <div class="summary-value">{{ summary.late }}</div>
+        <div class="summary-label">Late Arrivals</div>
+    </div>
+</div>
+
+<!-- Filter Section -->
+<div class="filter-section">
+    <form method="get" class="filter-form">
+        <div class="filter-grid">
+            <div class="form-group">
+                <label class="form-label">Date</label>
+                <input type="date" name="date" class="form-control" value="{{ selected_date|date:'Y-m-d' }}">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Search</label>
+                <input type="text" name="search" class="form-control" placeholder="Search Employee ID, Name, DCCB, Designation, Status..." value="{{ search }}">
+            </div>
+            
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search"></i>
+                    Filter
+                </button>
+            </div>
+            
+            <div class="form-group">
+                <a href="{% url 'todays_attendance_details' %}" class="btn btn-secondary">
+                    <i class="fas fa-times"></i>
+                    Reset
+                </a>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Results Table -->
+<div class="table-card">
+    <div class="table-header">
+        <h3 class="table-title">Attendance Records ({{ page_obj.paginator.count }} records)</h3>
+        <a href="?{{ request.GET.urlencode }}&format=csv" class="btn btn-success">
+            <i class="fas fa-download"></i>
+            Download CSV
+        </a>
+    </div>
+    
+    {% if page_obj %}
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Employee ID</th>
+                    <th>DCCB</th>
+                    <th>Designation</th>
+                    <th>Check-In Time</th>
+                    <th>Check-Out Time</th>
+                    <th>Attendance Status</th>
+                    <th>Time Status</th>
+                    <th>Travel Status</th>
+                    <th>Travel Approved</th>
+                    <th>Task</th>
+                    <th>Work Place</th>
+                    <th>Location</th>
+                    <th>DC Confirmation</th>
+                    <th>Approval Status</th>
+                    <th>Remarks</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for attendance in page_obj %}
+                <tr>
+                    <td>{{ attendance.user.employee_id }}</td>
+                    <td>{{ attendance.user.dccb|default:"Not Assigned" }}</td>
+                    <td>{{ attendance.user.designation }}</td>
+                    <td>
+                        {% if attendance.check_in_time %}
+                            {{ attendance.check_in_time|time:"H:i" }}
+                        {% else %}
+                            NM
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if attendance.check_out_time %}
+                            {{ attendance.check_out_time|time:"H:i" }}
+                        {% else %}
+                            NM
+                        {% endif %}
+                    </td>
+                    <td class="{% if attendance.is_confirmed_by_dc %}dc-confirmed{% endif %} {% if attendance.is_approved_by_admin %}admin-approved{% endif %}">
+                        {% if attendance.status == 'present' %}
+                            <span class="status-badge status-present">P</span>
+                            {% if attendance.check_in_time and attendance.check_in_time > "09:30"|time:"H:i" %}
+                                <i class="fas fa-clock late-indicator" title="Late Check-in"></i>
+                            {% endif %}
+                        {% elif attendance.status == 'absent' %}
+                            <span class="status-badge status-absent">A</span>
+                        {% elif attendance.status == 'half_day' %}
+                            <span class="status-badge status-half-day">H</span>
+                            {% if attendance.check_in_time and attendance.check_in_time > "09:30"|time:"H:i" %}
+                                <i class="fas fa-clock late-indicator" title="Late Check-in"></i>
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if attendance.check_in_time %}
+                            {% if attendance.check_in_time <= "09:30"|time:"H:i" %}
+                                <span class="time-on-time">On Time</span>
+                            {% else %}
+                                <span class="time-late">Late</span>
+                            {% endif %}
+                        {% else %}
+                            NM
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if attendance.travel_required %}
+                            <span style="color: var(--success-green); font-weight: 600;">Yes</span>
+                        {% else %}
+                            <span style="color: var(--error-red); font-weight: 600;">No</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if attendance.travel_approved %}
+                            <span style="color: var(--success-green); font-weight: 600;">Yes</span>
+                        {% else %}
+                            <span style="color: var(--error-red); font-weight: 600;">No</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ attendance.task|default:"NM"|truncatechars:30 }}</td>
+                    <td>{{ attendance.workplace|default:"NM" }}</td>
+                    <td>
+                        {% if attendance.latitude and attendance.longitude %}
+                            <button class="location-btn" onclick="showLocation({{ attendance.latitude }}, {{ attendance.longitude }})">
+                                <i class="fas fa-map-marker-alt"></i>
+                            </button>
+                        {% else %}
+                            <button class="location-btn" disabled>
+                                <i class="fas fa-map-marker-alt"></i>
+                            </button>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if attendance.is_confirmed_by_dc %}
+                            <span class="confirmation-done">Done</span>
+                        {% else %}
+                            <span class="confirmation-pending">Pending</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if attendance.is_approved_by_admin %}
+                            <span class="approval-approved">Approved</span>
+                        {% else %}
+                            <span class="approval-pending">Pending</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if attendance.remarks %}
+                            <a href="#" class="btn btn-sm btn-outline-primary" onclick="showComment('{{ attendance.user.employee_id }}', '{{ attendance.remarks|escapejs }}')">Comment</a>
+                        {% else %}
+                            NM
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page=1&{{ request.GET.urlencode }}">&laquo; First</a>
+            <a href="?page={{ page_obj.previous_page_number }}&{{ request.GET.urlencode }}">&lsaquo; Previous</a>
+        {% endif %}
+        
+        <span class="current">
+            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+        </span>
+        
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&{{ request.GET.urlencode }}">Next &rsaquo;</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}&{{ request.GET.urlencode }}">Last &raquo;</a>
+        {% endif %}
+    </div>
+    {% endif %}
+    
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-calendar-times"></i>
+        <h3>No Attendance Records</h3>
+        <p>No attendance records found for today with the selected criteria.</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function showLocation(lat, lng) {
+    // Open Google Maps with the location
+    const url = `https://www.google.com/maps?q=${lat},${lng}`;
+    window.open(url, '_blank');
+}
+
+function showComment(employeeId, comment) {
+    alert(`Comment for ${employeeId}:\n\n${comment}`);
+}
+
+// Auto-submit form on date change and debounced search
+document.addEventListener('DOMContentLoaded', function() {
+    const dateInput = document.querySelector('input[name="date"]');
+    const searchInput = document.querySelector('input[name="search"]');
+    const filterForm = document.querySelector('.filter-form');
+    
+    // Auto-submit on date change
+    if (dateInput) {
+        dateInput.addEventListener('change', function() {
+            filterForm.submit();
+        });
+    }
+    
+    // Debounced search functionality
+    let searchTimeout;
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                if (this.value.length >= 2 || this.value.length === 0) {
+                    filterForm.submit();
+                }
+            }, 500); // 500ms delay
+        });
+    }
+});
+</script>
+{% endblock %}

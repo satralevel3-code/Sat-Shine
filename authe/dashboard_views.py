@@ -7,8 +7,9 @@ from django.db.models import Q, Count
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from datetime import datetime, timedelta, time
-from .models import CustomUser, Attendance, LeaveRequest, AttendanceAuditLog
+from .models import CustomUser, Attendance, LeaveRequest, AttendanceAuditLog, TravelRequest, SystemAuditLog
 from .views import create_audit_log
+from .enterprise_permissions import check_hierarchy_permission, log_enterprise_action
 import json
 import math
 
@@ -19,13 +20,12 @@ def field_dashboard(request):
         messages.error(request, 'Access denied. Field Officer privileges required.')
         return redirect('admin_dashboard')
     
-    # Clear all messages on dashboard load to prevent persistence
-    storage = messages.get_messages(request)
-    storage.used = True
-    
-    # Get today's attendance
+    # Get today's attendance - include all records for this user today
     today = timezone.localdate()
-    today_attendance = Attendance.objects.filter(user=request.user, date=today).first()
+    today_attendance = Attendance.objects.filter(
+        user=request.user, 
+        date=today
+    ).first()
     
     # Get recent attendance (last 7 days)
     week_ago = today - timedelta(days=7)
@@ -45,6 +45,14 @@ def field_dashboard(request):
         user=request.user
     ).order_by('-applied_at')[:5]
     
+    # Get pending travel requests (for MT, DC, Support)
+    pending_travel_requests = 0
+    if request.user.designation in ['MT', 'DC', 'Support']:
+        pending_travel_requests = TravelRequest.objects.filter(
+            user=request.user,
+            status='pending'
+        ).count()
+    
     # Check if user can view team data (DC only)
     can_view_team = request.user.designation == 'DC'
     team_data = None
@@ -58,7 +66,7 @@ def field_dashboard(request):
             designation__in=['MT', 'Support']
         ).exclude(id=request.user.id).order_by('employee_id')
         
-        # Get today's attendance for team members
+        # Get today's attendance for team members - include DC confirmed records
         team_members = []
         for user in team_users:
             user_attendance = Attendance.objects.filter(user=user, date=today).first()
@@ -81,6 +89,7 @@ def field_dashboard(request):
         'recent_attendance': recent_attendance,
         'pending_leaves': pending_leaves,
         'recent_leaves': recent_leaves,
+        'pending_travel_requests': pending_travel_requests,
         'can_view_team': can_view_team,
         'team_data': team_data,
         'team_members': team_members,
@@ -92,47 +101,47 @@ def field_dashboard(request):
 @login_required
 @require_http_methods(["POST", "GET"])
 def mark_attendance(request):
-    """Simplified attendance marking"""
+    """Enhanced attendance marking with check-in/check-out flow"""
     if request.user.role != 'field_officer':
         return JsonResponse({'error': 'Access denied'}, status=403)
+    
+    # Only allow MT, DC, Support designations
+    if request.user.designation not in ['MT', 'DC', 'Support']:
+        messages.error(request, 'Attendance marking is only available for MT, DC, and Support designations.')
+        return redirect('field_dashboard')
     
     today = timezone.localdate()
     
     if request.method == 'POST':
-        # Handle both JSON and form data
-        if request.content_type == 'application/json':
-            try:
-                data = json.loads(request.body)
-            except:
-                return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
-        else:
-            data = request.POST
-            
-        status = data.get('status')
-        latitude = data.get('lat')
-        longitude = data.get('lng')
-        accuracy = data.get('accuracy')
-        
-        # Check if already marked
-        existing = Attendance.objects.filter(user=request.user, date=today).first()
-        if existing:
-            messages.error(request, 'Attendance already marked for today')
-            return redirect('mark_attendance')
-        
-        # Validate status
-        if status not in ['present', 'half_day', 'absent']:
-            messages.error(request, 'Invalid attendance status')
-            return redirect('mark_attendance')
-        
-        current_time = timezone.localtime().time()
-        
-        # Create attendance record
         try:
+            data = json.loads(request.body)
+            status = data.get('status')
+            workplace = data.get('workplace')
+            travel_required = data.get('travel_required', False)
+            travel_comment = data.get('travel_comment', '')
+            latitude = data.get('latitude')
+            longitude = data.get('longitude')
+            accuracy = data.get('accuracy')
+            
+            # Check if already marked
+            existing = Attendance.objects.filter(user=request.user, date=today).first()
+            if existing:
+                return JsonResponse({'success': False, 'error': 'Attendance already marked for today'}, status=400)
+            
+            # Validate status
+            if status not in ['present', 'half_day', 'absent']:
+                return JsonResponse({'success': False, 'error': 'Invalid attendance status'}, status=400)
+            
+            current_time = timezone.localtime().time()
+            
+            # Create attendance record
             attendance_data = {
                 'user': request.user,
                 'date': today,
                 'status': status,
-                'check_in_time': current_time,
+                'check_in_time': current_time if status != 'absent' else None,
+                'workplace': workplace if status != 'absent' else None,
+                'travel_required': travel_required if status != 'absent' else False,
             }
             
             # Add GPS data if available
@@ -142,42 +151,130 @@ def mark_attendance(request):
                     'longitude': float(longitude),
                     'location_accuracy': float(accuracy) if accuracy else 999,
                     'is_location_valid': True,
-                    'location_address': f'GPS Location',
-                    'distance_from_office': 0
                 })
+            
+            # Add travel comment if travel not required
+            if not travel_required and travel_comment and status != 'absent':
+                attendance_data['remarks'] = f'Travel cancelled: {travel_comment}'
+            
+            # Set travel_approved based on TravelRequest approval status (not user choice)
+            if status != 'absent':
+                approved_travel_exists = TravelRequest.objects.filter(
+                    user=request.user,
+                    from_date__lte=today,
+                    to_date__gte=today,
+                    status='approved'
+                ).exists()
+                
+                # travel_approved reflects Associate's approval, not user's choice
+                attendance_data['travel_approved'] = approved_travel_exists
             
             attendance = Attendance.objects.create(**attendance_data)
             
-            # Success message
-            messages.success(request, f'Attendance marked as {status.replace("_", " ").title()} at {current_time.strftime("%I:%M %p")}')
+            # Send notification to DC and Admin
+            from .notification_service import notify_attendance_marked
+            notify_attendance_marked(attendance)
             
-            # Return JSON for AJAX or redirect for form
-            if request.content_type == 'application/json':
-                return JsonResponse({
-                    'success': True,
-                    'message': f'Marked {status}',
-                    'check_in_time': current_time.strftime('%I:%M %p')
-                })
-            else:
-                return redirect('field_dashboard')
+            # Create audit log
+            create_audit_log(
+                request.user,
+                'ATTENDANCE_MARKED',
+                request,
+                f'Status: {status}, Workplace: {workplace}, Travel: {travel_required}'
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Check-in successful as {status.replace("_", " ").title()}',
+                'check_in_time': current_time.strftime('%I:%M %p') if current_time else None
+            })
                 
         except Exception as e:
-            messages.error(request, f'Error marking attendance: {str(e)}')
-            if request.content_type == 'application/json':
-                return JsonResponse({'success': False, 'error': str(e)}, status=500)
-            else:
-                return redirect('mark_attendance')
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
     
-    # GET request
+    # GET request - always return a response
     today_attendance = Attendance.objects.filter(user=request.user, date=today).first()
+    
+    # Check for approved travel requests for today
+    has_approved_travel = TravelRequest.objects.filter(
+        user=request.user,
+        from_date__lte=today,
+        to_date__gte=today,
+        status='approved'
+    ).exists()
     
     context = {
         'user': request.user,
         'today': today,
         'today_attendance': today_attendance,
-        'current_time': timezone.now()
+        'current_time': timezone.now(),
+        'has_approved_travel': has_approved_travel,
     }
-    return render(request, 'authe/mark_attendance_simple.html', context)
+    return render(request, 'authe/mark_attendance_enhanced.html', context)
+
+@login_required
+@require_http_methods(["POST"])
+def check_out(request):
+    """Handle check-out functionality"""
+    if request.user.role != 'field_officer':
+        return JsonResponse({'error': 'Access denied'}, status=403)
+    
+    # Only allow MT, DC, Support designations
+    if request.user.designation not in ['MT', 'DC', 'Support']:
+        return JsonResponse({'error': 'Check-out is only available for MT, DC, and Support designations.'}, status=403)
+    
+    today = timezone.localdate()
+    
+    try:
+        data = json.loads(request.body)
+        latitude = data.get('latitude')
+        longitude = data.get('longitude')
+        accuracy = data.get('accuracy')
+        
+        # Get today's attendance record
+        attendance = Attendance.objects.filter(user=request.user, date=today).first()
+        
+        if not attendance:
+            return JsonResponse({'success': False, 'error': 'No check-in record found for today'}, status=400)
+        
+        if attendance.check_out_time:
+            return JsonResponse({'success': False, 'error': 'Already checked out for today'}, status=400)
+        
+        if attendance.status == 'absent':
+            return JsonResponse({'success': False, 'error': 'Cannot check out when marked as absent'}, status=400)
+        
+        current_time = timezone.localtime().time()
+        
+        # Update attendance with check-out time
+        attendance.check_out_time = current_time
+        
+        # Add check-out location if available
+        if latitude and longitude:
+            # Store check-out location in remarks or separate fields if needed
+            checkout_location = f'Check-out GPS: {latitude:.6f}, {longitude:.6f}'
+            if attendance.remarks:
+                attendance.remarks += f' | {checkout_location}'
+            else:
+                attendance.remarks = checkout_location
+        
+        attendance.save()
+        
+        # Create audit log
+        create_audit_log(
+            request.user,
+            'ATTENDANCE_CHECKOUT',
+            request,
+            f'Check-out at {current_time.strftime("%I:%M %p")}'
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Check-out successful',
+            'check_out_time': current_time.strftime('%I:%M %p')
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 @login_required
 def attendance_history(request):
@@ -275,10 +372,15 @@ def apply_leave(request):
             
             # Create audit log
             create_audit_log(
-                user=request.user,
-                action='LEAVE_APPLIED',
-                details=f'Type: {leave_type}, Dates: {start_date} to {end_date}, Reason: {reason}'
+                request.user,
+                'LEAVE_APPLIED',
+                request,
+                f'Type: {leave_type}, Dates: {start_date} to {end_date}, Reason: {reason}'
             )
+            
+            # Send notification to admins
+            from .notification_service import notify_leave_request
+            notify_leave_request(leave_request)
             
             messages.success(request, 'Leave application submitted successfully')
             return redirect('field_dashboard')
@@ -300,7 +402,7 @@ def apply_leave(request):
 @login_required
 @require_http_methods(["POST"])
 def confirm_team_attendance(request):
-    """DC confirmation of team attendance"""
+    """DC confirmation of team attendance with travel request validation"""
     if request.user.role != 'field_officer' or request.user.designation != 'DC':
         return JsonResponse({'error': 'Access denied. DC privileges required.'}, status=403)
     
@@ -321,16 +423,67 @@ def confirm_team_attendance(request):
         ).exclude(id=request.user.id)
         
         confirmed_count = 0
+        blocked_records = []
         
         # Process each team member's attendance
         for member in team_members:
             current_date = start_date
             while current_date <= end_date:
+                # Check for pending travel requests
+                has_pending_travel = TravelRequest.objects.filter(
+                    user=member,
+                    from_date__lte=current_date,
+                    to_date__gte=current_date,
+                    status='pending'
+                ).exists()
+                
+                if has_pending_travel:
+                    # Find responsible Associate
+                    responsible_associate = None
+                    associates = CustomUser.objects.filter(
+                        designation='Associate',
+                        is_active=True
+                    )
+                    
+                    for assoc in associates:
+                        if assoc.multiple_dccb and member.dccb in assoc.multiple_dccb:
+                            responsible_associate = assoc
+                            break
+                    
+                    blocked_records.append({
+                        'employee_id': member.employee_id,
+                        'date': current_date,
+                        'reason': f'Pending travel request approval from Associate {responsible_associate.employee_id if responsible_associate else "(Not Found)"}'
+                    })
+                    
+                    # Send notification to DC about blocked confirmation
+                    from .notification_service import NotificationService
+                    NotificationService.create_notification(
+                        recipient=request.user,
+                        notification_type='system_alert',
+                        title='Attendance Confirmation Blocked',
+                        message=f'Cannot confirm attendance for {member.employee_id} on {current_date} due to pending travel request approval.',
+                        priority='high'
+                    )
+                    
+                    # Send notification to Associate
+                    if responsible_associate:
+                        NotificationService.create_notification(
+                            recipient=responsible_associate,
+                            notification_type='travel_request',
+                            title='Urgent: Travel Request Approval Required',
+                            message=f'DC {request.user.employee_id} cannot confirm attendance for {member.employee_id} on {current_date}. Please review pending travel request.',
+                            priority='urgent'
+                        )
+                    
+                    current_date += timedelta(days=1)
+                    continue
+                
                 attendance, created = Attendance.objects.get_or_create(
                     user=member,
                     date=current_date,
                     defaults={
-                        'status': 'absent',  # NM becomes Absent
+                        'status': 'absent',  # Only for new records (Not Marked)
                         'is_confirmed_by_dc': True,
                         'confirmed_by_dc': request.user,
                         'dc_confirmed_at': timezone.now(),
@@ -338,22 +491,18 @@ def confirm_team_attendance(request):
                     }
                 )
                 
-                # If record exists but not confirmed, confirm it
-                if not created and not attendance.is_confirmed_by_dc:
+                # Only confirm existing records, don't change their status
+                if not created:
+                    # Only update DC confirmation, preserve existing status
                     attendance.is_confirmed_by_dc = True
                     attendance.confirmed_by_dc = request.user
                     attendance.dc_confirmed_at = timezone.now()
                     attendance.confirmation_source = 'DC'
                     attendance.save()
                 
-                # If record exists and was NM (no status), mark as absent
-                elif not created and not attendance.status:
-                    attendance.status = 'absent'
-                    attendance.is_confirmed_by_dc = True
-                    attendance.confirmed_by_dc = request.user
-                    attendance.dc_confirmed_at = timezone.now()
-                    attendance.confirmation_source = 'DC'
-                    attendance.save()
+                # Notify user about DC confirmation
+                from .notification_service import notify_dc_confirmation_to_user
+                notify_dc_confirmation_to_user(member, request.user)
                 
                 confirmed_count += 1
                 current_date += timedelta(days=1)
@@ -366,13 +515,23 @@ def confirm_team_attendance(request):
             date_range_start=start_date,
             date_range_end=end_date,
             ip_address=request.META.get('REMOTE_ADDR'),
-            details=f'Confirmed attendance for {team_members.count()} team members'
+            details=f'Confirmed attendance for {team_members.count()} team members. Blocked: {len(blocked_records)} records due to pending travel requests.'
         )
+        
+        # Send notification to Admin
+        from .notification_service import notify_dc_confirmation
+        date_range_str = f"{start_date} to {end_date}" if start_date != end_date else str(start_date)
+        notify_dc_confirmation(request.user, confirmed_count, date_range_str)
+        
+        response_message = f'Attendance confirmed for {team_members.count()} team members'
+        if blocked_records:
+            response_message += f'. {len(blocked_records)} records blocked due to pending travel requests.'
         
         return JsonResponse({
             'success': True,
-            'message': f'Attendance confirmed for {team_members.count()} team members',
-            'confirmed_records': confirmed_count
+            'message': response_message,
+            'confirmed_records': confirmed_count,
+            'blocked_records': blocked_records
         })
         
     except Exception as e:

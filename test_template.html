@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Template Test</title>
+</head>
+<body>
+    <h1>Template Logic Test</h1>
+    
+    <!-- Test the original condition -->
+    <h2>Original Condition (WRONG):</h2>
+    {% if 'MT' in 'MT,DC,Support' %}
+        <p>✓ MT is in 'MT,DC,Support' - This works</p>
+    {% else %}
+        <p>✗ MT is NOT in 'MT,DC,Support'</p>
+    {% endif %}
+    
+    <!-- Test the fixed condition -->
+    <h2>Fixed Condition (CORRECT):</h2>
+    {% if 'MT' == 'MT' or 'MT' == 'DC' or 'MT' == 'Support' %}
+        <p>✓ MT matches one of MT, DC, Support - This works</p>
+    {% else %}
+        <p>✗ MT does NOT match MT, DC, Support</p>
+    {% endif %}
+    
+    <!-- Test with actual user designation -->
+    <h2>User Designation Test:</h2>
+    <p>User designation: {{ user.designation }}</p>
+    {% if user.designation == 'MT' or user.designation == 'DC' or user.designation == 'Support' %}
+        <p>✓ User can see Travel Request card</p>
+    {% else %}
+        <p>✗ User CANNOT see Travel Request card</p>
+    {% endif %}
+</body>
+</html>

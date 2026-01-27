@@ -1,0 +1,220 @@
+{% extends 'main/base_unified.html' %}
+
+{% block title %}Approval Status - SAT-SHINE{% endblock %}
+
+{% block extra_css %}
+<style>
+:root {
+    --primary-navy: #1e3a8a;
+    --accent-blue: #2563EB;
+    --success-green: #059669;
+    --warning-amber: #f59e0b;
+    --error-red: #dc2626;
+    --bg-light: #f8fafc;
+    --card-white: #ffffff;
+    --text-primary: #374151;
+    --text-secondary: #6b7280;
+    --border-light: #e5e7eb;
+}
+
+body {
+    background-color: var(--bg-light);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.main-content {
+    margin-top: 56px;
+    padding: 30px 24px;
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.page-header {
+    margin-bottom: 30px;
+}
+
+.page-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--primary-navy);
+    margin: 0;
+}
+
+.page-subtitle {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 5px 0 0 0;
+}
+
+.approval-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 24px;
+}
+
+.approval-card {
+    background: var(--card-white);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border: 2px solid rgba(30, 58, 138, 0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+}
+
+.approval-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    border-color: rgba(30, 58, 138, 0.2);
+}
+
+.card-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.card-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 16px;
+    font-size: 24px;
+    color: white;
+}
+
+.card-icon.dc { background: var(--accent-blue); }
+.card-icon.admin { background: var(--success-green); }
+.card-icon.travel { background: var(--warning-amber); }
+
+.card-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.card-subtitle {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 4px 0 0 0;
+}
+
+.pending-count {
+    font-size: 48px;
+    font-weight: 800;
+    color: var(--primary-navy);
+    text-align: center;
+    margin: 20px 0;
+}
+
+.card-description {
+    font-size: 14px;
+    color: var(--text-secondary);
+    text-align: center;
+    line-height: 1.5;
+}
+
+.back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--accent-blue);
+    text-decoration: none;
+    font-weight: 500;
+    margin-bottom: 20px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+}
+
+.back-btn:hover {
+    background-color: rgba(37, 99, 235, 0.1);
+    color: var(--accent-blue);
+    text-decoration: none;
+}
+
+@media (max-width: 768px) {
+    .approval-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <a href="{% url 'admin_dashboard' %}" class="back-btn">
+        <i class="fas fa-arrow-left"></i>
+        Back to Dashboard
+    </a>
+    <h1 class="page-title">Approval Status</h1>
+    <p class="page-subtitle">Monitor DC confirmations, admin approvals, and travel requests</p>
+</div>
+
+<div class="approval-grid">
+    <!-- DC Confirmation Card -->
+    <div class="approval-card" onclick="window.location.href='{% url 'admin_dc_confirmation' %}'">
+        <div class="card-header">
+            <div class="card-icon dc">
+                <i class="fas fa-user-check"></i>
+            </div>
+            <div>
+                <h3 class="card-title">DC Confirmation</h3>
+                <p class="card-subtitle">Pending confirmations</p>
+            </div>
+        </div>
+        
+        <div class="pending-count">{{ dc_pending }}</div>
+        
+        <p class="card-description">
+            Monitor DC confirmation status for daily, weekly, and monthly attendance of field officers. 
+            View pending confirmation date ranges and track DC approval workflow.
+        </p>
+    </div>
+
+    <!-- Admin Approval Card -->
+    <div class="approval-card" onclick="window.location.href='{% url 'admin_admin_approval' %}'">
+        <div class="card-header">
+            <div class="card-icon admin">
+                <i class="fas fa-clipboard-check"></i>
+            </div>
+            <div>
+                <h3 class="card-title">Admin Approval</h3>
+                <p class="card-subtitle">Pending approvals</p>
+            </div>
+        </div>
+        
+        <div class="pending-count">{{ admin_pending }}</div>
+        
+        <p class="card-description">
+            Final attendance approval for all field employees. Approve attendance in bulk for payroll cycle (25th to 25th). 
+            Convert NM (Not Marked) to Absent while maintaining Present and Half Day status.
+        </p>
+    </div>
+
+    <!-- Travel Approval Card -->
+    <div class="approval-card" onclick="window.location.href='{% url 'admin_travel_approval' %}'">
+        <div class="card-header">
+            <div class="card-icon travel">
+                <i class="fas fa-route"></i>
+            </div>
+            <div>
+                <h3 class="card-title">Travel Approval</h3>
+                <p class="card-subtitle">Pending approvals</p>
+            </div>
+        </div>
+        
+        <div class="pending-count">{{ travel_pending }}</div>
+        
+        <p class="card-description">
+            Monitor travel request approvals from field team. Review travel purpose, necessity, and related details. 
+            Track approval status and manage travel workflow efficiently.
+        </p>
+    </div>
+</div>
+{% endblock %}
