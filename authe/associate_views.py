@@ -104,7 +104,7 @@ def associate_dashboard(request):
 
 @login_required
 def associate_mark_attendance(request):
-    """Simple Associate attendance marking - Present/Half Day/Absent with GPS auto-fetch"""
+    """Simple Associate attendance marking - Present/Half Day/Absent with GPS REQUIRED"""
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
@@ -115,6 +115,14 @@ def associate_mark_attendance(request):
             # Validate status
             if status not in ['present', 'half_day', 'absent']:
                 return JsonResponse({'success': False, 'error': 'Invalid status'})
+            
+            # GPS is MANDATORY for present and half_day
+            if status in ['present', 'half_day']:
+                if not latitude or not longitude:
+                    return JsonResponse({
+                        'success': False, 
+                        'error': 'GPS location is required. Please enable location services and try again.'
+                    })
             
             today = timezone.localdate()
             
@@ -148,7 +156,7 @@ def associate_mark_attendance(request):
             
             return JsonResponse({
                 'success': True,
-                'message': f'Attendance marked as {status.title()}',
+                'message': f'Attendance marked as {status.title()} with GPS location',
                 'debug': {
                     'date': today.isoformat(),
                     'has_gps': bool(latitude and longitude),
