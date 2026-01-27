@@ -52,9 +52,14 @@ function getLocation() {
                     latitude: position.coords.latitude,
                     longitude: position.coords.longitude
                 };
+                console.log('GPS captured:', currentLocation);
+                document.getElementById('attendance-status').innerHTML = 
+                    `<div class="alert alert-success"><i class="fas fa-map-marker-alt"></i> GPS Location Captured</div>`;
             },
             function(error) {
                 console.error('Location error:', error);
+                document.getElementById('attendance-status').innerHTML = 
+                    `<div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> GPS not available - ${error.message}</div>`;
             },
             {
                 enableHighAccuracy: true,
@@ -62,6 +67,9 @@ function getLocation() {
                 maximumAge: 60000
             }
         );
+    } else {
+        document.getElementById('attendance-status').innerHTML = 
+            `<div class="alert alert-danger">Geolocation not supported by browser</div>`;
     }
 }
 
@@ -111,8 +119,9 @@ function markAttendance(status) {
     })
     .then(response => response.json())
     .then(data => {
+        console.log('Response:', data);
         if (data.success) {
-            showAlert('success', data.message);
+            showAlert('success', data.message + (data.debug && data.debug.has_gps ? ' (GPS Saved)' : ' (No GPS)'));
             setTimeout(() => {
                 window.location.href = "{% url 'associate_dashboard' %}";
             }, 1500);

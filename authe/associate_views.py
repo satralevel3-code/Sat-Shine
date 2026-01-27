@@ -141,9 +141,20 @@ def associate_mark_attendance(request):
                 marked_at=timezone.now()
             )
             
+            # Log for debugging
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"Attendance created: User={request.user.employee_id}, Date={today}, Status={status}, GPS=({latitude}, {longitude})")
+            
             return JsonResponse({
                 'success': True,
-                'message': f'Attendance marked as {status.title()}'
+                'message': f'Attendance marked as {status.title()}',
+                'debug': {
+                    'date': today.isoformat(),
+                    'has_gps': bool(latitude and longitude),
+                    'latitude': latitude,
+                    'longitude': longitude
+                }
             })
             
         except json.JSONDecodeError:
