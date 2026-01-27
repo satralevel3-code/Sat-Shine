@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Field Officer Dashboard - SAT-SHINE</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-violet: #4B0082;
+            --secondary-purple: #7B2CBF;
+            --accent-blue: #3A86FF;
+            --accent-red: #E63946;
+            --neon-amber: #FFD43B;
+            --success-green: #059669;
+            --warning-amber: #D97706;
+            --error-red: #DC2626;
+            --bg-light: #F8FAFC;
+            --card-white: #FFFFFF;
+            --text-primary: #1F2937;
+            --text-secondary: #6B7280;
+            --border-light: #E5E7EB;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-light);
+            color: var(--text-primary);
+            line-height: 1.5;
+        }
+        
+        /* TOP HEADER */
+        .top-header {
+            background: linear-gradient(135deg, var(--primary-violet), var(--secondary-purple));
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            box-shadow: 0 4px 12px rgba(75, 0, 130, 0.3);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+        }
+        
+        .logo-text {
+            font-size: 26px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            color: white;
+            text-shadow: 0 0 10px rgba(255, 212, 59, 0.5);
+        }
+        
+        .logo-sat {
+            background: linear-gradient(135deg, var(--neon-amber), #FFF700);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            filter: drop-shadow(0 0 8px rgba(255, 212, 59, 0.6));
+        }
+        
+        .header-nav {
+            display: flex;
+            gap: 24px;
+            align-items: center;
+        }
+        
+        .header-nav a {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 6px;
+            transition: background-color 0.2s;
+        }
+        
+        .header-nav a:hover {
+            background-color: rgba(255,255,255,0.1);
+        }
+        
+        /* MAIN CONTENT */
+        .main-content {
+            margin-top: 56px;
+            padding: 16px 24px;
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        /* INFORMATION BAR */
+        .info-bar {
+            background: var(--card-white);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            border: 1px solid var(--border-light);
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+        
+        .info-column h3 {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            padding: 4px 0;
+        }
+        
+        .info-label {
+            font-weight: 500;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+        
+        .info-value {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+        
+        .employee-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--primary-navy);
+        }
+        
+        /* ACTION CARDS */
+        .action-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+        
+        .action-card {
+            background: var(--card-white);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+            border: 1px solid var(--border-light);
+            transition: transform 0.2s, box-shadow 0.2s;
+            min-height: 180px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .action-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .card-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 16px;
+            font-size: 20px;
+        }
+        
+        .icon-attendance {
+            background: linear-gradient(135deg, var(--success-green), #10B981);
+            color: white;
+        }
+        
+        .icon-history {
+            background: linear-gradient(135deg, var(--accent-blue), #60A5FA);
+            color: white;
+        }
+        
+        .icon-leave {
+            background: linear-gradient(135deg, var(--accent-red), #F87171);
+            color: white;
+        }
+        
+        .card-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        
+        .card-content {
+            flex: 1;
+            margin-bottom: 20px;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+        
+        .status-present {
+            background: #DCFCE7;
+            color: var(--success-green);
+        }
+        
+        .status-pending {
+            background: #FEF3C7;
+            color: var(--warning-amber);
+        }
+        
+        .status-late {
+            background: #DBEAFE;
+            color: var(--primary-blue);
+        }
+        
+        .metric-large {
+            font-size: 36px;
+            font-weight: 800;
+            color: var(--primary-navy);
+            line-height: 1;
+        }
+        
+        .metric-label {
+            font-size: 14px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        
+        .card-action {
+            margin-top: auto;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            text-decoration: none;
+            text-align: center;
+            transition: all 0.2s;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            min-height: 44px;
+            line-height: 20px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-violet), var(--secondary-purple));
+            color: white;
+            border: none;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, var(--secondary-purple), var(--accent-blue));
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(75, 0, 130, 0.3);
+        }
+        
+        .btn-secondary {
+            background: var(--border-light);
+            color: var(--text-secondary);
+        }
+        
+        .btn-disabled {
+            background: var(--border-light);
+            color: var(--text-secondary);
+            cursor: not-allowed;
+        }
+        
+        .btn-block {
+            width: 100%;
+        }
+        
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 16px;
+            }
+            
+            .info-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+            
+            .action-cards {
+                grid-template-columns: 1fr;
+            }
+            
+            .page-title-bar {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- TOP HEADER -->
+    <header class="top-header">
+        <div class="logo-text">
+            <span class="logo-sat">SAT</span>-SHINE
+        </div>
+        <nav class="header-nav">
+            <a href="#dashboard">Dashboard</a>
+            <a href="{% url 'logout' %}">Logout</a>
+        </nav>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+        <!-- INFORMATION BAR -->
+        <div class="info-bar">
+            <div class="info-grid">
+                <div class="info-column">
+                    <h3>System Information</h3>
+                    <div class="info-item">
+                        <span class="info-label">Employee Code</span>
+                        <span class="info-value">{{ user.employee_id }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">DCCB</span>
+                        <span class="info-value">{{ user.dccb|default:"Not Assigned" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Designation</span>
+                        <span class="info-value">{{ user.designation }}</span>
+                    </div>
+                </div>
+                <div class="info-column">
+                    <h3>Personal Information</h3>
+                    <div class="info-item">
+                        <span class="info-label">Name</span>
+                        <span class="info-value employee-name">{{ user.first_name }} {{ user.last_name }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Reporting Manager</span>
+                        <span class="info-value">{{ user.reporting_manager|default:"Not Assigned" }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Current Time</span>
+                        <span class="info-value" id="current-time">{{ current_time|date:"d M Y, g:i A" }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACTION CARDS -->
+        <div class="action-cards">
+            <!-- Today's Attendance Card -->
+            <div class="action-card">
+                <div class="card-header">
+                    <div class="card-icon icon-attendance">
+                        <i class="fas fa-calendar-check"></i>
+                    </div>
+                    <div class="card-title">Today's Attendance</div>
+                </div>
+                <div class="card-content">
+                    {% if today_attendance %}
+                        <div class="status-badge status-present">{{ today_attendance.get_status_display }}</div>
+                        <div class="metric-label">Marked at {{ today_attendance.marked_at|time:"g:i A" }}</div>
+                    {% else %}
+                        <div class="status-badge status-pending">Not Marked</div>
+                        <div class="metric-label">Please mark your attendance</div>
+                    {% endif %}
+                </div>
+                <div class="card-action">
+                    {% if not today_attendance %}
+                        <a href="{% url 'mark_attendance' %}" class="btn btn-primary btn-block">Mark Attendance</a>
+                    {% else %}
+                        <button class="btn btn-disabled btn-block" disabled>Already Marked</button>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Attendance History Card -->
+            <div class="action-card">
+                <div class="card-header">
+                    <div class="card-icon icon-history">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div class="card-title">Attendance History</div>
+                </div>
+                <div class="card-content">
+                    <div class="metric-large">{{ recent_attendance|length }}</div>
+                    <div class="metric-label">Recent Records</div>
+                </div>
+                <div class="card-action">
+                    <a href="{% url 'attendance_history' %}" class="btn btn-primary btn-block">View Full History</a>
+                </div>
+            </div>
+
+            <!-- Leave Request Card -->
+            <div class="action-card">
+                <div class="card-header">
+                    <div class="card-icon icon-leave">
+                        <i class="fas fa-calendar-plus"></i>
+                    </div>
+                    <div class="card-title">Leave Request</div>
+                </div>
+                <div class="card-content">
+                    {% if pending_leaves > 0 %}
+                        <div class="metric-large">{{ pending_leaves }}</div>
+                        <div class="metric-label">Pending Applications</div>
+                    {% else %}
+                        <div class="status-badge status-present">No Pending Requests</div>
+                        <div class="metric-label">Apply when needed</div>
+                    {% endif %}
+                </div>
+                <div class="card-action">
+                    <a href="{% url 'apply_leave' %}" class="btn btn-primary btn-block">Apply for Leave</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Team Section (DC Only) -->
+        {% if can_view_team %}
+        <div class="info-bar">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <h2 style="font-size: 24px; font-weight: 700; color: var(--text-primary); margin: 0;">Team Overview</h2>
+                <a href="{% url 'team_attendance' %}" class="btn btn-primary">View Team Details</a>
+            </div>
+            
+            {% if team_data %}
+            <div class="info-grid">
+                <div class="info-column">
+                    <h3>Team Statistics</h3>
+                    <div class="info-item">
+                        <span class="info-label">Total Members</span>
+                        <span class="info-value">{{ team_data.total_team }}</span>
+                    </div>
+                </div>
+                <div class="info-column">
+                    <h3>Today's Status</h3>
+                    <div class="info-item">
+                        <span class="info-label">Present</span>
+                        <span class="info-value">{{ team_data.attendance_summary.present|default:0 }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Absent</span>
+                        <span class="info-value">{{ team_data.attendance_summary.absent|default:0 }}</span>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+    </main>
+
+    <script>
+        // Update time every minute
+        function updateTime() {
+            const now = new Date();
+            const options = { 
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            };
+            document.getElementById('current-time').textContent = now.toLocaleDateString('en-GB', options);
+        }
+        
+        updateTime();
+        setInterval(updateTime, 60000);
+    </script>
+</body>
+</html>
