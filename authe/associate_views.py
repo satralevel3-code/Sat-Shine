@@ -17,7 +17,8 @@ def associate_mark_attendance_page(request):
 @login_required
 def associate_dashboard(request):
     """Associate dashboard with travel request management"""
-    if request.user.designation != 'Associate':
+    # Allow both Associates and Admin users to access
+    if request.user.designation != 'Associate' and request.user.role_level < 10:
         messages.error(request, 'Access denied. Associate privileges required.')
         return redirect('field_dashboard')
     
@@ -38,19 +39,26 @@ def associate_dashboard(request):
         status='pending'
     ).count()
     
-    # Get travel request filters
-    from_date = request.GET.get('from_date', timezone.localdate().isoformat())
-    to_date = request.GET.get('to_date', (timezone.localdate() + timedelta(days=30)).isoformat())
+    # Get travel request filters - Use wider date range to show past and future requests
+    from_date = request.GET.get('from_date', (timezone.localdate() - timedelta(days=30)).isoformat())
+    to_date = request.GET.get('to_date', (timezone.localdate() + timedelta(days=60)).isoformat())
     employee_id = request.GET.get('employee_id', '')
     designation = request.GET.get('designation', '')
     duration = request.GET.get('duration', '')
     status = request.GET.get('status', '')
     
-    # Get travel requests for Associate's DCCBs
-    travel_requests = TravelRequest.objects.filter(
-        request_to=request.user,
-        from_date__range=[from_date, to_date]
-    ).select_related('user')
+    # Get travel requests based on user type
+    if request.user.designation == 'Associate':
+        # For Associates: show ALL travel requests from MT/DC/Support users (no DCCB restriction)
+        travel_requests = TravelRequest.objects.filter(
+            user__designation__in=['MT', 'DC', 'Support'],
+            from_date__range=[from_date, to_date]
+        ).select_related('user')
+    else:
+        # For Admins: show all travel requests
+        travel_requests = TravelRequest.objects.filter(
+            from_date__range=[from_date, to_date]
+        ).select_related('user')
     
     # Apply filters
     if employee_id:
@@ -168,12 +176,12 @@ def travel_request_details(request, request_id):
         return JsonResponse({'success': False, 'error': 'Access denied'})
     
     try:
-        # For Associates, only show requests assigned to them
+        # For Associates, show all travel requests from MT/DC/Support users
         # For Admins, show all requests
         if request.user.designation == 'Associate':
             travel_request = TravelRequest.objects.select_related('user').get(
                 id=request_id,
-                request_to=request.user
+                user__designation__in=['MT', 'DC', 'Support']
             )
         else:
             travel_request = TravelRequest.objects.select_related('user').get(id=request_id)
