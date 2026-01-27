@@ -1,0 +1,4 @@
+Employee ID,First Name,Last Name,Designation,Department,Contact Number,DCCB,Reporting Manager,Email ID,Password,Confirm Password
+MGJ00001,JOHN,DOE,MT,Field Support,9876543210,AHMEDABAD,MANAGER NAME,john.doe@test.com,SecurePass123!,SecurePass123!
+MGJ00002,JANE,SMITH,Associate,Field Support,9876543211,"AHMEDABAD,SURAT",MANAGER NAME,jane.smith@test.com,SecurePass456@,SecurePass456@
+MGJ00003,AMIT,PATEL,DC,Field Support,9876543212,SURAT,MANAGER NAME,amit.patel@test.com,SecurePass789#,SecurePass789#
