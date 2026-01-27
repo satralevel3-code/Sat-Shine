@@ -39,9 +39,9 @@ def associate_dashboard(request):
         status='pending'
     ).count()
     
-    # Get travel request filters
-    from_date = request.GET.get('from_date', timezone.localdate().isoformat())
-    to_date = request.GET.get('to_date', (timezone.localdate() + timedelta(days=30)).isoformat())
+    # Get travel request filters - Use wider date range to show past and future requests
+    from_date = request.GET.get('from_date', (timezone.localdate() - timedelta(days=30)).isoformat())
+    to_date = request.GET.get('to_date', (timezone.localdate() + timedelta(days=60)).isoformat())
     employee_id = request.GET.get('employee_id', '')
     designation = request.GET.get('designation', '')
     duration = request.GET.get('duration', '')
