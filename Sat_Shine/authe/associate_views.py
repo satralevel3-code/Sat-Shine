@@ -49,10 +49,9 @@ def associate_dashboard(request):
     
     # Get travel requests based on user type
     if request.user.designation == 'Associate':
-        # For Associates: show requests from their assigned DCCBs OR requests assigned to them
-        user_dccbs = request.user.multiple_dccb or []
+        # For Associates: show ALL travel requests from MT/DC/Support users (no DCCB restriction)
         travel_requests = TravelRequest.objects.filter(
-            Q(user__dccb__in=user_dccbs) | Q(request_to=request.user),
+            user__designation__in=['MT', 'DC', 'Support'],
             from_date__range=[from_date, to_date]
         ).select_related('user')
     else:
@@ -177,12 +176,12 @@ def travel_request_details(request, request_id):
         return JsonResponse({'success': False, 'error': 'Access denied'})
     
     try:
-        # For Associates, only show requests assigned to them
+        # For Associates, show all travel requests from MT/DC/Support users
         # For Admins, show all requests
         if request.user.designation == 'Associate':
             travel_request = TravelRequest.objects.select_related('user').get(
                 id=request_id,
-                request_to=request.user
+                user__designation__in=['MT', 'DC', 'Support']
             )
         else:
             travel_request = TravelRequest.objects.select_related('user').get(id=request_id)

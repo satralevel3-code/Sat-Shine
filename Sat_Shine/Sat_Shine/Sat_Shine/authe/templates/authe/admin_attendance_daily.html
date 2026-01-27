@@ -1,0 +1,509 @@
+{% extends 'main/base.html' %}
+
+{% block title %}Daily Attendance - SAT-SHINE{% endblock %}
+
+{% block content %}
+<style>
+:root {
+    --primary-navy: #1e3a8a;
+    --accent-blue: #2563EB;
+    --success-green: #059669;
+    --warning-amber: #f59e0b;
+    --error-red: #dc2626;
+    --bg-light: #f8fafc;
+}
+
+.page-header {
+    background: linear-gradient(135deg, var(--primary-navy), var(--accent-blue));
+    color: white;
+    padding: 1.5rem 0;
+    margin-bottom: 1.5rem;
+}
+
+.sticky-left {
+    position: sticky;
+    left: 0;
+    background: white;
+    z-index: 20;
+    border-right: 2px solid #dee2e6;
+    min-width: 120px;
+}
+
+.sticky-left-2 {
+    position: sticky;
+    left: 120px;
+    background: white;
+    z-index: 20;
+    border-right: 2px solid #dee2e6;
+    min-width: 100px;
+}
+
+.table-container {
+    max-height: 400px;
+    overflow: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    position: relative;
+    margin-bottom: 2rem;
+}
+
+.table thead th {
+    position: sticky;
+    top: 0;
+    background: #343a40;
+    color: white;
+    z-index: 10;
+}
+
+.table thead th.sticky-left,
+.table thead th.sticky-left-2 {
+    z-index: 30;
+}
+
+.sunday-column {
+    background-color: #fff3cd !important;
+    border-left: 3px solid #ffc107;
+}
+
+.holiday-column {
+    background-color: #d1ecf1 !important;
+    border-left: 3px solid #17a2b8;
+}
+
+.date-column {
+    min-width: 60px;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.attendance-cell {
+    text-align: center;
+    vertical-align: middle;
+    padding: 8px 4px;
+    min-width: 60px;
+    height: 50px;
+    line-height: 1.2;
+}
+
+.status-p { background: #dcfce7; color: #166534; }
+.status-a { background: #fef2f2; color: #991b1b; }
+.status-h { background: #fef3c7; color: #92400e; }
+.status-nm { background: #f3f4f6; color: #374151; }
+.status-hol { background: #e0f2fe; color: #0277bd; }
+
+.sunday-restriction {
+    background: linear-gradient(45deg, #fff3cd, #ffeaa7);
+    border: 2px solid #ffc107;
+    color: #856404;
+    font-weight: bold;
+}
+
+.badge.sunday-restriction {
+    background: #fff3cd !important;
+    color: #856404 !important;
+    border: 1px solid #ffc107;
+    font-weight: 600;
+    font-size: 0.75rem;
+}
+
+.export-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.month-nav-btn {
+    transition: all 0.2s ease;
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    color: white !important;
+    min-width: 40px;
+    font-weight: 500;
+}
+
+.month-nav-btn:hover {
+    background-color: rgba(255, 255, 255, 0.25) !important;
+    border-color: rgba(255, 255, 255, 0.8) !important;
+    color: white !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.month-nav-btn:focus {
+    background-color: rgba(255, 255, 255, 0.2) !important;
+    border-color: rgba(255, 255, 255, 0.7) !important;
+    color: white !important;
+    box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25);
+}
+
+.month-nav-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+#monthDisplay {
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+</style>
+
+<div class="page-header">
+    <div class="container-fluid">
+        <div class="row align-items-center">
+            <div class="col">
+                <h2 class="mb-0">
+                    <i class="fas fa-calendar-alt me-2"></i>
+                    DAILY ATTENDANCE
+                </h2>
+            </div>
+            <div class="col-auto">
+                <div class="export-buttons">
+                    <button class="btn btn-light btn-sm" onclick="exportData('csv')">
+                        <i class="fas fa-file-csv me-1"></i>CSV
+                    </button>
+                    <button class="btn btn-light btn-sm" onclick="exportData('excel')">
+                        <i class="fas fa-file-excel me-1"></i>Excel
+                    </button>
+                    <button class="btn btn-light btn-sm" onclick="exportData('pdf')">
+                        <i class="fas fa-file-pdf me-1"></i>PDF
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container-fluid">
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-2">
+                    <label class="form-label fw-bold">From Date</label>
+                    <input type="date" class="form-control" name="from_date" value="{{ from_date|date:'Y-m-d' }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold">To Date</label>
+                    <input type="date" class="form-control" name="to_date" value="{{ to_date|date:'Y-m-d' }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold">DCCB</label>
+                    <select class="form-select" name="dccb">
+                        <option value="">All DCCB</option>
+                        {% for value, label in dccb_choices %}
+                        <option value="{{ value }}" {% if dccb_filter == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold">Designation</label>
+                    <select class="form-select" name="designation">
+                        <option value="">All Designations</option>
+                        {% for value, label in designation_choices %}
+                        <option value="{{ value }}" {% if designation_filter == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">
+                        <i class="fas fa-filter me-1"></i>Apply
+                    </button>
+                    <a href="{% url 'admin_attendance_daily' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-times me-1"></i>Clear
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="card mb-4">
+        <div class="card-body py-2">
+            <small class="text-muted">
+                <span class="badge status-p me-2">P</span>Present
+                <span class="badge status-a me-2 ms-2">A</span>Absent
+                <span class="badge status-h me-2 ms-2">H</span>Half Day
+                <span class="badge status-nm me-2 ms-2">NM</span>Not Marked
+                <span class="badge status-hol me-2 ms-2">HOL</span>Holiday
+                <span class="badge sunday-restriction me-2 ms-2">SUN</span>Sunday (No Attendance)
+                <i class="fas fa-clock late-indicator ms-3 me-1"></i>Late Arrival
+            </small>
+        </div>
+    </div>
+
+    <!-- Attendance Table -->
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <div class="row align-items-center">
+                <div class="col">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calendar-alt me-2"></i>
+                        <span id="monthDisplay">{{ from_date|date:"F Y" }}</span>
+                    </h5>
+                </div>
+                <div class="col-auto">
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-outline-light btn-sm month-nav-btn" onclick="navigateMonth('prev')" title="Previous Month">
+                            <i class="fas fa-chevron-left"></i> <span class="d-none d-md-inline">Prev</span>
+                        </button>
+                        <button type="button" class="btn btn-outline-light btn-sm month-nav-btn" onclick="navigateMonth('current')" title="Current Month">
+                            <i class="fas fa-calendar-day"></i> <span class="d-none d-lg-inline">Today</span>
+                        </button>
+                        <button type="button" class="btn btn-outline-light btn-sm month-nav-btn" onclick="navigateMonth('next')" title="Next Month">
+                            <span class="d-none d-md-inline">Next</span> <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="table-container">
+            <table class="table table-bordered table-sm mb-0">
+                <thead class="table-dark sticky-top">
+                    <tr>
+                        <th class="sticky-left">Employee ID</th>
+                        <th class="sticky-left-2">DCCB</th>
+                        {% for date in date_range %}
+                        <th class="date-column {% if date.is_sunday %}sunday-column sunday-restriction{% endif %} {% if date.is_holiday %}holiday-column{% endif %}">
+                            <div>{{ date.date|date:"d" }}</div>
+                            <small>{{ date.date|date:"D" }}</small>
+                            {% if date.is_sunday %}
+                            <div><small class="text-warning fw-bold">SUN</small></div>
+                            {% elif date.is_holiday %}
+                            <div><small class="text-info">HOL</small></div>
+                            {% endif %}
+                        </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for employee_data in attendance_data %}
+                    <tr>
+                        <td class="sticky-left fw-bold text-primary">
+                            <a href="{% url 'admin_employee_attendance_history' employee_data.employee.employee_id %}" class="text-decoration-none fw-bold text-primary" title="View Attendance History">
+                                {{ employee_data.employee.employee_id }}
+                            </a>
+                        </td>
+                        <td class="sticky-left-2">{{ employee_data.employee.dccb|default:"-" }}</td>
+                        {% for attendance in employee_data.attendance_list %}
+                        <td class="attendance-cell {% if attendance.is_sunday %}sunday-column sunday-restriction{% endif %} {% if attendance.is_holiday %}holiday-column{% endif %}">
+                            {% if attendance.is_sunday %}
+                                <span class="badge sunday-restriction">Sunday</span>
+                            {% elif attendance.is_holiday %}
+                                <span class="badge status-hol">HOL</span>
+                            {% elif attendance.status == 'present' %}
+                                <span class="badge status-p">P</span>
+                                {% if attendance.is_late %}
+                                <br><i class="fas fa-clock late-indicator" title="Late Arrival"></i>
+                                {% endif %}
+                            {% elif attendance.status == 'absent' %}
+                                <span class="badge status-a">A</span>
+                            {% elif attendance.status == 'half_day' %}
+                                <span class="badge status-h">H</span>
+                                {% if attendance.is_late %}
+                                <br><i class="fas fa-clock late-indicator" title="Late Arrival"></i>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge status-nm">NM</span>
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="{{ date_range|length|add:2 }}" class="text-center py-4">
+                            <i class="fas fa-users text-muted mb-2" style="font-size: 2rem;"></i>
+                            <div class="text-muted">No employees found for the selected criteria</div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Reports Download Section -->
+    <div class="card">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-download me-2"></i>
+                Reports & Downloads
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-4">
+                <!-- DCCB-wise Report -->
+                <div class="col-md-6">
+                    <div class="border rounded p-3 h-100">
+                        <h6 class="text-primary mb-3">
+                            <i class="fas fa-building me-2"></i>DCCB-wise Report
+                        </h6>
+                        <form id="dccbReportForm" class="d-flex flex-column gap-2">
+                            <select class="form-select" name="report_dccb" required>
+                                <option value="">Select DCCB</option>
+                                {% for value, label in dccb_choices %}
+                                <option value="{{ value }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-success btn-sm" onclick="downloadDCCBReport('csv')">
+                                    <i class="fas fa-file-csv me-1"></i>CSV
+                                </button>
+                                <button type="button" class="btn btn-success btn-sm" onclick="downloadDCCBReport('excel')">
+                                    <i class="fas fa-file-excel me-1"></i>Excel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Date Range Report -->
+                <div class="col-md-6">
+                    <div class="border rounded p-3 h-100">
+                        <h6 class="text-primary mb-3">
+                            <i class="fas fa-calendar-range me-2"></i>Date Range Report
+                        </h6>
+                        <form id="dateRangeForm" class="d-flex flex-column gap-2">
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <input type="date" class="form-control form-control-sm" name="report_from" placeholder="From Date" required>
+                                </div>
+                                <div class="col-6">
+                                    <input type="date" class="form-control form-control-sm" name="report_to" placeholder="To Date" required>
+                                </div>
+                            </div>
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-primary btn-sm" onclick="downloadDateRangeReport('csv')">
+                                    <i class="fas fa-file-csv me-1"></i>CSV
+                                </button>
+                                <button type="button" class="btn btn-primary btn-sm" onclick="downloadDateRangeReport('excel')">
+                                    <i class="fas fa-file-excel me-1"></i>Excel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function exportData(format) {
+    const params = new URLSearchParams(window.location.search);
+    params.set('format', format);
+    window.location.href = '{% url "export_attendance_daily" %}?' + params.toString();
+}
+
+// Month navigation functionality
+function navigateMonth(direction) {
+    const currentFromDate = new Date('{{ from_date|date:"Y-m-d" }}');
+    const currentToDate = new Date('{{ to_date|date:"Y-m-d" }}');
+    
+    let newFromDate, newToDate;
+    
+    if (direction === 'prev') {
+        // Previous month
+        newFromDate = new Date(currentFromDate.getFullYear(), currentFromDate.getMonth() - 1, 1);
+        newToDate = new Date(currentFromDate.getFullYear(), currentFromDate.getMonth(), 0); // Last day of previous month
+    } else if (direction === 'next') {
+        // Next month
+        newFromDate = new Date(currentFromDate.getFullYear(), currentFromDate.getMonth() + 1, 1);
+        newToDate = new Date(currentFromDate.getFullYear(), currentFromDate.getMonth() + 2, 0); // Last day of next month
+    } else if (direction === 'current') {
+        // Current month
+        const today = new Date();
+        newFromDate = new Date(today.getFullYear(), today.getMonth(), 1);
+        newToDate = new Date(today.getFullYear(), today.getMonth() + 1, 0); // Last day of current month
+    }
+    
+    // Format dates for URL
+    const fromDateStr = newFromDate.toISOString().split('T')[0];
+    const toDateStr = newToDate.toISOString().split('T')[0];
+    
+    // Preserve existing filter parameters
+    const params = new URLSearchParams(window.location.search);
+    params.set('from_date', fromDateStr);
+    params.set('to_date', toDateStr);
+    
+    // Add smooth loading indicator
+    showLoadingIndicator();
+    
+    // Navigate to new URL
+    window.location.href = window.location.pathname + '?' + params.toString();
+}
+
+// Show loading indicator during month navigation
+function showLoadingIndicator() {
+    const monthDisplay = document.getElementById('monthDisplay');
+    if (monthDisplay) {
+        monthDisplay.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Loading...';
+    }
+    
+    // Disable navigation buttons
+    const navButtons = document.querySelectorAll('.month-nav-btn');
+    navButtons.forEach(btn => {
+        btn.disabled = true;
+        btn.classList.add('disabled');
+    });
+}
+
+// Update month display on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const fromDate = new Date('{{ from_date|date:"Y-m-d" }}');
+    const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    
+    const monthDisplay = document.getElementById('monthDisplay');
+    if (monthDisplay) {
+        const monthName = monthNames[fromDate.getMonth()];
+        const year = fromDate.getFullYear();
+        monthDisplay.textContent = `${monthName} ${year}`;
+    }
+});
+
+// Download DCCB-wise report
+function downloadDCCBReport(format) {
+    const form = document.getElementById('dccbReportForm');
+    const dccb = form.querySelector('[name="report_dccb"]').value;
+    
+    if (!dccb) {
+        alert('Please select a DCCB');
+        return;
+    }
+    
+    const params = new URLSearchParams();
+    params.set('dccb', dccb);
+    params.set('format', format);
+    params.set('report_type', 'dccb');
+    
+    window.location.href = '{% url "export_attendance_daily" %}?' + params.toString();
+}
+
+// Download date range report
+function downloadDateRangeReport(format) {
+    const form = document.getElementById('dateRangeForm');
+    const fromDate = form.querySelector('[name="report_from"]').value;
+    const toDate = form.querySelector('[name="report_to"]').value;
+    
+    if (!fromDate || !toDate) {
+        alert('Please select both from and to dates');
+        return;
+    }
+    
+    if (new Date(fromDate) > new Date(toDate)) {
+        alert('From date cannot be later than to date');
+        return;
+    }
+    
+    const params = new URLSearchParams();
+    params.set('from_date', fromDate);
+    params.set('to_date', toDate);
+    params.set('format', format);
+    params.set('report_type', 'date_range');
+    
+    window.location.href = '{% url "export_attendance_daily" %}?' + params.toString();
+}
+</script>
+{% endblock %}

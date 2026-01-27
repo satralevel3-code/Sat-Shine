@@ -1,0 +1,58 @@
+[
+  {
+    "user_id": "MGJ00004",
+    "leave_type": "planned",
+    "duration": "full_day",
+    "start_date": "2026-01-12",
+    "end_date": "2026-01-12",
+    "days_requested": 1.0,
+    "reason": "Personal work - need to complete some important documentation at government office.",
+    "status": "rejected",
+    "applied_at": "2026-01-02T10:01:36.848232+00:00",
+    "approved_by": "MP0001",
+    "approved_at": "2026-01-02T10:04:40.596411+00:00",
+    "admin_remarks": "Test rejection for filter verification"
+  },
+  {
+    "user_id": "MGJ00004",
+    "leave_type": "unplanned",
+    "duration": "half_day",
+    "start_date": "2026-01-01",
+    "end_date": "2026-01-01",
+    "days_requested": 0.5,
+    "reason": "Medical emergency - had to visit doctor for sudden fever and body pain.",
+    "status": "approved",
+    "applied_at": "2026-01-02T10:01:36.843282+00:00",
+    "approved_by": "MP0001",
+    "approved_at": "2026-01-02T10:04:44.246601+00:00",
+    "admin_remarks": ""
+  },
+  {
+    "user_id": "MGJ00004",
+    "leave_type": "planned",
+    "duration": "full_day",
+    "start_date": "2026-01-07",
+    "end_date": "2026-01-09",
+    "days_requested": 3.0,
+    "reason": "Family function - wedding ceremony of my cousin. Need to travel to hometown for 3 days.",
+    "status": "approved",
+    "applied_at": "2026-01-02T10:01:36.837628+00:00",
+    "approved_by": "MP0001",
+    "approved_at": "2026-01-02T10:04:47.845240+00:00",
+    "admin_remarks": ""
+  },
+  {
+    "user_id": "MGJ00019",
+    "leave_type": "planned",
+    "duration": "full_day",
+    "start_date": "2026-01-08",
+    "end_date": "2026-01-09",
+    "days_requested": 2.0,
+    "reason": "for family functional is o",
+    "status": "approved",
+    "applied_at": "2026-01-02T09:44:39.352761+00:00",
+    "approved_by": "MP0001",
+    "approved_at": "2026-01-02T10:04:50.887559+00:00",
+    "admin_remarks": ""
+  }
+]

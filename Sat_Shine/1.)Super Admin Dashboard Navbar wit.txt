@@ -1,0 +1,62 @@
+1.)Super Admin Dashboard: Navbar with Logo in right hand top corner left side date and time  alert bell icon , profile dropdown to view profile and log out settings (in setting database to add the PACS option to link with daily attendance.
+
+Access right : Add , Modify Employee data, customize approval authority
+
+2)Admin Dashboard:
+
+Total Employee Card 
+
+Todays Attendance 
+
+pending approval
+
+Attendance Location map
+
+Attendance management 
+
+leave management 
+
+Report and analytics
+
+
+3) Field Officer dashboard designation Dc
+
+Mark Attendance
+
+Attendance history
+
+Leave Request
+
+Team Overview section
+
+date range (default date and record show for todays and user able to filter and see the record of between dates confirm)
+
+Confirm (Button)
+
+Table with column 
+
+EMP ID
+
+Name 
+
+Check in 
+
+Check out: (default check out time 6:30 PM)
+
+Location pin
+
+travel : Y/N
+
+
+4) Field Officer dashboard designation MT Support:
+
+Mark Attendance
+
+Attendance history
+
+leave request 
+
+travel request 
+
+
+
