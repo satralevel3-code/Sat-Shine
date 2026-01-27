@@ -17,7 +17,8 @@ def associate_mark_attendance_page(request):
 @login_required
 def associate_dashboard(request):
     """Associate dashboard with travel request management"""
-    if request.user.designation != 'Associate':
+    # Allow both Associates and Admin users to access
+    if request.user.designation != 'Associate' and request.user.role_level < 10:
         messages.error(request, 'Access denied. Associate privileges required.')
         return redirect('field_dashboard')
     
@@ -46,11 +47,19 @@ def associate_dashboard(request):
     duration = request.GET.get('duration', '')
     status = request.GET.get('status', '')
     
-    # Get travel requests for Associate's DCCBs
-    travel_requests = TravelRequest.objects.filter(
-        request_to=request.user,
-        from_date__range=[from_date, to_date]
-    ).select_related('user')
+    # Get travel requests based on user type
+    if request.user.designation == 'Associate':
+        # For Associates: show requests from their assigned DCCBs OR requests assigned to them
+        user_dccbs = request.user.multiple_dccb or []
+        travel_requests = TravelRequest.objects.filter(
+            Q(user__dccb__in=user_dccbs) | Q(request_to=request.user),
+            from_date__range=[from_date, to_date]
+        ).select_related('user')
+    else:
+        # For Admins: show all travel requests
+        travel_requests = TravelRequest.objects.filter(
+            from_date__range=[from_date, to_date]
+        ).select_related('user')
     
     # Apply filters
     if employee_id:
