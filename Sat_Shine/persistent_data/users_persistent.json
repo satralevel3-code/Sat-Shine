@@ -14,7 +14,7 @@
     "is_staff": true,
     "is_superuser": true,
     "date_joined": "2025-12-27T19:02:43.475216+00:00",
-    "password": "pbkdf2_sha256$1200000$H9isrEj6n89jJpvYcsrb1I$3Kmb1UGCpqVqXiuIa/bYLgqtmLN5teRr/MFOso+AE4w="
+    "password": "pbkdf2_sha256$1200000$KtBSt2itRMvCQuMfwZIkjv$57LswTFMqQhIjFnYJ/wq1uHuvUc82degS6Xg7xPs+y4="
   },
   {
     "employee_id": "MGJ00078",
@@ -355,5 +355,22 @@
     "is_superuser": false,
     "date_joined": "2026-01-23T10:30:51.424410+00:00",
     "password": "pbkdf2_sha256$1200000$1EuTML8UVY5YYiXhI5bw8E$5O95dx5V2AOSQYIKiGe3HnEeBbBMBlS0SZAWuDl9GYg="
+  },
+  {
+    "employee_id": "MGJ00001",
+    "username": "MGJ00001",
+    "email": "field@test.com",
+    "first_name": "TEST",
+    "last_name": "FIELD",
+    "contact_number": "8888888888",
+    "role": "field_officer",
+    "designation": "MT",
+    "dccb": "AHMEDABAD",
+    "reporting_manager": null,
+    "is_active": true,
+    "is_staff": false,
+    "is_superuser": false,
+    "date_joined": "2026-01-27T06:56:58.618795+00:00",
+    "password": "pbkdf2_sha256$1200000$5zrdxHme6Fi8BR3sIwnFbI$BqMWLWCoqTlotpmbDoMZIofc0OQIqkBhvvxdg/svY+c="
   }
 ]
