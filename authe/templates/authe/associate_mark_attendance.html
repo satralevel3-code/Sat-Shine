@@ -86,10 +86,10 @@ function loadAttendanceStatus() {
 }
 
 function markAttendance(status) {
-    // Show loading
-    const originalText = event.target.innerHTML;
-    event.target.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Marking...';
-    event.target.disabled = true;
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Marking...';
+    button.disabled = true;
     
     const data = {
         status: status,
@@ -97,7 +97,6 @@ function markAttendance(status) {
         longitude: currentLocation ? currentLocation.longitude : null
     };
     
-    // Get CSRF token
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
                      document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
                      getCookie('csrftoken');
@@ -110,27 +109,24 @@ function markAttendance(status) {
         },
         body: JSON.stringify(data)
     })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
         if (data.success) {
             showAlert('success', data.message);
-            loadAttendanceStatus();
+            setTimeout(() => {
+                window.location.href = "{% url 'associate_dashboard' %}";
+            }, 1500);
         } else {
             showAlert('danger', data.error || 'Failed to mark attendance');
-            event.target.innerHTML = originalText;
-            event.target.disabled = false;
+            button.innerHTML = originalText;
+            button.disabled = false;
         }
     })
     .catch(error => {
         console.error('Error:', error);
         showAlert('danger', 'Network error: ' + error.message);
-        event.target.innerHTML = originalText;
-        event.target.disabled = false;
+        button.innerHTML = originalText;
+        button.disabled = false;
     });
 }
 
