@@ -156,13 +156,7 @@ def associate_mark_attendance(request):
             
             return JsonResponse({
                 'success': True,
-                'message': f'Attendance marked as {status.title()} with GPS location',
-                'debug': {
-                    'date': today.isoformat(),
-                    'has_gps': bool(latitude and longitude),
-                    'latitude': latitude,
-                    'longitude': longitude
-                }
+                'message': f'Attendance marked as {status.title()}'
             })
             
         except json.JSONDecodeError:
