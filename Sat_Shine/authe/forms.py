@@ -3,12 +3,15 @@ from django.contrib.auth.forms import UserCreationForm
 from django.core.validators import RegexValidator
 from .models import CustomUser
 import re
+import pandas as pd
+from django.core.exceptions import ValidationError
 
-class SignUpForm(UserCreationForm):
+class EnhancedSignUpForm(UserCreationForm):
     class Meta:
         model = CustomUser
-        fields = ['employee_id', 'first_name', 'last_name', 'designation', 'contact_number', 
-                 'dccb', 'reporting_manager', 'email', 'password1', 'password2']
+        fields = ['employee_id', 'first_name', 'last_name', 'designation', 'department',
+                 'contact_number', 'dccb', 'multiple_dccb', 'reporting_manager', 'email', 
+                 'password1', 'password2']
     
     employee_id = forms.CharField(
         max_length=8,
@@ -16,7 +19,8 @@ class SignUpForm(UserCreationForm):
             'class': 'form-control', 
             'autocomplete': 'username',
             'style': 'text-transform: uppercase;',
-            'id': 'id_employee_id'
+            'id': 'id_employee_id',
+            'placeholder': 'MGJ00001 or MP0001'
         })
     )
     first_name = forms.CharField(
@@ -43,6 +47,7 @@ class SignUpForm(UserCreationForm):
             ('MT', 'MT'),
             ('DC', 'DC'), 
             ('Support', 'Support'),
+            ('Associate', 'Associate'),
             ('Manager', 'Manager'),
             ('HR', 'HR'),
             ('Delivery Head', 'Delivery Head')
@@ -50,6 +55,13 @@ class SignUpForm(UserCreationForm):
         widget=forms.Select(attrs={
             'class': 'form-control', 
             'id': 'id_designation'
+        })
+    )
+    department = forms.ChoiceField(
+        choices=[('', 'Select Department')] + list(CustomUser.DEPARTMENT_CHOICES),
+        widget=forms.Select(attrs={
+            'class': 'form-control',
+            'id': 'id_department'
         })
     )
     contact_number = forms.CharField(
@@ -68,6 +80,14 @@ class SignUpForm(UserCreationForm):
         widget=forms.Select(attrs={
             'class': 'form-control', 
             'id': 'id_dccb'
+        })
+    )
+    multiple_dccb = forms.MultipleChoiceField(
+        choices=CustomUser.DCCB_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={
+            'class': 'form-check-input',
+            'id': 'id_multiple_dccb'
         })
     )
     reporting_manager = forms.CharField(
@@ -93,7 +113,8 @@ class SignUpForm(UserCreationForm):
             'class': 'form-control', 
             'autocomplete': 'new-password',
             'id': 'id_password1'
-        })
+        }),
+        help_text='12-16 characters with uppercase, lowercase, number, and symbol'
     )
     password2 = forms.CharField(
         label='Confirm Password',
@@ -109,7 +130,7 @@ class SignUpForm(UserCreationForm):
         
         # Validate exact patterns: MGJ00001 (8 chars) or MP0001 (6 chars)
         if not (re.match(r'^MGJ[0-9]{5}$', employee_id) or re.match(r'^MP[0-9]{4}$', employee_id)):
-            raise forms.ValidationError('Invalid Employee ID format.')
+            raise forms.ValidationError('Invalid Employee ID format. Use MGJ00001 or MP0001 format.')
         
         # Check uniqueness
         if CustomUser.objects.filter(employee_id=employee_id).exists():
@@ -138,17 +159,15 @@ class SignUpForm(UserCreationForm):
             raise forms.ValidationError('Email address already exists.')
         return email
     
-    def clean_reporting_manager(self):
-        manager_name = self.cleaned_data.get('reporting_manager', '').upper().strip()
-        return manager_name
-    
     def clean_password1(self):
         password = self.cleaned_data.get('password1')
         if password:
-            # Validate password requirements
-            if not re.match(r'^(?=.{8,}$)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).*$', password):
+            # Enhanced password validation (12-16 characters)
+            if len(password) < 12 or len(password) > 16:
+                raise forms.ValidationError('Password must be 12-16 characters long.')
+            if not re.match(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).*$', password):
                 raise forms.ValidationError(
-                    'Password must be at least 8 characters with uppercase, lowercase, digit, and special character (@$!%*?&).'
+                    'Password must include uppercase, lowercase, number, and symbol (!@#$%^&*).'
                 )
         return password
     
@@ -157,17 +176,25 @@ class SignUpForm(UserCreationForm):
         employee_id = cleaned_data.get('employee_id')
         designation = cleaned_data.get('designation')
         dccb = cleaned_data.get('dccb')
+        multiple_dccb = cleaned_data.get('multiple_dccb')
         reporting_manager = cleaned_data.get('reporting_manager')
+        department = cleaned_data.get('department')
         
-        if employee_id and designation:  # Only validate if both are present
+        if employee_id and designation:
             if employee_id.startswith('MGJ'):  # Field Officer
                 # Validate designation for Field Officer
-                if designation not in ['MT', 'DC', 'Support']:
+                if designation not in ['MT', 'DC', 'Support', 'Associate']:
                     raise forms.ValidationError('Invalid designation for Field Officer.')
                 
-                # DCCB is mandatory for Field Officer
-                if not dccb:
-                    raise forms.ValidationError('DCCB is required for Field Officers.')
+                # DCCB validation
+                if designation == 'Associate':
+                    if not multiple_dccb:
+                        raise forms.ValidationError('Multiple DCCB selection required for Associates.')
+                    cleaned_data['dccb'] = None  # Clear single DCCB for Associates
+                else:
+                    if not dccb:
+                        raise forms.ValidationError('DCCB is required for Field Officers.')
+                    cleaned_data['multiple_dccb'] = []  # Clear multiple DCCB for non-Associates
                 
                 # Reporting Manager is mandatory for Field Officer
                 if not reporting_manager:
@@ -177,8 +204,52 @@ class SignUpForm(UserCreationForm):
                 # Validate designation for Admin
                 if designation not in ['Manager', 'HR', 'Delivery Head']:
                     raise forms.ValidationError('Invalid designation for Admin users.')
+                # Clear DCCB fields for Admin users
+                cleaned_data['dccb'] = None
+                cleaned_data['multiple_dccb'] = []
+                cleaned_data['reporting_manager'] = None
+        
+        # Department is mandatory for all users
+        if not department:
+            raise forms.ValidationError('Department is required for all employees.')
         
         return cleaned_data
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        # Handle multiple DCCB for Associates
+        if self.cleaned_data.get('multiple_dccb'):
+            user.multiple_dccb = self.cleaned_data['multiple_dccb']
+        if commit:
+            user.save()
+        return user
+
+class BulkUploadForm(forms.Form):
+    excel_file = forms.FileField(
+        widget=forms.FileInput(attrs={
+            'class': 'form-control',
+            'accept': '.xlsx,.xls',
+            'id': 'id_excel_file'
+        }),
+        help_text='Upload Excel file (.xlsx) with employee data'
+    )
+    
+    def clean_excel_file(self):
+        file = self.cleaned_data.get('excel_file')
+        if not file:
+            raise forms.ValidationError('Please select an Excel file.')
+        
+        if not file.name.endswith(('.xlsx', '.xls')):
+            raise forms.ValidationError('Please upload a valid Excel file (.xlsx or .xls).')
+        
+        # Validate file size (max 5MB)
+        if file.size > 5 * 1024 * 1024:
+            raise forms.ValidationError('File size must be less than 5MB.')
+        
+        return file
+
+# Keep original form for backward compatibility
+SignUpForm = EnhancedSignUpForm
 
 class LoginForm(forms.Form):
     employee_id = forms.CharField(

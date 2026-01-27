@@ -1,0 +1,172 @@
+{% extends 'main/base.html' %}
+
+{% block title %}Detailed Attendance - SAT-SHINE{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Detailed Attendance View</h4>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-light btn-sm" onclick="exportData('csv')">
+                            <i class="fas fa-file-csv"></i> CSV
+                        </button>
+                        <button class="btn btn-light btn-sm" onclick="exportData('excel')">
+                            <i class="fas fa-file-excel"></i> Excel
+                        </button>
+                        <button class="btn btn-light btn-sm" onclick="exportData('pdf')">
+                            <i class="fas fa-file-pdf"></i> PDF
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Filters -->
+                    <form method="GET" class="row g-3 mb-4">
+                        <div class="col-md-2">
+                            <label class="form-label">From Date</label>
+                            <input type="date" class="form-control" name="from_date" value="{{ from_date }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">To Date</label>
+                            <input type="date" class="form-control" name="to_date" value="{{ to_date }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">DCCB</label>
+                            <select class="form-select" name="dccb">
+                                <option value="">All DCCB</option>
+                                {% for value, label in dccb_choices %}
+                                <option value="{{ value }}" {% if dccb_filter == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Designation</label>
+                            <select class="form-select" name="designation">
+                                <option value="">All Designations</option>
+                                {% for value, label in designation_choices %}
+                                <option value="{{ value }}" {% if designation_filter == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary mt-4">Filter</button>
+                            <a href="{% url 'admin_attendance_detailed' %}" class="btn btn-outline-secondary mt-4">Clear</a>
+                        </div>
+                    </form>
+
+                    <!-- Legend -->
+                    <div class="mb-3">
+                        <small class="text-muted">
+                            <span class="badge bg-success me-2">P</span>Present
+                            <span class="badge bg-danger me-2 ms-2">A</span>Absent
+                            <span class="badge bg-warning me-2 ms-2">H</span>Half Day
+                            <span class="badge bg-secondary me-2 ms-2">NM</span>Not Marked
+                            <span class="badge bg-info me-2 ms-2">HOL</span>Holiday
+                            <i class="fas fa-clock text-warning ms-3 me-1"></i>Late Arrival
+                        </small>
+                    </div>
+
+                    <!-- Attendance Table -->
+                    <div class="table-responsive" style="max-height: 600px; overflow: auto;">
+                        <table class="table table-bordered table-sm">
+                            <thead class="table-dark sticky-top">
+                                <tr>
+                                    <th class="sticky-left">Employee ID</th>
+                                    <th class="sticky-left-2">DCCB</th>
+                                    {% for date in date_range %}
+                                    <th class="text-center date-column {% if date.is_sunday %}sunday-column{% endif %} {% if date.is_holiday %}holiday-column{% endif %}" 
+                                        style="min-width: 60px;">
+                                        <div>{{ date.date|date:"d" }}</div>
+                                        <small>{{ date.date|date:"D" }}</small>
+                                        {% if date.is_holiday %}
+                                        <div><small class="text-info">HOL</small></div>
+                                        {% endif %}
+                                    </th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for employee_data in attendance_data %}
+                                <tr>
+                                    <td class="sticky-left fw-bold">{{ employee_data.employee.employee_id }}</td>
+                                    <td class="sticky-left-2">{{ employee_data.employee.dccb }}</td>
+                                    {% for attendance in employee_data.attendance_list %}
+                                    <td class="text-center attendance-cell {% if attendance.is_sunday %}sunday-column{% endif %} {% if attendance.is_holiday %}holiday-column{% endif %}">
+                                        {% if attendance.is_holiday or attendance.is_sunday %}
+                                            <span class="badge bg-info">HOL</span>
+                                        {% elif attendance.status == 'present' %}
+                                            <span class="badge bg-success">P</span>
+                                            {% if attendance.is_late %}
+                                            <i class="fas fa-clock text-warning" title="Late Arrival"></i>
+                                            {% endif %}
+                                        {% elif attendance.status == 'absent' %}
+                                            <span class="badge bg-danger">A</span>
+                                        {% elif attendance.status == 'half_day' %}
+                                            <span class="badge bg-warning">H</span>
+                                            {% if attendance.is_late %}
+                                            <i class="fas fa-clock text-warning" title="Late Arrival"></i>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="badge bg-secondary">NM</span>
+                                        {% endif %}
+                                    </td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.sticky-left {
+    position: sticky;
+    left: 0;
+    background: white;
+    z-index: 10;
+    border-right: 2px solid #dee2e6;
+}
+
+.sticky-left-2 {
+    position: sticky;
+    left: 120px;
+    background: white;
+    z-index: 10;
+    border-right: 2px solid #dee2e6;
+}
+
+.sunday-column {
+    background-color: #f8f9fa !important;
+}
+
+.holiday-column {
+    background-color: #e3f2fd !important;
+}
+
+.attendance-cell {
+    vertical-align: middle;
+}
+
+.date-column {
+    writing-mode: horizontal-tb;
+}
+
+.table-responsive {
+    border: 1px solid #dee2e6;
+}
+</style>
+
+<script>
+function exportData(format) {
+    const params = new URLSearchParams(window.location.search);
+    params.set('format', format);
+    window.location.href = '{% url "export_attendance_detailed" %}?' + params.toString();
+}
+</script>
+{% endblock %}

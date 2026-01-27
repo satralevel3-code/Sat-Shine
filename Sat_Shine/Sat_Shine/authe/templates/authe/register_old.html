@@ -1,0 +1,384 @@
+{% extends "main/base_unified.html" %}
+
+{% block title %}Register{% endblock %}
+
+{% block content_class %}centered{% endblock %}
+
+{% block extra_css %}
+<style>
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-control {
+    padding: 12px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+.form-control:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    outline: none;
+}
+
+.card {
+    background: white;
+    border-radius: 12px;
+    padding: 32px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    border: 1px solid #e5e7eb;
+    max-width: 500px;
+    width: 100%;
+}
+
+.btn-primary:disabled {
+    background: #6b7280;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.validation-message {
+    font-size: 12px;
+    margin-top: 4px;
+    min-height: 16px;
+}
+
+.valid {
+    color: #059669;
+}
+
+.invalid {
+    color: #dc2626;
+}
+
+.form-control.is-valid {
+    border-color: #059669;
+}
+
+.form-control.is-invalid {
+    border-color: #dc2626;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h3 class="text-center mb-4">Employee Registration</h3>
+
+    <form method="post" id="registrationForm">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label for="id_employee_id" class="form-label">Employee ID</label>
+            {{ form.employee_id }}
+            <div id="employee-id-validation" class="validation-message"></div>
+        </div>
+
+        <div class="form-group">
+            <label for="id_first_name" class="form-label">First Name</label>
+            {{ form.first_name }}
+        </div>
+
+        <div class="form-group">
+            <label for="id_last_name" class="form-label">Last Name</label>
+            {{ form.last_name }}
+        </div>
+
+        <div class="form-group">
+            <label for="id_designation" class="form-label">Designation</label>
+            {{ form.designation }}
+        </div>
+
+        <div class="form-group">
+            <label for="id_contact_number" class="form-label">Contact Number</label>
+            {{ form.contact_number }}
+            <div id="contact-validation" class="validation-message"></div>
+        </div>
+
+        <div class="form-group" id="dccb-group">
+            <label for="id_dccb" class="form-label">DCCB</label>
+            {{ form.dccb }}
+        </div>
+
+        <div class="form-group" id="manager-group">
+            <label for="id_reporting_manager" class="form-label">Reporting Manager</label>
+            {{ form.reporting_manager }}
+        </div>
+
+        <div class="form-group">
+            <label for="id_email" class="form-label">Email</label>
+            {{ form.email }}
+            <div id="email-validation" class="validation-message"></div>
+        </div>
+
+        <div class="form-group">
+            <label for="id_password1" class="form-label">Password</label>
+            {{ form.password1 }}
+        </div>
+
+        <div class="form-group">
+            <label for="id_password2" class="form-label">Confirm Password</label>
+            {{ form.password2 }}
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block mt-3" id="submitBtn" disabled>
+            Register Employee
+        </button>
+    </form>
+
+    <div class="text-center mt-3">
+        <a href="{% url 'login' %}">Already have an account? Login</a>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const employeeIdField = document.getElementById('id_employee_id');
+    const contactField = document.getElementById('id_contact_number');
+    const emailField = document.getElementById('id_email');
+    const designationField = document.getElementById('id_designation');
+    const dccbGroup = document.getElementById('dccb-group');
+    const managerGroup = document.getElementById('manager-group');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    const validationDivs = {
+        employeeId: document.getElementById('employee-id-validation'),
+        contact: document.getElementById('contact-validation'),
+        email: document.getElementById('email-validation')
+    };
+    
+    let validationState = {
+        employeeId: false,
+        contact: false,
+        email: false
+    };
+    
+    let fieldTouched = {
+        employeeId: false,
+        contact: false,
+        email: false
+    };
+    
+    function updateSubmitButton() {
+        const allValid = Object.values(validationState).every(valid => valid);
+        submitBtn.disabled = !allValid;
+        submitBtn.style.opacity = allValid ? '1' : '0.6';
+    }
+    
+    function showValidation(field, message, isValid) {
+        const div = validationDivs[field];
+        const inputField = field === 'employeeId' ? employeeIdField : 
+                          field === 'contact' ? contactField : emailField;
+        
+        // Only show validation if field has been touched and has content
+        if (fieldTouched[field] && inputField.value.trim()) {
+            div.textContent = isValid ? `✓ ${message}` : `✗ ${message}`;
+            div.className = `validation-message ${isValid ? 'valid' : 'invalid'}`;
+            inputField.classList.remove(isValid ? 'is-invalid' : 'is-valid');
+            inputField.classList.add(isValid ? 'is-valid' : 'is-invalid');
+        } else {
+            div.textContent = '';
+            inputField.classList.remove('is-valid', 'is-invalid');
+        }
+        
+        validationState[field] = isValid;
+        updateSubmitButton();
+    }
+    
+    function validateEmployeeId(employeeId) {
+        if (!employeeId) {
+            showValidation('employeeId', '', false);
+            return;
+        }
+        
+        fetch(`/validate-employee-id/?employee_id=${encodeURIComponent(employeeId)}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network error');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.valid) {
+                    showValidation('employeeId', 'Valid ID', true);
+                    updateDesignationOptions(data.role, data.designations);
+                } else {
+                    showValidation('employeeId', data.error, false);
+                    updateDesignationOptions(null, []);
+                }
+            })
+            .catch(error => {
+                console.error('Validation error:', error);
+                const mgj = /^MGJ[0-9]{5}$/.test(employeeId);
+                const mp = /^MP[0-9]{4}$/.test(employeeId);
+                
+                if (mgj) {
+                    showValidation('employeeId', 'Valid ID', true);
+                    updateDesignationOptions('field_officer', [['MT', 'MT'], ['DC', 'DC'], ['Support', 'Support']]);
+                } else if (mp) {
+                    showValidation('employeeId', 'Valid ID', true);
+                    updateDesignationOptions('admin', [['Manager', 'Manager'], ['HR', 'HR'], ['Delivery Head', 'Delivery Head']]);
+                } else {
+                    showValidation('employeeId', 'Invalid format. Use MGJ00001 or MP0001', false);
+                    updateDesignationOptions(null, []);
+                }
+            });
+    }
+    
+    function validateContact(contact) {
+        if (!contact) {
+            showValidation('contact', '', false);
+            return;
+        }
+        
+        const cleanContact = contact.replace(/\D/g, '');
+        
+        if (cleanContact.length !== 10) {
+            showValidation('contact', 'Must be exactly 10 digits', false);
+            return;
+        }
+        
+        if (!/^[6-9]/.test(cleanContact)) {
+            showValidation('contact', 'Invalid mobile number format', false);
+            return;
+        }
+        
+        fetch(`/validate-contact/?contact=${encodeURIComponent(cleanContact)}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network error');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.valid) {
+                    showValidation('contact', 'Valid contact number', true);
+                } else {
+                    showValidation('contact', data.error, false);
+                }
+            })
+            .catch(error => {
+                console.error('Contact validation error:', error);
+                // Fallback to client-side validation for valid format
+                if (cleanContact.length === 10 && /^[6-9]/.test(cleanContact)) {
+                    showValidation('contact', 'Valid contact number', true);
+                } else {
+                    showValidation('contact', 'Invalid contact number', false);
+                }
+            });
+    }
+    
+    function validateEmail(email) {
+        if (!email) {
+            showValidation('email', '', false);
+            return;
+        }
+        
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            showValidation('email', 'Invalid email format', false);
+            return;
+        }
+        
+        fetch(`/validate-email/?email=${encodeURIComponent(email)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.valid) {
+                    showValidation('email', 'Valid email address', true);
+                } else {
+                    showValidation('email', data.error || 'Email already exists', false);
+                }
+            })
+            .catch(() => {
+                showValidation('email', 'Valid email format', true);
+            });
+    }
+    
+    function updateDesignationOptions(role, designations) {
+        designationField.innerHTML = '<option value="">Select Designation</option>';
+        
+        if (role && designations) {
+            designations.forEach(([value, text]) => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = text;
+                designationField.appendChild(option);
+            });
+            
+            if (role === 'field_officer') {
+                dccbGroup.style.display = 'block';
+                managerGroup.style.display = 'block';
+            } else {
+                dccbGroup.style.display = 'none';
+                managerGroup.style.display = 'none';
+            }
+        } else {
+            dccbGroup.style.display = 'none';
+            managerGroup.style.display = 'none';
+        }
+    }
+    
+    let timeouts = {};
+    
+    // Employee ID validation on blur (when user leaves field)
+    employeeIdField.addEventListener('input', function() {
+        this.value = this.value.toUpperCase();
+    });
+    
+    employeeIdField.addEventListener('blur', function() {
+        if (this.value.trim()) {
+            fieldTouched.employeeId = true;
+            validateEmployeeId(this.value);
+        }
+    });
+    
+    // Contact validation on blur
+    contactField.addEventListener('blur', function() {
+        if (this.value.trim()) {
+            fieldTouched.contact = true;
+            validateContact(this.value);
+        }
+    });
+    
+    // Email validation on blur
+    emailField.addEventListener('blur', function() {
+        if (this.value.trim()) {
+            fieldTouched.email = true;
+            validateEmail(this.value);
+        }
+    });
+    
+    // Re-validate on input after field has been touched
+    employeeIdField.addEventListener('input', function() {
+        if (fieldTouched.employeeId) {
+            clearTimeout(timeouts.employeeId);
+            timeouts.employeeId = setTimeout(() => {
+                validateEmployeeId(this.value);
+            }, 800);
+        }
+    });
+    
+    contactField.addEventListener('input', function() {
+        if (fieldTouched.contact) {
+            clearTimeout(timeouts.contact);
+            timeouts.contact = setTimeout(() => {
+                validateContact(this.value);
+            }, 800);
+        }
+    });
+    
+    emailField.addEventListener('input', function() {
+        if (fieldTouched.email) {
+            clearTimeout(timeouts.email);
+            timeouts.email = setTimeout(() => {
+                validateEmail(this.value);
+            }, 800);
+        }
+    });
+    
+    updateSubmitButton();
+});
+</script>
+{% endblock %}
