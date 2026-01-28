@@ -89,6 +89,29 @@ def create_test_users():
         except Exception as e:
             print(f"❌ Error creating {user_data['employee_id']}: {e}")
 
+def fix_associate_dc_data():
+    """Fix Associate/DC attendance records to skip DC confirmation"""
+    from authe.models import Attendance
+    
+    print("\n🔧 Fixing Associate/DC attendance records...")
+    
+    # Find all Associate/DC attendance with is_confirmed_by_dc=False
+    records = Attendance.objects.filter(
+        user__designation__in=['Associate', 'DC'],
+        is_confirmed_by_dc=False
+    )
+    
+    count = records.count()
+    if count > 0:
+        records.update(
+            is_confirmed_by_dc=True,
+            confirmed_by_dc=None,
+            dc_confirmed_at=None
+        )
+        print(f"✅ Fixed {count} Associate/DC attendance records")
+    else:
+        print("✅ No Associate/DC records need fixing")
+
 if __name__ == '__main__':
     print("🚀 Force Creating SAT-SHINE Admin User...")
     print("=" * 50)
@@ -105,5 +128,8 @@ if __name__ == '__main__':
         
         # Create test user
         create_test_users()
+        
+        # Fix Associate/DC data
+        fix_associate_dc_data()
     else:
         print("\n❌ FAILED to create admin user. Check Railway logs for errors.")
