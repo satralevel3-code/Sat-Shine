@@ -110,6 +110,8 @@ def admin_dashboard(request):
         date__lte=today,
         is_confirmed_by_dc=False,
         status__in=['present', 'half_day']
+    ).exclude(
+        user__designation__in=['Associate', 'DC']  # DEFENSIVE GUARD
     ).count()
     
     # Admin Approval pending count - Associates, DCs (direct), and MT/Support (post-DC-confirmation)
@@ -1551,6 +1553,8 @@ def approval_status(request):
         date__lte=today,
         is_confirmed_by_dc=False,
         status__in=['present', 'half_day']
+    ).exclude(
+        user__designation__in=['Associate', 'DC']  # DEFENSIVE GUARD
     ).count()
     
     # DEBUG: Log breakdown
@@ -1615,6 +1619,11 @@ def dc_confirmation(request):
         is_confirmed_by_dc=False,
         status__in=['present', 'half_day']
     ).select_related('user')
+    
+    # DEFENSIVE GUARD: Explicitly exclude Associate and DC (safety net)
+    attendance_query = attendance_query.exclude(
+        user__designation__in=['Associate', 'DC']
+    )
     
     # DEBUG: Log query details
     logger.error(f"DC DEBUG → count={attendance_query.count()} | designations={set(attendance_query.values_list('user__designation', flat=True))}")

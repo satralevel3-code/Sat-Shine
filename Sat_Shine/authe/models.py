@@ -232,11 +232,10 @@ class Attendance(models.Model):
         """Override save to enforce role-based DC confirmation rules"""
         # CRITICAL BUSINESS RULE: Associates and DCs NEVER need DC confirmation
         if self.user.designation in ['Associate', 'DC']:
-            # Force DC confirmation to True so they skip DC pipeline
+            # Set to True so they skip DC pipeline entirely
             self.is_confirmed_by_dc = True
-            # Clear DC confirmation metadata since no DC actually confirmed
-            if not self.confirmed_by_dc:  # Only clear if not already set by admin
-                self.dc_confirmed_at = None
+            self.confirmed_by_dc = None
+            self.dc_confirmed_at = None
         
         super().save(*args, **kwargs)
     
