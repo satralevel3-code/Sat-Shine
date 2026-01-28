@@ -191,6 +191,16 @@
             </div>
             
             <div class="form-group mb-0">
+                <label class="form-label">DCCB</label>
+                <select class="form-control" name="dccb">
+                    <option value="">All DCCBs</option>
+                    {% for value, label in dccb_choices %}
+                    <option value="{{ value }}" {% if dccb == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group mb-0">
                 <label class="form-label">Designation</label>
                 <select class="form-control" name="designation">
                     <option value="">All Designations</option>
@@ -241,6 +251,7 @@
                 <thead class="table-header">
                     <tr>
                         <th>Emp ID</th>
+                        <th>DCCB</th>
                         <th>Designation</th>
                         <th>Travel Dates</th>
                         <th>Duration</th>
@@ -258,6 +269,7 @@
                                 {{ request.user.employee_id }}
                             </span>
                         </td>
+                        <td>{{ request.user.dccb|default:"-" }}</td>
                         <td>{{ request.user.designation }}</td>
                         <td>
                             {{ request.from_date|date:"d M Y" }}<br>
@@ -298,7 +310,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="8" class="text-center py-4">
+                        <td colspan="9" class="text-center py-4">
                             <i class="fas fa-inbox fa-2x text-muted mb-3"></i>
                             <p class="text-muted">No travel requests found</p>
                         </td>
@@ -315,7 +327,7 @@
         <ul class="pagination justify-content-center">
             {% if page_obj.has_previous %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if from_date %}&from_date={{ from_date }}{% endif %}{% if to_date %}&to_date={{ to_date }}{% endif %}{% if employee_id %}&employee_id={{ employee_id }}{% endif %}{% if designation %}&designation={{ designation }}{% endif %}{% if duration %}&duration={{ duration }}{% endif %}{% if status %}&status={{ status }}{% endif %}">Previous</a>
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if from_date %}&from_date={{ from_date }}{% endif %}{% if to_date %}&to_date={{ to_date }}{% endif %}{% if employee_id %}&employee_id={{ employee_id }}{% endif %}{% if dccb %}&dccb={{ dccb }}{% endif %}{% if designation %}&designation={{ designation }}{% endif %}{% if duration %}&duration={{ duration }}{% endif %}{% if status %}&status={{ status }}{% endif %}">Previous</a>
             </li>
             {% endif %}
             
@@ -326,14 +338,14 @@
             </li>
             {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ num }}{% if from_date %}&from_date={{ from_date }}{% endif %}{% if to_date %}&to_date={{ to_date }}{% endif %}{% if employee_id %}&employee_id={{ employee_id }}{% endif %}{% if designation %}&designation={{ designation }}{% endif %}{% if duration %}&duration={{ duration }}{% endif %}{% if status %}&status={{ status }}{% endif %}">{{ num }}</a>
+                <a class="page-link" href="?page={{ num }}{% if from_date %}&from_date={{ from_date }}{% endif %}{% if to_date %}&to_date={{ to_date }}{% endif %}{% if employee_id %}&employee_id={{ employee_id }}{% endif %}{% if dccb %}&dccb={{ dccb }}{% endif %}{% if designation %}&designation={{ designation }}{% endif %}{% if duration %}&duration={{ duration }}{% endif %}{% if status %}&status={{ status }}{% endif %}">{{ num }}</a>
             </li>
             {% endif %}
             {% endfor %}
             
             {% if page_obj.has_next %}
             <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if from_date %}&from_date={{ from_date }}{% endif %}{% if to_date %}&to_date={{ to_date }}{% endif %}{% if employee_id %}&employee_id={{ employee_id }}{% endif %}{% if designation %}&designation={{ designation }}{% endif %}{% if duration %}&duration={{ duration }}{% endif %}{% if status %}&status={{ status }}{% endif %}">Next</a>
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if from_date %}&from_date={{ from_date }}{% endif %}{% if to_date %}&to_date={{ to_date }}{% endif %}{% if employee_id %}&employee_id={{ employee_id }}{% endif %}{% if dccb %}&dccb={{ dccb }}{% endif %}{% if designation %}&designation={{ designation }}{% endif %}{% if duration %}&duration={{ duration }}{% endif %}{% if status %}&status={{ status }}{% endif %}">Next</a>
             </li>
             {% endif %}
         </ul>
@@ -474,7 +486,7 @@ function getCookie(name) {
 
 // Auto-submit form on filter change
 document.addEventListener('DOMContentLoaded', function() {
-    const filterSelects = document.querySelectorAll('select[name="designation"], select[name="duration"], select[name="status"]');
+    const filterSelects = document.querySelectorAll('select[name="dccb"], select[name="designation"], select[name="duration"], select[name="status"]');
     filterSelects.forEach(select => {
         select.addEventListener('change', function() {
             this.form.submit();
