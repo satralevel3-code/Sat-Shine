@@ -1589,12 +1589,13 @@ def dc_confirmation(request):
     dccb_filter = request.GET.get('dccb', '')
     employee_id_filter = request.GET.get('employee_id', '')
     
-    # Get pending DC confirmations only (exclude DC users)
+    # Get pending DC confirmations - ONLY MT and Support need DC confirmation
     attendance_query = Attendance.objects.filter(
+        user__designation__in=['MT', 'Support'],
         date__range=[from_date, to_date],
         is_confirmed_by_dc=False,
-        status__in=['present', 'absent', 'half_day']
-    ).exclude(user__designation='DC').select_related('user')
+        status__in=['present', 'half_day']
+    ).select_related('user')
     
     if dccb_filter:
         attendance_query = attendance_query.filter(user__dccb=dccb_filter)
