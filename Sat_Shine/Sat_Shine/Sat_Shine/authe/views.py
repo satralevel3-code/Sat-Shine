@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
-from .forms import SignUpForm, LoginForm
+from .forms import EnhancedSignUpForm, LoginForm
 from .models import CustomUser, AuditLog
 import re
 import json
@@ -37,7 +37,7 @@ def validate_employee_id(request):
     # Validate patterns
     if re.match(r'^MGJ[0-9]{5}$', employee_id):
         role = 'field_officer'
-        designations = [('MT', 'MT'), ('DC', 'DC'), ('Support', 'Support')]
+        designations = [('MT', 'MT'), ('DC', 'DC'), ('Support', 'Support'), ('Associate', 'Associate')]
     elif re.match(r'^MP[0-9]{4}$', employee_id):
         role = 'admin'
         designations = [('Manager', 'Manager'), ('HR', 'HR'), ('Delivery Head', 'Delivery Head')]
@@ -85,41 +85,45 @@ def validate_email(request):
     return JsonResponse({'valid': True})
 
 def register_view(request):
-    """User registration view"""
-    if request.method == 'POST':
-        form = SignUpForm(request.POST)
-        if form.is_valid():
-            try:
-                user = form.save()
-                create_audit_log(
-                    user, 
-                    'User Registration', 
-                    request, 
-                    f'Role: {user.role}, Designation: {user.designation}'
-                )
-                messages.success(request, 'Profile created successfully. You may now log in.')
-                return redirect('login')
-            except Exception as e:
-                # Log the actual error for debugging
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.error(f"Registration error for {form.cleaned_data.get('employee_id', 'unknown')}: {str(e)}")
-                messages.error(request, 'Registration failed. Please check your information and try again.')
-        else:
-            # Show specific form errors
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.debug(f"Form errors: {form.errors}")
-            for field, errors in form.errors.items():
-                for error in errors:
-                    messages.error(request, f'{field.replace("_", " ").title()}: {error}')
-    else:
-        form = SignUpForm()
+    """Simplified admin-only user registration"""
+    # Authentication check
+    if not request.user.is_authenticated:
+        return redirect('login')
     
-    return render(request, 'authe/register.html', {'form': form})
+    # Role level check
+    if request.user.role_level < 10:
+        return redirect('field_dashboard')
+    
+    success_message = None
+    
+    if request.method == 'POST':
+        form = EnhancedSignUpForm(request.POST)
+        if form.is_valid():
+            # Save user
+            user = form.save()
+            
+            # Create audit log
+            create_audit_log(
+                request.user, 
+                'User Created', 
+                request, 
+                f'Created user: {user.employee_id}, Role: {user.role}, By: {request.user.employee_id}'
+            )
+            
+            # Show success message and reset form
+            success_message = f'Employee {user.employee_id} ({user.first_name} {user.last_name}) created successfully!'
+            form = EnhancedSignUpForm()  # Reset form
+    else:
+        form = EnhancedSignUpForm()
+    
+    return render(request, 'authe/register.html', {'form': form, 'success_message': success_message})
 
 def login_view(request):
     """User login view with enhanced error handling"""
+    # Force fresh CSRF token
+    from django.middleware.csrf import get_token
+    get_token(request)
+    
     if request.method == 'POST':
         form = LoginForm(request.POST)
         if form.is_valid():
@@ -144,9 +148,13 @@ def login_view(request):
                 request.session['last_activity'] = time.time()
                 create_audit_log(user, 'User Login', request, f'Role: {user.role}')
                 
-                # Role-based redirect
-                if user.role == 'admin':
+                # Enhanced role-based redirect
+                if user.role == 'super_admin':
+                    return redirect('super_admin_dashboard')
+                elif user.role in ['admin', 'hr', 'manager', 'delivery_head']:
                     return redirect('admin_dashboard')
+                elif user.designation == 'Associate':
+                    return redirect('associate_dashboard')
                 else:
                     return redirect('field_dashboard')
             else:
@@ -172,7 +180,11 @@ def logout_view(request):
 @login_required
 def dashboard_redirect(request):
     """Redirect to appropriate dashboard based on role"""
-    if request.user.role == 'admin':
+    if request.user.role == 'super_admin':
+        return redirect('super_admin_dashboard')
+    elif request.user.role in ['admin', 'hr', 'manager', 'delivery_head']:
         return redirect('admin_dashboard')
+    elif request.user.designation == 'Associate':
+        return redirect('associate_dashboard')
     else:
         return redirect('field_dashboard')

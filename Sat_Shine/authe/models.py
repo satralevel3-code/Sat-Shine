@@ -228,6 +228,17 @@ class Attendance(models.Model):
         unique_together = ['user', 'date']
         ordering = ['-date']
     
+    def save(self, *args, **kwargs):
+        """Override save to enforce role-based DC confirmation rules"""
+        # CRITICAL BUSINESS RULE: Associates and DCs NEVER need DC confirmation
+        if self.user.designation in ['Associate', 'DC']:
+            # Set to True so they skip DC pipeline entirely
+            self.is_confirmed_by_dc = True
+            self.confirmed_by_dc = None
+            self.dc_confirmed_at = None
+        
+        super().save(*args, **kwargs)
+    
     @property
     def timing_status(self):
         if self.check_in_time and self.check_in_time <= time(9, 30):

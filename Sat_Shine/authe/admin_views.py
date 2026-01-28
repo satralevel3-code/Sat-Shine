@@ -104,18 +104,24 @@ def admin_dashboard(request):
     attendance_kpis['not_marked'] = not_marked
     
     # Approval Status KPIs
-    # DC Confirmation pending count
+    # DC Confirmation pending count - ONLY MT and Support need DC confirmation
     dc_pending = Attendance.objects.filter(
+        user__designation__in=['MT', 'Support'],
         date__lte=today,
         is_confirmed_by_dc=False,
-        status__in=['present', 'absent', 'half_day']
+        status__in=['present', 'half_day']
+    ).exclude(
+        user__designation__in=['Associate', 'DC']  # DEFENSIVE GUARD
     ).count()
     
-    # Admin Approval pending count (DC confirmed but not admin approved)
+    # Admin Approval pending count - Associates, DCs (direct), and MT/Support (post-DC-confirmation)
     admin_pending = Attendance.objects.filter(
         date__lte=today,
-        is_confirmed_by_dc=True,
-        is_approved_by_admin=False
+        is_approved_by_admin=False,
+        status__in=['present', 'half_day']
+    ).filter(
+        Q(user__designation__in=['Associate', 'DC']) |  # Associates and DCs go directly to admin
+        Q(user__designation__in=['MT', 'Support'], is_confirmed_by_dc=True)  # MT/Support after DC confirmation
     ).count()
     
     # Travel Approval pending count
@@ -1534,20 +1540,37 @@ def update_attendance_status(request):
 @admin_required
 def approval_status(request):
     """Main approval status dashboard"""
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.error("🚨 APPROVAL STATUS VIEW v2026-01-28-DEBUG")
+    
     today = timezone.localdate()
     
     # Calculate approval status counts
+    # DC Confirmation - ONLY MT and Support need DC confirmation
     dc_pending = Attendance.objects.filter(
+        user__designation__in=['MT', 'Support'],
         date__lte=today,
         is_confirmed_by_dc=False,
-        status__in=['present', 'absent', 'half_day']
+        status__in=['present', 'half_day']
+    ).exclude(
+        user__designation__in=['Associate', 'DC']  # DEFENSIVE GUARD
     ).count()
     
+    # DEBUG: Log breakdown
+    logger.error(f"APPROVAL STATUS DEBUG → dc_pending={dc_pending}")
+    
+    # Admin Approval - Associates, DCs (direct), and MT/Support (post-DC-confirmation)
     admin_pending = Attendance.objects.filter(
         date__lte=today,
-        is_confirmed_by_dc=True,
-        is_approved_by_admin=False
+        is_approved_by_admin=False,
+        status__in=['present', 'half_day']
+    ).filter(
+        Q(user__designation__in=['Associate', 'DC']) |
+        Q(user__designation__in=['MT', 'Support'], is_confirmed_by_dc=True)
     ).count()
+    
+    logger.error(f"APPROVAL STATUS DEBUG → admin_pending={admin_pending}")
     
     from .models import TravelRequest
     travel_pending = TravelRequest.objects.filter(status='pending').count()
@@ -1565,6 +1588,10 @@ def approval_status(request):
 @admin_required
 def dc_confirmation(request):
     """DC confirmation screen with travel request validation"""
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.error("🚨 DC CONFIRMATION VIEW v2026-01-28-DEBUG")
+    
     from datetime import datetime, timedelta
     
     # Get date range (default: last 7 days)
@@ -1585,12 +1612,21 @@ def dc_confirmation(request):
     dccb_filter = request.GET.get('dccb', '')
     employee_id_filter = request.GET.get('employee_id', '')
     
-    # Get pending DC confirmations only (exclude DC users)
+    # Get pending DC confirmations - ONLY MT and Support need DC confirmation
     attendance_query = Attendance.objects.filter(
+        user__designation__in=['MT', 'Support'],
         date__range=[from_date, to_date],
         is_confirmed_by_dc=False,
-        status__in=['present', 'absent', 'half_day']
-    ).exclude(user__designation='DC').select_related('user')
+        status__in=['present', 'half_day']
+    ).select_related('user')
+    
+    # DEFENSIVE GUARD: Explicitly exclude Associate and DC (safety net)
+    attendance_query = attendance_query.exclude(
+        user__designation__in=['Associate', 'DC']
+    )
+    
+    # DEBUG: Log query details
+    logger.error(f"DC DEBUG → count={attendance_query.count()} | designations={set(attendance_query.values_list('user__designation', flat=True))}")
     
     if dccb_filter:
         attendance_query = attendance_query.filter(user__dccb=dccb_filter)
@@ -2090,11 +2126,13 @@ def bulk_approve_attendance(request):
             return JsonResponse({'success': False, 'error': 'No attendance records selected'}, status=400)
         
         with transaction.atomic():
-            # Get attendance records before update to validate and notify users
+            # Get attendance records - Associates don't need DC confirmation
             attendance_records = Attendance.objects.filter(
                 id__in=attendance_ids,
-                is_confirmed_by_dc=True,
                 is_approved_by_admin=False
+            ).filter(
+                Q(user__designation='Associate') |  # Associates don't need DC confirmation
+                Q(user__designation__in=['DC', 'MT', 'Support'], is_confirmed_by_dc=True)  # Others need DC confirmation
             ).select_related('user')
             
             blocked_records = []

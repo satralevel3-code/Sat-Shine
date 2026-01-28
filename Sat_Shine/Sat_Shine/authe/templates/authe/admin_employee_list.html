@@ -90,6 +90,36 @@
     border-radius: 8px;
 }
 
+.zone-btn {
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    border: none;
+    color: white;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.zone-btn:hover {
+    background: linear-gradient(135deg, #3730a3, #5b21b6);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+}
+
+.tooltip {
+    font-size: 12px;
+}
+
+.tooltip-inner {
+    background: var(--primary-navy);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    max-width: 300px;
+}
+
 @media (max-width: 768px) {
     .filter-grid {
         grid-template-columns: 1fr;
@@ -206,7 +236,17 @@
                     <td>{{ employee.first_name }} {{ employee.last_name }}</td>
                     <td>{{ employee.designation }}</td>
                     <td>{{ employee.contact_number }}</td>
-                    <td>{{ employee.dccb|default:"N/A" }}</td>
+                    <td>
+                        {% if employee.designation == 'Associate' and employee.multiple_dccb %}
+                            <button class="btn btn-sm btn-info zone-btn" 
+                                    onmouseover="showZoneTooltip(this, '{{ employee.multiple_dccb|join:', ' }}')"
+                                    onmouseout="hideZoneTooltip()">
+                                <i class="fas fa-map-marked-alt"></i> Zone
+                            </button>
+                        {% else %}
+                            {{ employee.dccb|default:"N/A" }}
+                        {% endif %}
+                    </td>
                     <td>{{ employee.reporting_manager|default:"N/A" }}</td>
                     <td>{{ employee.email }}</td>
                     <td>{{ employee.date_joined|date:"d M Y H:i" }}</td>
@@ -293,6 +333,15 @@ document.addEventListener('DOMContentLoaded', function() {
     filterSelects.forEach(select => {
         select.addEventListener('change', function() {
             this.form.submit();
+        });
+    });
+    
+    // Initialize tooltips for Zone buttons
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl, {
+            html: true,
+            trigger: 'hover focus'
         });
     });
 });

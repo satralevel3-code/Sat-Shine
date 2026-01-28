@@ -134,35 +134,17 @@ def create_travel_request(request):
                     'error': 'Purpose must contain at least 5 words'
                 })
             
-            # Find the Associate for this user's DCCB
-            user_dccb = request.user.dccb
-            associate = None
+            # Remove DCCB restriction - any Associate can approve any travel request
+            # No need to find specific Associate based on DCCB
             
-            # Get all Associates and check their multiple_dccb field
-            associates = CustomUser.objects.filter(
-                designation='Associate',
-                is_active=True
-            )
-            
-            for assoc in associates:
-                if assoc.multiple_dccb and user_dccb in assoc.multiple_dccb:
-                    associate = assoc
-                    break
-            
-            if not associate:
-                return JsonResponse({
-                    'success': False,
-                    'error': f'No Associate found for DCCB: {user_dccb}'
-                })
-            
-            # Create travel request
+            # Create travel request without specific Associate assignment
             travel_request = TravelRequest.objects.create(
                 user=request.user,
                 from_date=data['from_date'],
                 to_date=data['to_date'],
                 duration=data['duration'],
                 days_count=data['days_count'],
-                request_to=associate,
+                request_to=None,  # No specific Associate assignment
                 er_id=er_id,
                 distance_km=distance_km,
                 address=address,
@@ -170,7 +152,7 @@ def create_travel_request(request):
                 purpose=purpose
             )
             
-            # Send notification to Associate
+            # Send notification to all Associates (since any can approve)
             from .notification_service import notify_travel_request
             notify_travel_request(travel_request)
             
@@ -189,7 +171,7 @@ def create_travel_request(request):
 
 @login_required
 def associate_travel_approvals(request):
-    """Travel approval dashboard for Associates"""
+    """Travel approval dashboard for Associates - All Associates can approve any travel request"""
     if request.user.designation != 'Associate':
         messages.error(request, 'Access denied. Only Associates can approve travel requests.')
         return redirect('field_dashboard')
@@ -202,18 +184,11 @@ def associate_travel_approvals(request):
     duration = request.GET.get('duration', '')
     status = request.GET.get('status', '')
     
-    # Get travel requests for Associate's assigned DCCBs
-    if request.user.designation == 'Associate':
-        user_dccbs = request.user.multiple_dccb or []
-        travel_requests = TravelRequest.objects.filter(
-            user__dccb__in=user_dccbs,
-            from_date__range=[from_date, to_date]
-        ).select_related('user')
-    else:
-        # Admins can see all travel requests
-        travel_requests = TravelRequest.objects.filter(
-            from_date__range=[from_date, to_date]
-        ).select_related('user')
+    # Get ALL travel requests from MT/DC/Support users (no DCCB restriction)
+    travel_requests = TravelRequest.objects.filter(
+        user__designation__in=['MT', 'DC', 'Support'],
+        from_date__range=[from_date, to_date]
+    ).select_related('user')
     
     # Apply filters
     if employee_id:
@@ -265,16 +240,8 @@ def approve_travel_request(request, travel_id):
     if request.user.designation != 'Associate' and request.user.role_level < 10:
         return JsonResponse({'success': False, 'error': 'Access denied'})
     
-    # Associates can only approve requests for their assigned DCCBs
-    if request.user.designation == 'Associate':
-        user_dccbs = request.user.multiple_dccb or []
-        requester_dccb = travel_request.user.dccb
-        
-        if requester_dccb not in user_dccbs:
-            return JsonResponse({
-                'success': False, 
-                'error': f'You can only approve requests from your assigned DCCBs: {user_dccbs}'
-            })
+    # Associates can approve any travel request (no DCCB restriction)
+    # Removed DCCB restriction - any Associate can approve any request
     
     if request.method == 'POST':
         try:

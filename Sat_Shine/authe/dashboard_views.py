@@ -57,9 +57,10 @@ def field_dashboard(request):
     can_view_team = request.user.designation == 'DC'
     team_data = None
     team_members = []  # Initialize team_members
+    pending_dc_confirmations = 0  # Counter for pending DC confirmations
     
     if can_view_team:
-        # Get team attendance for DC
+        # Get team attendance for DC - ONLY MT and Support
         team_users = CustomUser.objects.filter(
             role='field_officer',
             dccb=request.user.dccb,
@@ -78,6 +79,14 @@ def field_dashboard(request):
             date=today
         ).values('status').annotate(count=Count('status'))
         
+        # Count ONLY MT/Support pending DC confirmations (exclude Associates and DCs)
+        pending_dc_confirmations = Attendance.objects.filter(
+            user__designation__in=['MT', 'Support'],
+            user__dccb=request.user.dccb,
+            is_confirmed_by_dc=False,
+            status__in=['present', 'half_day']
+        ).exclude(user=request.user).count()
+        
         team_data = {
             'total_team': team_users.count(),
             'attendance_summary': {item['status']: item['count'] for item in team_attendance_today}
@@ -93,6 +102,7 @@ def field_dashboard(request):
         'can_view_team': can_view_team,
         'team_data': team_data,
         'team_members': team_members,
+        'pending_dc_confirmations': pending_dc_confirmations,
         'current_time': timezone.now(),
     }
     
@@ -438,43 +448,11 @@ def confirm_team_attendance(request):
                 ).exists()
                 
                 if has_pending_travel:
-                    # Find responsible Associate
-                    responsible_associate = None
-                    associates = CustomUser.objects.filter(
-                        designation='Associate',
-                        is_active=True
-                    )
-                    
-                    for assoc in associates:
-                        if assoc.multiple_dccb and member.dccb in assoc.multiple_dccb:
-                            responsible_associate = assoc
-                            break
-                    
                     blocked_records.append({
                         'employee_id': member.employee_id,
-                        'date': current_date,
-                        'reason': f'Pending travel request approval from Associate {responsible_associate.employee_id if responsible_associate else "(Not Found)"}'
+                        'date': current_date.isoformat(),
+                        'reason': 'Pending Travel Request Approval'
                     })
-                    
-                    # Send notification to DC about blocked confirmation
-                    from .notification_service import NotificationService
-                    NotificationService.create_notification(
-                        recipient=request.user,
-                        notification_type='system_alert',
-                        title='Attendance Confirmation Blocked',
-                        message=f'Cannot confirm attendance for {member.employee_id} on {current_date} due to pending travel request approval.',
-                        priority='high'
-                    )
-                    
-                    # Send notification to Associate
-                    if responsible_associate:
-                        NotificationService.create_notification(
-                            recipient=responsible_associate,
-                            notification_type='travel_request',
-                            title='Urgent: Travel Request Approval Required',
-                            message=f'DC {request.user.employee_id} cannot confirm attendance for {member.employee_id} on {current_date}. Please review pending travel request.',
-                            priority='urgent'
-                        )
                     
                     current_date += timedelta(days=1)
                     continue

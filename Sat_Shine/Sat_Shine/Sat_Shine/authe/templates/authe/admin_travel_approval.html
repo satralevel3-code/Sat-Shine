@@ -1,0 +1,628 @@
+{% extends 'main/base_unified.html' %}
+
+{% block title %}Travel Approval - SAT-SHINE{% endblock %}
+
+{% block extra_css %}
+<style>
+:root {
+    --primary-navy: #1e3a8a;
+    --accent-blue: #2563EB;
+    --success-green: #059669;
+    --warning-amber: #f59e0b;
+    --error-red: #dc2626;
+    --bg-light: #f8fafc;
+    --card-white: #ffffff;
+    --text-primary: #374151;
+    --text-secondary: #6b7280;
+    --border-light: #e5e7eb;
+}
+
+body {
+    background-color: var(--bg-light);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.main-content {
+    margin-top: 56px;
+    padding: 30px 24px;
+    max-width: 1400px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.page-header {
+    margin-bottom: 30px;
+}
+
+.page-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--primary-navy);
+    margin: 0;
+}
+
+.page-subtitle {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 5px 0 0 0;
+}
+
+.back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--accent-blue);
+    text-decoration: none;
+    font-weight: 500;
+    margin-bottom: 20px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    transition: background-color 0.2s;
+}
+
+.back-btn:hover {
+    background-color: rgba(37, 99, 235, 0.1);
+    color: var(--accent-blue);
+    text-decoration: none;
+}
+
+.filter-card {
+    background: var(--card-white);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    margin-bottom: 24px;
+}
+
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    align-items: end;
+}
+
+.form-group {
+    margin-bottom: 0;
+}
+
+.form-label {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+    display: block;
+}
+
+.form-control {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    font-size: 14px;
+    transition: border-color 0.2s;
+}
+
+.form-control:focus {
+    border-color: var(--accent-blue);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.btn {
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: 600;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-primary {
+    background: var(--primary-navy);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: var(--accent-blue);
+}
+
+.btn-success {
+    background: var(--success-green);
+    color: white;
+}
+
+.btn-warning {
+    background: var(--warning-amber);
+    color: white;
+}
+
+.btn-danger {
+    background: var(--error-red);
+    color: white;
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+.table-card {
+    background: var(--card-white);
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.table-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-light);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.table-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.table-responsive {
+    overflow-x: auto;
+}
+
+.table {
+    width: 100%;
+    margin: 0;
+    border-collapse: collapse;
+}
+
+.table th {
+    background: #f8fafc;
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-light);
+    white-space: nowrap;
+}
+
+.table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f3f4f6;
+    color: var(--text-primary);
+}
+
+.table tbody tr:hover {
+    background-color: #f9fafb;
+}
+
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-pending {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.status-approved {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.status-rejected {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.comments-link {
+    color: var(--accent-blue);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.comments-link:hover {
+    text-decoration: underline;
+}
+
+.pagination {
+    padding: 20px 24px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+}
+
+.pagination a, .pagination span {
+    padding: 8px 12px;
+    border-radius: 4px;
+    text-decoration: none;
+    color: var(--text-primary);
+    border: 1px solid var(--border-light);
+}
+
+.pagination a:hover {
+    background: var(--accent-blue);
+    color: white;
+    border-color: var(--accent-blue);
+}
+
+.pagination .current {
+    background: var(--accent-blue);
+    color: white;
+    border-color: var(--accent-blue);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-secondary);
+}
+
+.empty-state i {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background-color: var(--card-white);
+    margin: 5% auto;
+    padding: 0;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 600px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+
+.modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-light);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.close {
+    color: var(--text-secondary);
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    border: none;
+    background: none;
+}
+
+.close:hover {
+    color: var(--text-primary);
+}
+
+.modal-body {
+    padding: 24px;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.detail-label {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.detail-value {
+    color: var(--text-secondary);
+}
+
+@media (max-width: 768px) {
+    .filter-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .table-header {
+        flex-direction: column;
+        gap: 16px;
+        align-items: stretch;
+    }
+    
+    .modal-content {
+        width: 95%;
+        margin: 10% auto;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <a href="{% url 'admin_approval_status' %}" class="back-btn">
+        <i class="fas fa-arrow-left"></i>
+        Back to Approval Status
+    </a>
+    <h1 class="page-title">Travel Approval</h1>
+    <p class="page-subtitle">Monitor and approve travel requests from field team</p>
+</div>
+
+<!-- Filters -->
+<div class="filter-card">
+    <form method="get" class="filter-form">
+        <div class="filter-grid">
+            <div class="form-group">
+                <label class="form-label">From Date</label>
+                <input type="date" name="from_date" class="form-control" value="{{ from_date|date:'Y-m-d' }}">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">To Date</label>
+                <input type="date" name="to_date" class="form-control" value="{{ to_date|date:'Y-m-d' }}">
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Search</label>
+                <input type="text" id="globalSearch" class="form-control" placeholder="Search Employee ID, DCCB, Status..." onkeyup="filterTable()">
+            </div>
+            
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-search"></i>
+                    Apply Filter
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Results Table -->
+<div class="table-card">
+    <div class="table-header">
+        <h3 class="table-title">Travel Requests ({{ page_obj.paginator.count }} records)</h3>
+        <a href="{% url 'export_travel_requests' %}?{{ request.GET.urlencode }}" class="btn btn-success">
+            <i class="fas fa-download"></i>
+            Download CSV
+        </a>
+    </div>
+    
+    {% if page_obj %}
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Employee ID</th>
+                    <th>DCCB</th>
+                    <th>Designation</th>
+                    <th>Travel Date</th>
+                    <th>Approval Status</th>
+                    <th>Approved By</th>
+                    <th>Comments</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for travel in page_obj %}
+                <tr>
+                    <td>{{ travel.user.employee_id }}</td>
+                    <td>{{ travel.user.dccb|default:"Not Assigned" }}</td>
+                    <td>{{ travel.user.designation }}</td>
+                    <td>
+                        {% if travel.from_date == travel.to_date %}
+                            {{ travel.from_date|date:"d M Y" }}
+                        {% else %}
+                            {{ travel.from_date|date:"d M Y" }} - {{ travel.to_date|date:"d M Y" }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if travel.status == 'pending' %}
+                            <span class="status-badge status-pending">Pending</span>
+                        {% elif travel.status == 'approved' %}
+                            <span class="status-badge status-approved">Approved</span>
+                        {% elif travel.status == 'rejected' %}
+                            <span class="status-badge status-rejected">Rejected</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if travel.request_to %}
+                            {{ travel.request_to.first_name }} {{ travel.request_to.last_name }}
+                        {% else %}
+                            Not Assigned
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="#" class="comments-link" onclick="showTravelDetails({{ travel.id }})">
+                            View Details
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page=1&{{ request.GET.urlencode }}">&laquo; First</a>
+            <a href="?page={{ page_obj.previous_page_number }}&{{ request.GET.urlencode }}">&lsaquo; Previous</a>
+        {% endif %}
+        
+        <span class="current">
+            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+        </span>
+        
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&{{ request.GET.urlencode }}">Next &rsaquo;</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}&{{ request.GET.urlencode }}">Last &raquo;</a>
+        {% endif %}
+    </div>
+    {% endif %}
+    
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-route"></i>
+        <h3>No Travel Requests Found</h3>
+        <p>No travel requests found. Try adjusting your search criteria.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Travel Details Modal -->
+<div id="travelModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">Travel Request Details</h3>
+            <button class="close" onclick="closeTravelModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="travelModalBody">
+            <!-- Content will be loaded dynamically -->
+        </div>
+    </div>
+</div>
+
+<script>
+function filterTable() {
+    const searchInput = document.getElementById('globalSearch');
+    const searchTerm = searchInput.value.toLowerCase();
+    const table = document.querySelector('.table tbody');
+    const rows = table.querySelectorAll('tr');
+    
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        let rowText = '';
+        
+        // Combine all cell text for searching
+        cells.forEach(cell => {
+            rowText += cell.textContent.toLowerCase() + ' ';
+        });
+        
+        // Show/hide row based on search match
+        if (rowText.includes(searchTerm)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    
+    // Update visible count
+    const visibleRows = table.querySelectorAll('tr:not([style*="display: none"])');
+    const totalCount = document.querySelector('.table-title');
+    if (totalCount) {
+        const originalCount = {{ page_obj.paginator.count }};
+        const visibleCount = visibleRows.length;
+        totalCount.textContent = `Travel Requests (${visibleCount} of ${originalCount} records)`;
+    }
+}
+
+function showTravelDetails(travelId) {
+    fetch(`/auth/travel-request-details/${travelId}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const modalBody = document.getElementById('travelModalBody');
+                modalBody.innerHTML = `
+                    <div class="detail-row">
+                        <span class="detail-label">Employee ID:</span>
+                        <span class="detail-value">${data.request.employee_id}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Employee Name:</span>
+                        <span class="detail-value">${data.request.user_name}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">DCCB:</span>
+                        <span class="detail-value">${data.request.user_dccb || 'Not Assigned'}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Designation:</span>
+                        <span class="detail-value">${data.request.designation}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Travel Dates:</span>
+                        <span class="detail-value">${data.request.from_date} to ${data.request.to_date}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Duration:</span>
+                        <span class="detail-value">${data.request.duration} (${data.request.days_count} days)</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">ER ID:</span>
+                        <span class="detail-value">${data.request.er_id}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Distance:</span>
+                        <span class="detail-value">${data.request.distance_km} KM</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Address:</span>
+                        <span class="detail-value">${data.request.address}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Contact Person:</span>
+                        <span class="detail-value">${data.request.contact_person}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Purpose:</span>
+                        <span class="detail-value">${data.request.purpose}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Status:</span>
+                        <span class="detail-value">${data.request.status}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Created At:</span>
+                        <span class="detail-value">${data.request.created_at}</span>
+                    </div>
+                `;
+                
+                document.getElementById('travelModal').style.display = 'block';
+            } else {
+                alert('Error loading travel details: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error loading travel details');
+        });
+}
+
+function closeTravelModal() {
+    document.getElementById('travelModal').style.display = 'none';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('travelModal');
+    if (event.target === modal) {
+        closeTravelModal();
+    }
+}
+</script>
+{% endblock %}
