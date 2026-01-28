@@ -1541,16 +1541,22 @@ def approval_status(request):
     today = timezone.localdate()
     
     # Calculate approval status counts
+    # DC Confirmation - ONLY MT and Support need DC confirmation
     dc_pending = Attendance.objects.filter(
+        user__designation__in=['MT', 'Support'],
         date__lte=today,
         is_confirmed_by_dc=False,
-        status__in=['present', 'absent', 'half_day']
+        status__in=['present', 'half_day']
     ).count()
     
+    # Admin Approval - Associates, DCs (direct), and MT/Support (post-DC-confirmation)
     admin_pending = Attendance.objects.filter(
         date__lte=today,
-        is_confirmed_by_dc=True,
-        is_approved_by_admin=False
+        is_approved_by_admin=False,
+        status__in=['present', 'half_day']
+    ).filter(
+        Q(user__designation__in=['Associate', 'DC']) |
+        Q(user__designation__in=['MT', 'Support'], is_confirmed_by_dc=True)
     ).count()
     
     from .models import TravelRequest
