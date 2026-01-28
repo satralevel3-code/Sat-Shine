@@ -2126,13 +2126,13 @@ def bulk_approve_attendance(request):
             return JsonResponse({'success': False, 'error': 'No attendance records selected'}, status=400)
         
         with transaction.atomic():
-            # Get attendance records - Associates don't need DC confirmation
+            # Get attendance records - Associates and DCs don't need DC confirmation
             attendance_records = Attendance.objects.filter(
                 id__in=attendance_ids,
                 is_approved_by_admin=False
             ).filter(
-                Q(user__designation='Associate') |  # Associates don't need DC confirmation
-                Q(user__designation__in=['DC', 'MT', 'Support'], is_confirmed_by_dc=True)  # Others need DC confirmation
+                Q(user__designation__in=['Associate', 'DC']) |  # Associates and DCs don't need DC confirmation
+                Q(user__designation__in=['MT', 'Support'], is_confirmed_by_dc=True)  # MT/Support need DC confirmation
             ).select_related('user')
             
             blocked_records = []
