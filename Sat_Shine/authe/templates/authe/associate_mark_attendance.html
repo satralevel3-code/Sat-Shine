@@ -38,11 +38,36 @@
 
 <script>
 let currentLocation = null;
+let locationPermissionStatus = 'unknown';
 
 document.addEventListener('DOMContentLoaded', function() {
-    getLocation();
+    checkLocationPermission();
     loadAttendanceStatus();
 });
+
+async function checkLocationPermission() {
+    if (!navigator.geolocation) {
+        return;
+    }
+    
+    try {
+        const permission = await navigator.permissions.query({ name: 'geolocation' });
+        locationPermissionStatus = permission.state;
+        
+        if (permission.state === 'granted') {
+            getLocation();
+        }
+        
+        permission.onchange = function() {
+            locationPermissionStatus = this.state;
+            if (this.state === 'granted') {
+                getLocation();
+            }
+        };
+    } catch (error) {
+        getLocation();
+    }
+}
 
 function getLocation() {
     if (navigator.geolocation) {
@@ -52,6 +77,7 @@ function getLocation() {
                     latitude: position.coords.latitude,
                     longitude: position.coords.longitude
                 };
+                console.log('GPS captured silently');
             },
             function(error) {
                 console.error('Location error:', error);
@@ -59,7 +85,7 @@ function getLocation() {
             {
                 enableHighAccuracy: true,
                 timeout: 10000,
-                maximumAge: 60000
+                maximumAge: 0
             }
         );
     }
@@ -76,7 +102,6 @@ function loadAttendanceStatus() {
                 document.getElementById('attendance-status').innerHTML = 
                     `<div class="alert alert-info">Already marked as <strong>${status.toUpperCase()}</strong> ${time ? 'at ' + time : ''}</div>`;
                 
-                // Disable buttons
                 document.querySelectorAll('button[onclick^="markAttendance"]').forEach(btn => {
                     btn.disabled = true;
                 });
@@ -86,10 +111,20 @@ function loadAttendanceStatus() {
 }
 
 function markAttendance(status) {
-    // Show loading
-    const originalText = event.target.innerHTML;
-    event.target.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Marking...';
-    event.target.disabled = true;
+    const button = event.target;
+    const originalText = button.innerHTML;
+    
+    if ((status === 'present' || status === 'half_day') && !currentLocation) {
+        if (locationPermissionStatus === 'denied') {
+            showLocationModal('denied');
+        } else {
+            showLocationModal('prompt');
+        }
+        return;
+    }
+    
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Marking...';
+    button.disabled = true;
     
     const data = {
         status: status,
@@ -97,7 +132,6 @@ function markAttendance(status) {
         longitude: currentLocation ? currentLocation.longitude : null
     };
     
-    // Get CSRF token
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
                      document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ||
                      getCookie('csrftoken');
@@ -110,28 +144,69 @@ function markAttendance(status) {
         },
         body: JSON.stringify(data)
     })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        return response.json();
-    })
+    .then(response => response.json())
     .then(data => {
         if (data.success) {
-            showAlert('success', data.message);
-            loadAttendanceStatus();
+            sessionStorage.setItem('attendance_success', data.message);
+            window.location.href = "{% url 'associate_dashboard' %}";
         } else {
             showAlert('danger', data.error || 'Failed to mark attendance');
-            event.target.innerHTML = originalText;
-            event.target.disabled = false;
+            button.innerHTML = originalText;
+            button.disabled = false;
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        showAlert('danger', 'Network error: ' + error.message);
-        event.target.innerHTML = originalText;
-        event.target.disabled = false;
+        showAlert('danger', 'Network error. Please try again.');
+        button.innerHTML = originalText;
+        button.disabled = false;
     });
+}
+
+function showLocationModal(type) {
+    let title, message, action;
+    
+    if (type === 'prompt') {
+        title = 'Location Access Required';
+        message = 'Location access is required to mark attendance. Please allow location access to continue.';
+        action = '<button class="btn btn-primary" onclick="requestLocation()">Allow Location Access</button>';
+    } else if (type === 'denied') {
+        title = 'Location Access Denied';
+        message = 'Location access was denied. Please enable location in your browser settings and refresh the page.';
+        action = '<button class="btn btn-secondary" onclick="window.location.reload()">Refresh Page</button>';
+    }
+    
+    const existingModal = document.getElementById('locationModal');
+    if (existingModal) existingModal.remove();
+    
+    const modalHTML = `
+        <div class="modal fade" id="locationModal" data-bs-backdrop="static" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title"><i class="fas fa-map-marker-alt me-2"></i>${title}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>${message}</p>
+                    </div>
+                    <div class="modal-footer">
+                        ${action}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    const modal = new bootstrap.Modal(document.getElementById('locationModal'));
+    modal.show();
+}
+
+function requestLocation() {
+    getLocation();
+    const modal = bootstrap.Modal.getInstance(document.getElementById('locationModal'));
+    if (modal) modal.hide();
 }
 
 function getCookie(name) {
@@ -160,7 +235,6 @@ function showAlert(type, message) {
     const container = document.querySelector('.container-fluid');
     container.insertBefore(alertDiv, container.firstChild);
     
-    // Auto dismiss after 5 seconds
     setTimeout(() => {
         if (alertDiv.parentNode) {
             alertDiv.remove();

@@ -104,18 +104,22 @@ def admin_dashboard(request):
     attendance_kpis['not_marked'] = not_marked
     
     # Approval Status KPIs
-    # DC Confirmation pending count
+    # DC Confirmation pending count - ONLY MT and Support need DC confirmation
     dc_pending = Attendance.objects.filter(
+        user__designation__in=['MT', 'Support'],
         date__lte=today,
         is_confirmed_by_dc=False,
-        status__in=['present', 'absent', 'half_day']
+        status__in=['present', 'half_day']
     ).count()
     
-    # Admin Approval pending count (DC confirmed but not admin approved)
+    # Admin Approval pending count - Associates, DCs (direct), and MT/Support (post-DC-confirmation)
     admin_pending = Attendance.objects.filter(
         date__lte=today,
-        is_confirmed_by_dc=True,
-        is_approved_by_admin=False
+        is_approved_by_admin=False,
+        status__in=['present', 'half_day']
+    ).filter(
+        Q(user__designation__in=['Associate', 'DC']) |  # Associates and DCs go directly to admin
+        Q(user__designation__in=['MT', 'Support'], is_confirmed_by_dc=True)  # MT/Support after DC confirmation
     ).count()
     
     # Travel Approval pending count
@@ -2090,11 +2094,13 @@ def bulk_approve_attendance(request):
             return JsonResponse({'success': False, 'error': 'No attendance records selected'}, status=400)
         
         with transaction.atomic():
-            # Get attendance records before update to validate and notify users
+            # Get attendance records - Associates don't need DC confirmation
             attendance_records = Attendance.objects.filter(
                 id__in=attendance_ids,
-                is_confirmed_by_dc=True,
                 is_approved_by_admin=False
+            ).filter(
+                Q(user__designation='Associate') |  # Associates don't need DC confirmation
+                Q(user__designation__in=['DC', 'MT', 'Support'], is_confirmed_by_dc=True)  # Others need DC confirmation
             ).select_related('user')
             
             blocked_records = []

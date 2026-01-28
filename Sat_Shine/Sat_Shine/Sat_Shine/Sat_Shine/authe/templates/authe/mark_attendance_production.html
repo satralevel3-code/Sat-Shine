@@ -1,0 +1,205 @@
+{% extends 'main/base.html' %}
+
+{% block title %}Mark Attendance - SAT-SHINE{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-calendar-check me-2"></i>Mark Attendance</h4>
+                </div>
+                <div class="card-body">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    {% if today_attendance %}
+                        <div class="alert alert-info">
+                            <h5>Already Marked</h5>
+                            <p>You have already marked attendance for today.</p>
+                            <p><strong>Status:</strong> {{ today_attendance.get_status_display }}</p>
+                            <p><strong>Time:</strong> {{ today_attendance.marked_at|time:"g:i A" }}</p>
+                        </div>
+                        <a href="{% url 'field_dashboard' %}" class="btn btn-secondary">Back to Dashboard</a>
+                    {% else %}
+                        <div class="text-center mb-4">
+                            <h5>Current Time: <span id="current-time">{{ current_time|date:"g:i A" }}</span></h5>
+                            <p class="text-muted">{{ current_time|date:"l, F d, Y" }}</p>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button id="attendance-btn" class="btn btn-success btn-lg" onclick="markAttendance()">
+                                <i class="fas fa-map-marker-alt me-2"></i>Mark Attendance
+                            </button>
+                        </div>
+
+                        <div class="mt-3">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Requires GPS accuracy ≤50m for attendance marking
+                            </small>
+                        </div>
+
+                        <div class="mt-3">
+                            <a href="{% url 'field_dashboard' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function updateTime() {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+    });
+    document.getElementById('current-time').textContent = timeString;
+}
+
+function markAttendance() {
+    const button = document.getElementById('attendance-btn');
+    const originalText = button.innerHTML;
+    
+    // Show loading state
+    button.disabled = true;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Getting GPS Location...';
+    
+    // Check GPS support
+    if (!navigator.geolocation) {
+        showError('GPS not supported on this device. Please use a device with GPS capability.');
+        resetButton(button, originalText);
+        return;
+    }
+    
+    // Production GPS options for high accuracy
+    const options = {
+        enableHighAccuracy: true,
+        timeout: 5000,  // 5 seconds max
+        maximumAge: 0   // No cached location
+    };
+    
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            const accuracy = position.coords.accuracy;
+            const timestamp = new Date().toISOString();
+            
+            console.log(`GPS: ${lat.toFixed(8)}, ${lng.toFixed(8)}, accuracy: ${accuracy}m`);
+            
+            // Frontend validation: Check accuracy before sending
+            if (accuracy > 50) {
+                showError(`GPS accuracy too low (${accuracy.toFixed(1)}m). Required: ≤50m. Please move to an open area with clear sky view and try again.`);
+                resetButton(button, originalText);
+                return;
+            }
+            
+            // Submit attendance with validated location
+            submitAttendance(lat, lng, accuracy, timestamp, button, originalText);
+        },
+        (error) => {
+            let errorMsg = '';
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    errorMsg = 'Location permission denied. Please enable GPS permissions in your browser settings and refresh the page.';
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    errorMsg = 'GPS signal unavailable. Please ensure GPS is enabled and move to an area with clear sky view.';
+                    break;
+                case error.TIMEOUT:
+                    errorMsg = 'GPS timeout (5 seconds). Please ensure GPS is enabled and try again in an open area.';
+                    break;
+                default:
+                    errorMsg = 'GPS error occurred. Please check your location settings and try again.';
+            }
+            showError(errorMsg);
+            resetButton(button, originalText);
+        },
+        options
+    );
+}
+
+function submitAttendance(latitude, longitude, accuracy, timestamp, button, originalText) {
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Submitting...';
+    
+    // Minimal JSON payload
+    const data = {
+        lat: parseFloat(latitude.toFixed(8)),
+        lng: parseFloat(longitude.toFixed(8)),
+        accuracy: Math.round(accuracy),
+        timestamp: timestamp
+    };
+    
+    fetch('{% url "mark_attendance" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            showSuccess(`${data.message}<br><small>Location: ${data.accuracy} | Distance from office: ${data.office_distance}</small>`);
+            setTimeout(() => window.location.reload(), 2000);
+        } else {
+            showError(data.error || 'Attendance submission failed');
+            resetButton(button, originalText);
+        }
+    })
+    .catch(error => {
+        console.error('Network error:', error);
+        showError('Network error. Please check your connection and try again.');
+        resetButton(button, originalText);
+    });
+}
+
+function resetButton(button, originalText) {
+    button.disabled = false;
+    button.innerHTML = originalText;
+}
+
+function showError(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-danger alert-dismissible fade show mt-3';
+    alertDiv.innerHTML = `
+        <i class="fas fa-exclamation-triangle me-2"></i>${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.querySelector('.card-body').appendChild(alertDiv);
+    setTimeout(() => alertDiv.remove(), 10000);
+}
+
+function showSuccess(message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-success alert-dismissible fade show mt-3';
+    alertDiv.innerHTML = `
+        <i class="fas fa-check-circle me-2"></i>${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.querySelector('.card-body').appendChild(alertDiv);
+}
+
+// Update time every minute
+updateTime();
+setInterval(updateTime, 60000);
+</script>
+{% endblock %}
