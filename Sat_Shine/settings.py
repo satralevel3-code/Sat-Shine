@@ -25,7 +25,12 @@ DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 # Railway automatically provides RAILWAY_STATIC_URL and other variables
 RAILWAY_ENVIRONMENT = os.environ.get('RAILWAY_ENVIRONMENT')
 if RAILWAY_ENVIRONMENT:
-    ALLOWED_HOSTS = ['*']  # Railway handles domain routing
+    # Use specific domain from environment or Railway's provided domain
+    railway_domain = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '')
+    if railway_domain:
+        ALLOWED_HOSTS = [railway_domain, '.railway.app', '.up.railway.app']
+    else:
+        ALLOWED_HOSTS = ['.railway.app', '.up.railway.app']
 else:
     ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
