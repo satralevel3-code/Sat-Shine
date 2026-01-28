@@ -1538,6 +1538,10 @@ def update_attendance_status(request):
 @admin_required
 def approval_status(request):
     """Main approval status dashboard"""
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.error("🚨 APPROVAL STATUS VIEW v2026-01-28-DEBUG")
+    
     today = timezone.localdate()
     
     # Calculate approval status counts
@@ -1549,6 +1553,9 @@ def approval_status(request):
         status__in=['present', 'half_day']
     ).count()
     
+    # DEBUG: Log breakdown
+    logger.error(f"APPROVAL STATUS DEBUG → dc_pending={dc_pending}")
+    
     # Admin Approval - Associates, DCs (direct), and MT/Support (post-DC-confirmation)
     admin_pending = Attendance.objects.filter(
         date__lte=today,
@@ -1558,6 +1565,8 @@ def approval_status(request):
         Q(user__designation__in=['Associate', 'DC']) |
         Q(user__designation__in=['MT', 'Support'], is_confirmed_by_dc=True)
     ).count()
+    
+    logger.error(f"APPROVAL STATUS DEBUG → admin_pending={admin_pending}")
     
     from .models import TravelRequest
     travel_pending = TravelRequest.objects.filter(status='pending').count()
@@ -1575,6 +1584,10 @@ def approval_status(request):
 @admin_required
 def dc_confirmation(request):
     """DC confirmation screen with travel request validation"""
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.error("🚨 DC CONFIRMATION VIEW v2026-01-28-DEBUG")
+    
     from datetime import datetime, timedelta
     
     # Get date range (default: last 7 days)
@@ -1602,6 +1615,9 @@ def dc_confirmation(request):
         is_confirmed_by_dc=False,
         status__in=['present', 'half_day']
     ).select_related('user')
+    
+    # DEBUG: Log query details
+    logger.error(f"DC DEBUG → count={attendance_query.count()} | designations={set(attendance_query.values_list('user__designation', flat=True))}")
     
     if dccb_filter:
         attendance_query = attendance_query.filter(user__dccb=dccb_filter)
