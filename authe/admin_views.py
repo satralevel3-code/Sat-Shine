@@ -2245,7 +2245,7 @@ def export_travel_requests(request):
         dccb_filter = request.GET.get('dccb', '')
         designation_filter = request.GET.get('designation', '')
         
-        # Get travel requests with filters
+        # Get ALL travel requests (no date filter to match what's shown on page)
         travel_requests = TravelRequest.objects.all().select_related('user', 'request_to').order_by('-created_at')
         
         # Apply filters
@@ -2256,11 +2256,8 @@ def export_travel_requests(request):
         if designation_filter:
             travel_requests = travel_requests.filter(user__designation=designation_filter)
         
-        # Apply date filter
-        travel_requests = travel_requests.filter(created_at__date__range=[from_date, to_date])
-        
         response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = f'attachment; filename="all_travel_requests_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+        response['Content-Disposition'] = f'attachment; filename="travel_requests_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
         
         writer = csv.writer(response)
         
@@ -2268,11 +2265,8 @@ def export_travel_requests(request):
         writer.writerow([
             'Employee ID', 'Employee Name', 'DCCB', 'Designation', 'Travel Date', 
             'Duration', 'ER ID', 'Distance (KM)', 'Address', 'Contact Person', 
-            'Purpose', 'Status', 'Approved By', 'Approved At', 'Remarks', 'Created At'
+            'Purpose', 'Status', 'Approved By', 'Approved At', 'Remarks'
         ])
-        
-        # Write debug info as first row
-        writer.writerow([f'Total Records Found: {travel_requests.count()}', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
         
         # Write data rows
         for travel in travel_requests:
@@ -2300,11 +2294,10 @@ def export_travel_requests(request):
                     travel.get_status_display(),
                     approved_by,
                     travel.approved_at.strftime('%Y-%m-%d %H:%M:%S') if travel.approved_at else '',
-                    travel.remarks or '',
-                    travel.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                    travel.remarks or ''
                 ])
             except Exception as e:
-                writer.writerow([f'Error processing record {travel.id}: {str(e)}', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+                writer.writerow([f'Error: {str(e)}', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
         
         return response
         
