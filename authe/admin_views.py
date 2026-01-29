@@ -2232,43 +2232,21 @@ def export_travel_requests(request):
         
         writer = csv.writer(response)
         
-        # Write header
+        # Write header with DCCB column
         writer.writerow([
-            'Employee ID', 'Employee Name', 'DCCB', 'Designation', 'Travel Date', 
-            'Duration', 'ER ID', 'Distance (KM)', 'Address', 'Contact Person', 
-            'Purpose', 'Status', 'Approved By', 'Approved At', 'Remarks'
+            'Employee ID', 'DCCB', 'Designation', 'Travel Date', 'Approval Status', 'Comments'
         ])
         
         # Write data rows
         for travel in travel_requests:
-            try:
-                travel_date = travel.from_date.strftime('%d %b %Y')
-                if travel.from_date != travel.to_date:
-                    travel_date += f" - {travel.to_date.strftime('%d %b %Y')}"
-                
-                approved_by = ''
-                if travel.request_to:
-                    approved_by = f"{travel.request_to.first_name} {travel.request_to.last_name}"
-                
-                writer.writerow([
-                    travel.user.employee_id,
-                    f"{travel.user.first_name} {travel.user.last_name}",
-                    travel.user.dccb or 'Not Assigned',
-                    travel.user.designation,
-                    travel_date,
-                    travel.get_duration_display(),
-                    travel.er_id,
-                    travel.distance_km,
-                    travel.address,
-                    travel.contact_person,
-                    travel.purpose,
-                    travel.get_status_display(),
-                    approved_by,
-                    travel.approved_at.strftime('%Y-%m-%d %H:%M:%S') if travel.approved_at else '',
-                    travel.remarks or ''
-                ])
-            except Exception as e:
-                writer.writerow([f'Error: {str(e)}', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
+            writer.writerow([
+                travel.user.employee_id,
+                travel.user.dccb or '-',
+                travel.user.designation,
+                travel.from_date.strftime('%d %b %Y'),
+                travel.get_status_display(),
+                'Not Assigned' if not travel.request_to else 'View Details'
+            ])
         
         return response
         
