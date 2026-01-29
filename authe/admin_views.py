@@ -2222,10 +2222,42 @@ def bulk_approve_attendance(request):
 @login_required
 @admin_required
 def export_travel_requests(request):
-    """Export all travel requests to CSV with debug info"""
+    """Export travel requests to CSV with applied filters"""
+    from datetime import datetime, timedelta
+    
     try:
-        # Get ALL travel requests
+        # Get date range
+        today = timezone.localdate()
+        default_from = today - timedelta(days=90)
+        
+        from_date_str = request.GET.get('from_date', default_from.isoformat())
+        to_date_str = request.GET.get('to_date', (today + timedelta(days=30)).isoformat())
+        
+        try:
+            from_date = datetime.strptime(from_date_str, '%Y-%m-%d').date()
+            to_date = datetime.strptime(to_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            from_date = default_from
+            to_date = today + timedelta(days=30)
+        
+        # Apply filters (same as travel_approval view)
+        employee_id_filter = request.GET.get('employee_id', '')
+        dccb_filter = request.GET.get('dccb', '')
+        designation_filter = request.GET.get('designation', '')
+        
+        # Get travel requests with filters
         travel_requests = TravelRequest.objects.all().select_related('user', 'request_to').order_by('-created_at')
+        
+        # Apply filters
+        if employee_id_filter:
+            travel_requests = travel_requests.filter(user__employee_id__icontains=employee_id_filter)
+        if dccb_filter:
+            travel_requests = travel_requests.filter(user__dccb=dccb_filter)
+        if designation_filter:
+            travel_requests = travel_requests.filter(user__designation=designation_filter)
+        
+        # Apply date filter
+        travel_requests = travel_requests.filter(created_at__date__range=[from_date, to_date])
         
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="all_travel_requests_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
