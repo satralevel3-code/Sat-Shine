@@ -515,6 +515,7 @@
                 <thead>
                     <tr>
                         <th>Emp ID</th>
+                        <th>DCCB</th>
                         <th>Designation</th>
                         <th>From Date</th>
                         <th>To Date</th>
@@ -536,6 +537,7 @@
                                 {{ request.user.employee_id }}
                             </span>
                         </td>
+                        <td>{{ request.user.dccb|default:"-" }}</td>
                         <td>{{ request.user.designation }}</td>
                         <td>{{ request.from_date|date:"d M Y" }}</td>
                         <td>{{ request.to_date|date:"d M Y" }}</td>
