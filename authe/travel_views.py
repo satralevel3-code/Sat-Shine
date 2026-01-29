@@ -176,6 +176,11 @@ def associate_travel_approvals(request):
         messages.error(request, 'Access denied. Only Associates can approve travel requests.')
         return redirect('field_dashboard')
     
+    # DEBUG: Log that we're using the updated view with DCCB
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.error("🔍 ASSOCIATE TRAVEL APPROVALS VIEW v2.0 - WITH DCCB COLUMN")
+    
     # Get filters
     from_date = request.GET.get('from_date', timezone.localdate().isoformat())
     to_date = request.GET.get('to_date', (timezone.localdate() + timedelta(days=30)).isoformat())
