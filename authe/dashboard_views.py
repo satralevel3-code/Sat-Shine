@@ -57,9 +57,10 @@ def field_dashboard(request):
     can_view_team = request.user.designation == 'DC'
     team_data = None
     team_members = []  # Initialize team_members
+    pending_dc_confirmations = 0  # Counter for pending DC confirmations
     
     if can_view_team:
-        # Get team attendance for DC
+        # Get team attendance for DC - ONLY MT and Support
         team_users = CustomUser.objects.filter(
             role='field_officer',
             dccb=request.user.dccb,
@@ -78,6 +79,14 @@ def field_dashboard(request):
             date=today
         ).values('status').annotate(count=Count('status'))
         
+        # Count ONLY MT/Support pending DC confirmations (exclude Associates and DCs)
+        pending_dc_confirmations = Attendance.objects.filter(
+            user__designation__in=['MT', 'Support'],
+            user__dccb=request.user.dccb,
+            is_confirmed_by_dc=False,
+            status__in=['present', 'half_day']
+        ).exclude(user=request.user).count()
+        
         team_data = {
             'total_team': team_users.count(),
             'attendance_summary': {item['status']: item['count'] for item in team_attendance_today}
@@ -93,6 +102,7 @@ def field_dashboard(request):
         'can_view_team': can_view_team,
         'team_data': team_data,
         'team_members': team_members,
+        'pending_dc_confirmations': pending_dc_confirmations,
         'current_time': timezone.now(),
     }
     

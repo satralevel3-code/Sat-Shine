@@ -180,6 +180,7 @@ def associate_travel_approvals(request):
     from_date = request.GET.get('from_date', timezone.localdate().isoformat())
     to_date = request.GET.get('to_date', (timezone.localdate() + timedelta(days=30)).isoformat())
     employee_id = request.GET.get('employee_id', '')
+    dccb = request.GET.get('dccb', '')
     designation = request.GET.get('designation', '')
     duration = request.GET.get('duration', '')
     status = request.GET.get('status', '')
@@ -193,6 +194,8 @@ def associate_travel_approvals(request):
     # Apply filters
     if employee_id:
         travel_requests = travel_requests.filter(user__employee_id__icontains=employee_id)
+    if dccb:
+        travel_requests = travel_requests.filter(user__dccb=dccb)
     if designation:
         travel_requests = travel_requests.filter(user__designation=designation)
     if duration:
@@ -221,9 +224,11 @@ def associate_travel_approvals(request):
         'from_date': from_date,
         'to_date': to_date,
         'employee_id': employee_id,
+        'dccb': dccb,
         'designation': designation,
         'duration': duration,
         'status': status,
+        'dccb_choices': CustomUser.DCCB_CHOICES,
         'designation_choices': [('MT', 'MT'), ('DC', 'DC'), ('Support', 'Support')],
         'duration_choices': TravelRequest.DURATION_CHOICES,
         'status_choices': TravelRequest.STATUS_CHOICES,

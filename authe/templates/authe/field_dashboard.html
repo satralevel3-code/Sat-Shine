@@ -435,7 +435,12 @@
     {% if can_view_team %}
     <div class="team-section">
         <div class="team-header">
-            <h2 class="team-title">Team Overview</h2>
+            <h2 class="team-title">
+                Team Overview
+                {% if pending_dc_confirmations > 0 %}
+                <span class="badge bg-warning ms-2">{{ pending_dc_confirmations }} Pending Confirmations</span>
+                {% endif %}
+            </h2>
             <div class="d-flex gap-2">
                 <label class="form-label me-2">From:</label>
                 <input type="date" id="startDate" class="form-control" value="{{ current_time|date:'Y-m-d' }}">

@@ -146,7 +146,10 @@ def associate_mark_attendance(request):
                 latitude=latitude if status != 'absent' else None,
                 longitude=longitude if status != 'absent' else None,
                 check_in_time=timezone.localtime().time() if status != 'absent' else None,
-                marked_at=timezone.now()
+                marked_at=timezone.now(),
+                is_confirmed_by_dc=True,  # Associates skip DC confirmation
+                confirmed_by_dc=None,
+                dc_confirmed_at=None
             )
             
             # Log for debugging
