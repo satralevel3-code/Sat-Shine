@@ -2424,7 +2424,8 @@ def export_travel_requests(request):
     
     # Write data rows matching screen display format
     for tr in travel_requests:
-        writer.writerow([
+        # Debug: Print to console what we're writing
+        row_data = [
             tr.user.employee_id,
             f"{tr.user.first_name} {tr.user.last_name}",
             tr.user.dccb or 'N/A',
@@ -2441,6 +2442,8 @@ def export_travel_requests(request):
             f"{tr.approved_by.employee_id} - {tr.approved_by.first_name} {tr.approved_by.last_name}" if tr.approved_by else 'N/A',
             tr.remarks or 'N/A',
             tr.created_at.strftime('%d %b %Y %H:%M') if tr.created_at else 'N/A'
-        ])
+        ]
+        print(f"DEBUG CSV ROW: {row_data}")
+        writer.writerow(row_data)
     
     return response
