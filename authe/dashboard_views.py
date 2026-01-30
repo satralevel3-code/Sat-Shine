@@ -419,6 +419,24 @@ def confirm_team_attendance(request):
     try:
         from .travel_approval_validator import validate_travel_approval_for_dc_confirmation, log_blocked_dc_confirmation
         
+        # FORCE DEPLOYMENT: Enhanced validation with debug logging
+        def enhanced_validate_with_logging(attendance):
+            """Enhanced validation with production logging"""
+            import logging
+            logger = logging.getLogger(__name__)
+            
+            logger.info(f"🔍 DC CONFIRMATION CHECK: {attendance.user.employee_id} on {attendance.date}")
+            
+            # Use original validation
+            can_confirm, error_message = validate_travel_approval_for_dc_confirmation(attendance)
+            
+            if not can_confirm:
+                logger.warning(f"🚫 BLOCKED: {attendance.user.employee_id} - {error_message}")
+            else:
+                logger.info(f"✅ ALLOWED: {attendance.user.employee_id} - DC can confirm")
+            
+            return can_confirm, error_message
+        
         data = json.loads(request.body)
         start_date_str = data.get('start_date')
         end_date_str = data.get('end_date')
@@ -457,8 +475,8 @@ def confirm_team_attendance(request):
                     current_date += timedelta(days=1)
                     continue
                 
-                # MANDATORY VALIDATION: Check travel approval status
-                can_confirm, error_message = validate_travel_approval_for_dc_confirmation(attendance)
+                # MANDATORY VALIDATION: Check travel approval status with enhanced logging
+                can_confirm, error_message = enhanced_validate_with_logging(attendance)
                 
                 if not can_confirm:
                     # BLOCK DC CONFIRMATION
