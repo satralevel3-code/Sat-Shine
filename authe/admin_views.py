@@ -2226,8 +2226,8 @@ def export_travel_requests_enhanced(request):
         writer = csv.writer(response)
         
         writer.writerow([
-            'Employee Id',
-            'Name (First name +Last Name )',
+            'Employee ID',
+            'Name',
             'DCCB',
             'From Date',
             'To Date',
@@ -2235,13 +2235,13 @@ def export_travel_requests_enhanced(request):
             'Days',
             'ER ID',
             'Distance (KM)',
-            'Address (Link to view address details mentioned by the MT, Support and DC Users)',
+            'Address',
             'Contact Person',
-            'Purpose (Link to view the details of purpose mentioned by MT, Support, and DC users)',
-            'Status (Pending/ Approved/Reject)',
-            'Approved By (Associates Name and employee ID)',
-            'Remarks (link Comment added by the Associate)',
-            'Created At(date and time when Travel request raised)'
+            'Purpose',
+            'Status',
+            'Approved By',
+            'Remarks',
+            'Created At'
         ])
         
         for travel in travel_requests:
@@ -2404,8 +2404,8 @@ def export_travel_requests(request):
     
     # Write exact headers as specified
     writer.writerow([
-        'Employee Id',
-        'Name (First name +Last Name )',
+        'Employee ID',
+        'Name',
         'DCCB',
         'From Date',
         'To Date',
@@ -2413,13 +2413,13 @@ def export_travel_requests(request):
         'Days',
         'ER ID',
         'Distance (KM)',
-        'Address (Link to view address details mentioned by the MT, Support and DC Users)',
+        'Address',
         'Contact Person',
-        'Purpose (Link to view the details of purpose mentioned by MT, Support, and DC users)',
-        'Status (Pending/ Approved/Reject)',
-        'Approved By (Associates Name and employee ID)',
-        'Remarks (link Comment added by the Associate)',
-        'Created At(date and time when Travel request raised)'
+        'Purpose',
+        'Status',
+        'Approved By',
+        'Remarks',
+        'Created At'
     ])
     
     # Write data rows matching screen display format
