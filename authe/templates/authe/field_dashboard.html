@@ -524,10 +524,10 @@ function confirmAttendance() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('Attendance confirmed successfully!');
+            alert(data.message || 'Attendance confirmed successfully!');
             window.location.reload();
         } else {
-            alert('Error: ' + (data.error || 'Unknown error'));
+            alert(data.error || 'Unknown error');
         }
     })
     .catch(error => {
