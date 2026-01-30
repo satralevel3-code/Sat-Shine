@@ -2333,3 +2333,105 @@ def admin_direct_approval(request):
     }
     
     return render(request, 'authe/admin_direct_approval.html', context)
+
+@login_required
+@admin_required
+def travel_approval_list(request):
+    """Enhanced travel approval list with all required columns"""
+    # Apply filters
+    status_filter = request.GET.get('status', '')
+    dccb_filter = request.GET.get('dccb', '')
+    
+    # Base query with related data
+    travel_requests = TravelRequest.objects.select_related('user', 'approved_by').all()
+    
+    # Apply filters
+    if status_filter:
+        travel_requests = travel_requests.filter(status=status_filter)
+    if dccb_filter:
+        travel_requests = travel_requests.filter(user__dccb=dccb_filter)
+    
+    # Order by created date (newest first)
+    travel_requests = travel_requests.order_by('-created_at')
+    
+    # Pagination
+    paginator = Paginator(travel_requests, 25)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'page_obj': page_obj,
+        'status_filter': status_filter,
+        'dccb_filter': dccb_filter,
+        'status_choices': [('pending', 'Pending'), ('approved', 'Approved'), ('rejected', 'Rejected')],
+        'dccb_choices': CustomUser.DCCB_CHOICES,
+        'total_requests': travel_requests.count(),
+    }
+    
+    return render(request, 'authe/admin_travel_approval.html', context)
+
+@login_required
+@admin_required
+def export_travel_requests(request):
+    """Export travel requests to CSV"""
+    # Apply same filters as list view
+    status_filter = request.GET.get('status', '')
+    dccb_filter = request.GET.get('dccb', '')
+    
+    travel_requests = TravelRequest.objects.select_related('user', 'approved_by').all()
+    
+    if status_filter:
+        travel_requests = travel_requests.filter(status=status_filter)
+    if dccb_filter:
+        travel_requests = travel_requests.filter(user__dccb=dccb_filter)
+    
+    travel_requests = travel_requests.order_by('-created_at')
+    
+    # Create CSV response
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="travel_requests_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+    
+    writer = csv.writer(response)
+    
+    # CSV Headers
+    writer.writerow([
+        'Employee ID',
+        'Name',
+        'DCCB',
+        'From Date',
+        'To Date',
+        'Duration',
+        'Days',
+        'ER ID',
+        'Distance (KM)',
+        'Address',
+        'Contact Person',
+        'Purpose',
+        'Status',
+        'Approved By',
+        'Remarks',
+        'Created At'
+    ])
+    
+    # CSV Data
+    for request_obj in travel_requests:
+        writer.writerow([
+            request_obj.user.employee_id,
+            f"{request_obj.user.first_name} {request_obj.user.last_name}",
+            request_obj.user.dccb or 'N/A',
+            request_obj.from_date.strftime('%Y-%m-%d'),
+            request_obj.to_date.strftime('%Y-%m-%d'),
+            request_obj.duration or 'N/A',
+            request_obj.days or 'N/A',
+            request_obj.er_id or 'N/A',
+            request_obj.distance_km or 'N/A',
+            request_obj.address or 'N/A',
+            request_obj.contact_person or 'N/A',
+            request_obj.purpose or 'N/A',
+            request_obj.status.title(),
+            f"{request_obj.approved_by.employee_id} - {request_obj.approved_by.first_name} {request_obj.approved_by.last_name}" if request_obj.approved_by else 'N/A',
+            request_obj.remarks or 'N/A',
+            request_obj.created_at.strftime('%Y-%m-%d %H:%M:%S')
+        ])
+    
+    return response

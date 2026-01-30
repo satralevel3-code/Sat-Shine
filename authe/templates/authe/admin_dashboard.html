@@ -533,7 +533,11 @@ body {
                 </li>
                 <li class="breakdown-item">
                     <span class="breakdown-label">Travel Approvals</span>
-                    <span class="breakdown-value">{{ approval_status.travel_pending }}</span>
+                    <span class="breakdown-value">
+                        <a href="{% url 'travel_approval_list' %}" style="color: inherit; text-decoration: none;">
+                            {{ approval_status.travel_pending }}
+                        </a>
+                    </span>
                 </li>
             </ul>
         </div>

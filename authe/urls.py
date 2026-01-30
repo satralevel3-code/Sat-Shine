@@ -44,6 +44,7 @@ urlpatterns = [
     path('admin/dc-confirmation/', admin_views.dc_confirmation, name='admin_dc_confirmation'),
     path('admin/admin-approval/', admin_views.admin_approval, name='admin_admin_approval'),
     path('admin/travel-approval/', admin_views.travel_approval, name='admin_travel_approval'),
+    path('admin/travel-approval-list/', admin_views.travel_approval_list, name='travel_approval_list'),
     path('admin/bulk-approve-attendance/', admin_views.bulk_approve_attendance, name='bulk_approve_attendance'),
     
     # Field Officer URLs
