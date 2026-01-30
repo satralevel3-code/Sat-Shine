@@ -2184,12 +2184,6 @@ def bulk_approve_attendance(request):
 
 @login_required
 @admin_required
-def export_travel_requests(request):
-    """Export travel requests to CSV - Legacy function"""
-    return export_travel_requests_enhanced(request)
-
-@login_required
-@admin_required
 def export_travel_requests_enhanced(request):
     """Export enhanced travel requests with all details to CSV"""
     try:
@@ -2232,33 +2226,46 @@ def export_travel_requests_enhanced(request):
         writer = csv.writer(response)
         
         writer.writerow([
-            'Employee ID', 'Name', 'DCCB', 'From Date', 'To Date', 'Duration', 'Days',
-            'ER ID', 'Distance (KM)', 'Address', 'Contact Person', 'Purpose',
-            'Status', 'Approved By', 'Remarks', 'Created At'
+            'Employee Id',
+            'Name (First name +Last Name )',
+            'DCCB',
+            'From Date',
+            'To Date',
+            'Duration',
+            'Days',
+            'ER ID',
+            'Distance (KM)',
+            'Address (Link to view address details mentioned by the MT, Support and DC Users)',
+            'Contact Person',
+            'Purpose (Link to view the details of purpose mentioned by MT, Support, and DC users)',
+            'Status (Pending/ Approved/Reject)',
+            'Approved By (Associates Name and employee ID)',
+            'Remarks (link Comment added by the Associate)',
+            'Created At(date and time when Travel request raised)'
         ])
         
         for travel in travel_requests:
-            approved_by_name = ''
+            approved_by_name = 'N/A'
             if travel.approved_by:
-                approved_by_name = f"{travel.approved_by.first_name} {travel.approved_by.last_name} ({travel.approved_by.employee_id})"
+                approved_by_name = f"{travel.approved_by.employee_id} - {travel.approved_by.first_name} {travel.approved_by.last_name}"
             
             writer.writerow([
                 travel.user.employee_id,
                 f"{travel.user.first_name} {travel.user.last_name}",
-                travel.user.dccb or '-',
-                travel.from_date.strftime('%Y-%m-%d'),
-                travel.to_date.strftime('%Y-%m-%d'),
-                travel.get_duration_display(),
-                float(travel.days_count),
-                travel.er_id,
-                travel.distance_km,
-                travel.address,
-                travel.contact_person,
-                travel.purpose,
-                travel.get_status_display(),
+                travel.user.dccb or 'N/A',
+                travel.from_date.strftime('%d %b %Y'),
+                travel.to_date.strftime('%d %b %Y'),
+                travel.get_duration_display() if hasattr(travel, 'get_duration_display') else (travel.duration or 'N/A'),
+                str(travel.days_count) if travel.days_count else 'N/A',
+                travel.er_id or 'N/A',
+                str(travel.distance_km) if travel.distance_km else 'N/A',
+                travel.address or 'N/A',
+                travel.contact_person or 'N/A',
+                travel.purpose or 'N/A',
+                travel.status.title() if travel.status else 'N/A',
                 approved_by_name,
-                travel.remarks or '-',
-                travel.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                travel.remarks or 'N/A',
+                travel.created_at.strftime('%d %b %Y %H:%M') if travel.created_at else 'N/A'
             ])
         
         return response
@@ -2372,8 +2379,10 @@ def travel_approval_list(request):
 
 @login_required
 @admin_required
+@login_required
+@admin_required
 def export_travel_requests(request):
-    """Complete CSV export for travel requests"""
+    """Complete CSV export for travel requests matching screen display"""
     # Apply same filters as list view
     status_filter = request.GET.get('status', '')
     dccb_filter = request.GET.get('dccb', '')
@@ -2413,7 +2422,7 @@ def export_travel_requests(request):
         'Created At(date and time when Travel request raised)'
     ])
     
-    # Write data rows
+    # Write data rows matching screen display format
     for tr in travel_requests:
         writer.writerow([
             tr.user.employee_id,
