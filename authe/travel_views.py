@@ -305,7 +305,7 @@ def approve_travel_request(request, travel_id):
 
 @login_required
 def export_travel_requests(request):
-    """Export travel request history"""
+    """Export travel request history with correct headers"""
     travel_requests = TravelRequest.objects.filter(user=request.user).order_by('-created_at')
     
     response = HttpResponse(content_type='text/csv')
@@ -313,14 +313,17 @@ def export_travel_requests(request):
     
     writer = csv.writer(response)
     writer.writerow([
-        'From Date', 'To Date', 'Duration', 'Days', 'ER ID', 'Distance (KM)',
+        'Employee ID', 'Name', 'DCCB', 'From Date', 'To Date', 'Duration', 'Days', 'ER ID', 'Distance (KM)',
         'Address', 'Contact Person', 'Purpose', 'Status', 'Approved By', 'Remarks', 'Created At'
     ])
     
     for tr in travel_requests:
         writer.writerow([
-            tr.from_date,
-            tr.to_date,
+            tr.user.employee_id,
+            f"{tr.user.first_name} {tr.user.last_name}",
+            tr.user.dccb or 'N/A',
+            tr.from_date.strftime('%d %b %Y'),
+            tr.to_date.strftime('%d %b %Y'),
             tr.get_duration_display(),
             tr.days_count,
             tr.er_id,
@@ -329,9 +332,9 @@ def export_travel_requests(request):
             tr.contact_person,
             tr.purpose,
             tr.get_status_display(),
-            tr.approved_by.employee_id if tr.approved_by else '',
-            tr.remarks or '',
-            tr.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            tr.approved_by.employee_id if tr.approved_by else 'N/A',
+            tr.remarks or 'N/A',
+            tr.created_at.strftime('%d %b %Y %H:%M')
         ])
     
     return response
