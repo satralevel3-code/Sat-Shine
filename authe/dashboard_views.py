@@ -412,11 +412,13 @@ def apply_leave(request):
 @login_required
 @require_http_methods(["POST"])
 def confirm_team_attendance(request):
-    """DC confirmation of team attendance with travel request validation"""
+    """DC confirmation of team attendance with MANDATORY travel request validation"""
     if request.user.role != 'field_officer' or request.user.designation != 'DC':
         return JsonResponse({'error': 'Access denied. DC privileges required.'}, status=403)
     
     try:
+        from .travel_approval_validator import validate_travel_approval_for_dc_confirmation, log_blocked_dc_confirmation
+        
         data = json.loads(request.body)
         start_date_str = data.get('start_date')
         end_date_str = data.get('end_date')
@@ -425,7 +427,7 @@ def confirm_team_attendance(request):
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
         end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
         
-        # Get team members
+        # Get team members (ONLY MT and Support)
         team_members = CustomUser.objects.filter(
             role='field_officer',
             dccb=request.user.dccb,
@@ -439,48 +441,45 @@ def confirm_team_attendance(request):
         for member in team_members:
             current_date = start_date
             while current_date <= end_date:
-                # Check for pending travel requests
-                has_pending_travel = TravelRequest.objects.filter(
+                # Get or skip attendance record
+                attendance = Attendance.objects.filter(
                     user=member,
-                    from_date__lte=current_date,
-                    to_date__gte=current_date,
-                    status='pending'
-                ).exists()
+                    date=current_date
+                ).first()
                 
-                if has_pending_travel:
+                # Skip if no attendance record exists
+                if not attendance:
+                    current_date += timedelta(days=1)
+                    continue
+                
+                # Skip if already confirmed
+                if attendance.is_confirmed_by_dc:
+                    current_date += timedelta(days=1)
+                    continue
+                
+                # MANDATORY VALIDATION: Check travel approval status
+                can_confirm, error_message = validate_travel_approval_for_dc_confirmation(attendance)
+                
+                if not can_confirm:
+                    # BLOCK DC CONFIRMATION
                     blocked_records.append({
                         'employee_id': member.employee_id,
                         'date': current_date.isoformat(),
-                        'reason': 'Pending Travel Request Approval'
+                        'reason': error_message
                     })
+                    
+                    # Log blocked attempt
+                    log_blocked_dc_confirmation(request.user, attendance, error_message)
                     
                     current_date += timedelta(days=1)
                     continue
                 
-                attendance, created = Attendance.objects.get_or_create(
-                    user=member,
-                    date=current_date,
-                    defaults={
-                        'status': 'absent',  # Only for new records (Not Marked)
-                        'is_confirmed_by_dc': True,
-                        'confirmed_by_dc': request.user,
-                        'dc_confirmed_at': timezone.now(),
-                        'confirmation_source': 'DC'
-                    }
-                )
-                
-                # Only confirm existing records, don't change their status
-                if not created:
-                    # Only update DC confirmation, preserve existing status
-                    attendance.is_confirmed_by_dc = True
-                    attendance.confirmed_by_dc = request.user
-                    attendance.dc_confirmed_at = timezone.now()
-                    attendance.confirmation_source = 'DC'
-                    attendance.save()
-                
-                # Notify user about DC confirmation
-                from .notification_service import notify_dc_confirmation_to_user
-                notify_dc_confirmation_to_user(member, request.user)
+                # ALLOWED: Confirm attendance
+                attendance.is_confirmed_by_dc = True
+                attendance.confirmed_by_dc = request.user
+                attendance.dc_confirmed_at = timezone.now()
+                attendance.confirmation_source = 'DC'
+                attendance.save()
                 
                 confirmed_count += 1
                 current_date += timedelta(days=1)
@@ -493,17 +492,18 @@ def confirm_team_attendance(request):
             date_range_start=start_date,
             date_range_end=end_date,
             ip_address=request.META.get('REMOTE_ADDR'),
-            details=f'Confirmed attendance for {team_members.count()} team members. Blocked: {len(blocked_records)} records due to pending travel requests.'
+            details=f'Confirmed: {confirmed_count} records. Blocked: {len(blocked_records)} records due to travel approval dependency.'
         )
         
-        # Send notification to Admin
-        from .notification_service import notify_dc_confirmation
-        date_range_str = f"{start_date} to {end_date}" if start_date != end_date else str(start_date)
-        notify_dc_confirmation(request.user, confirmed_count, date_range_str)
-        
-        response_message = f'Attendance confirmed for {team_members.count()} team members'
-        if blocked_records:
-            response_message += f'. {len(blocked_records)} records blocked due to pending travel requests.'
+        # Build response message
+        if confirmed_count > 0 and len(blocked_records) == 0:
+            response_message = f'Successfully confirmed {confirmed_count} attendance records'
+        elif confirmed_count > 0 and len(blocked_records) > 0:
+            response_message = f'Confirmed {confirmed_count} records. {len(blocked_records)} records blocked due to pending/rejected travel requests'
+        elif confirmed_count == 0 and len(blocked_records) > 0:
+            response_message = f'No records confirmed. {len(blocked_records)} records blocked due to travel approval requirements'
+        else:
+            response_message = 'No records to confirm'
         
         return JsonResponse({
             'success': True,

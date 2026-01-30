@@ -1664,12 +1664,11 @@ def dc_confirmation(request):
 def admin_approval(request):
     """Admin approval screen with travel request validation"""
     from datetime import datetime, timedelta
+    from .travel_approval_validator import validate_dc_attendance_for_admin_approval
     
-    # Handle CSV export
     if request.GET.get('format') == 'csv':
         return export_admin_approval_records(request)
     
-    # Get payroll cycle dates (25th to 25th)
     today = timezone.localdate()
     if today.day >= 25:
         cycle_start = today.replace(day=25)
@@ -1690,30 +1689,24 @@ def admin_approval(request):
         from_date = cycle_start
         to_date = cycle_end
     
-    # Apply filters
     employee_id_filter = request.GET.get('employee_id', '')
     dccb_filter = request.GET.get('dccb', '')
     designation_filter = request.GET.get('designation', '')
     approval_status_filter = request.GET.get('approval_status', '')
     
-    # Get attendance records for admin approval
-    # Associates: Direct admin approval (no DC confirmation needed)
-    # DC: Direct admin approval (no DC confirmation needed) - BUT check travel requests
-    # MT/DC/Support: Require DC confirmation first
     base_query = Attendance.objects.filter(
         date__range=[from_date, to_date]
     ).filter(
-        Q(user__designation__in=['Associate', 'DC']) |  # Associates and DCs can be approved directly
-        Q(user__designation__in=['MT', 'Support'], is_confirmed_by_dc=True)  # MT/Support need DC confirmation first
+        Q(user__designation__in=['Associate', 'DC']) |
+        Q(user__designation__in=['MT', 'Support'], is_confirmed_by_dc=True)
     ).select_related('user')
     
-    # Apply approval status filter
     if approval_status_filter == 'pending':
         attendance_records = base_query.filter(is_approved_by_admin=False)
     elif approval_status_filter == 'approved':
         attendance_records = base_query.filter(is_approved_by_admin=True)
     else:
-        attendance_records = base_query  # Show all (both pending and approved)
+        attendance_records = base_query
     
     attendance_records = attendance_records.order_by('-date', 'user__employee_id')
     
@@ -1724,17 +1717,14 @@ def admin_approval(request):
     if designation_filter:
         attendance_records = attendance_records.filter(user__designation=designation_filter)
     
-    # Check for travel request restrictions for DC users
-    blocked_records = []
+    # Add travel remark for DC users
+    attendance_list = []
     for attendance in attendance_records:
-        if attendance.user.designation == 'DC' and check_pending_travel_requests(attendance.user, attendance.date):
-            blocked_records.append({
-                'attendance': attendance,
-                'reason': 'Pending travel request approval required'
-            })
+        _, _, remark = validate_dc_attendance_for_admin_approval(attendance)
+        attendance.travel_remark = remark
+        attendance_list.append(attendance)
     
-    # Pagination
-    paginator = Paginator(attendance_records, 50)
+    paginator = Paginator(attendance_list, 50)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
@@ -1750,7 +1740,6 @@ def admin_approval(request):
         'designation_choices': CustomUser.DESIGNATION_CHOICES,
         'cycle_start': cycle_start,
         'cycle_end': cycle_end,
-        'blocked_records': blocked_records,
     }
     
     return render(request, 'authe/admin_approval.html', context)
@@ -2055,10 +2044,13 @@ def employee_attendance_history(request, employee_id):
 @login_required
 @admin_required
 def travel_approval(request):
-    """Travel approval screen"""
+    """Enhanced travel approval screen with complete details"""
     from datetime import datetime, timedelta
     
-    # Get date range (default: last 90 days to capture more records)
+    # Handle CSV export
+    if request.GET.get('format') == 'csv':
+        return export_travel_requests_enhanced(request)
+    
     today = timezone.localdate()
     default_from = today - timedelta(days=90)
     
@@ -2072,30 +2064,24 @@ def travel_approval(request):
         from_date = default_from
         to_date = today + timedelta(days=30)
     
-    # Apply filters
     employee_id_filter = request.GET.get('employee_id', '')
     dccb_filter = request.GET.get('dccb', '')
     designation_filter = request.GET.get('designation', '')
+    status_filter = request.GET.get('status', '')
     
-    # Get travel requests - show all travel requests for admin monitoring
-    travel_query = TravelRequest.objects.all().select_related('user', 'request_to').order_by('-created_at')
+    travel_query = TravelRequest.objects.all().select_related('user', 'approved_by').order_by('-created_at')
     
-    # Apply filters
     if employee_id_filter:
         travel_query = travel_query.filter(user__employee_id__icontains=employee_id_filter)
     if dccb_filter:
         travel_query = travel_query.filter(user__dccb=dccb_filter)
     if designation_filter:
         travel_query = travel_query.filter(user__designation=designation_filter)
+    if status_filter:
+        travel_query = travel_query.filter(status=status_filter)
     
-    # Apply date filter on created_at instead of travel dates for broader search
     travel_query = travel_query.filter(created_at__date__range=[from_date, to_date])
     
-    # Debug: Print query count
-    print(f"DEBUG: Total travel requests found: {travel_query.count()}")
-    print(f"DEBUG: Date range: {from_date} to {to_date}")
-    
-    # Pagination
     paginator = Paginator(travel_query, 50)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -2107,8 +2093,10 @@ def travel_approval(request):
         'employee_id_filter': employee_id_filter,
         'dccb_filter': dccb_filter,
         'designation_filter': designation_filter,
+        'status_filter': status_filter,
         'dccb_choices': CustomUser.DCCB_CHOICES,
         'designation_choices': CustomUser.DESIGNATION_CHOICES,
+        'status_choices': TravelRequest.STATUS_CHOICES,
     }
     
     return render(request, 'authe/admin_travel_approval.html', context)
@@ -2119,6 +2107,8 @@ def travel_approval(request):
 def bulk_approve_attendance(request):
     """Bulk approve attendance records with travel request validation"""
     try:
+        from .travel_approval_validator import validate_dc_attendance_for_admin_approval
+        
         data = json.loads(request.body)
         attendance_ids = data.get('attendance_ids', [])
         
@@ -2126,55 +2116,31 @@ def bulk_approve_attendance(request):
             return JsonResponse({'success': False, 'error': 'No attendance records selected'}, status=400)
         
         with transaction.atomic():
-            # Get attendance records - Associates and DCs don't need DC confirmation
             attendance_records = Attendance.objects.filter(
                 id__in=attendance_ids,
                 is_approved_by_admin=False
             ).filter(
-                Q(user__designation__in=['Associate', 'DC']) |  # Associates and DCs don't need DC confirmation
-                Q(user__designation__in=['MT', 'Support'], is_confirmed_by_dc=True)  # MT/Support need DC confirmation
+                Q(user__designation__in=['Associate', 'DC']) |
+                Q(user__designation__in=['MT', 'Support'], is_confirmed_by_dc=True)
             ).select_related('user')
             
             blocked_records = []
             approved_records = []
             
             for attendance in attendance_records:
-                # Check for pending travel requests for DC users
-                if attendance.user.designation == 'DC' and check_pending_travel_requests(attendance.user, attendance.date):
-                    # Find responsible Associate
-                    responsible_associate = get_responsible_associate(attendance.user.dccb)
-                    
+                # Validate DC attendance for pending travel
+                can_approve, error_msg, _ = validate_dc_attendance_for_admin_approval(attendance)
+                
+                if not can_approve:
                     blocked_records.append({
                         'employee_id': attendance.user.employee_id,
-                        'date': attendance.date,
-                        'reason': f'Pending travel request approval from Associate {responsible_associate.employee_id if responsible_associate else "(Not Found)"}'
+                        'date': str(attendance.date),
+                        'reason': error_msg
                     })
-                    
-                    # Send notification to Admin about blocked approval
-                    from .notification_service import NotificationService
-                    NotificationService.create_notification(
-                        recipient=request.user,
-                        notification_type='system_alert',
-                        title='Attendance Approval Blocked',
-                        message=f'Cannot approve attendance for DC {attendance.user.employee_id} on {attendance.date} due to pending travel request approval.',
-                        priority='high'
-                    )
-                    
-                    # Send notification to Associate
-                    if responsible_associate:
-                        NotificationService.create_notification(
-                            recipient=responsible_associate,
-                            notification_type='travel_request',
-                            title='Urgent: Travel Request Approval Required',
-                            message=f'Admin cannot approve DC attendance for {attendance.user.employee_id} on {attendance.date}. Please review pending travel request.',
-                            priority='urgent'
-                        )
-                    
                     continue
                 
                 approved_records.append(attendance)
             
-            # Update only non-blocked attendance records
             if approved_records:
                 approved_ids = [att.id for att in approved_records]
                 updated_count = Attendance.objects.filter(id__in=approved_ids).update(
@@ -2183,12 +2149,10 @@ def bulk_approve_attendance(request):
                     admin_approved_at=timezone.now()
                 )
                 
-                # Notify users about admin approval
                 from .notification_service import notify_admin_approval_to_user
                 for attendance in approved_records:
                     notify_admin_approval_to_user(attendance.user, request.user)
                 
-                # Convert NM to Absent for approved records
                 Attendance.objects.filter(
                     id__in=approved_ids,
                     status='auto_not_marked',
@@ -2197,7 +2161,6 @@ def bulk_approve_attendance(request):
             else:
                 updated_count = 0
             
-            # Create audit log
             create_audit_log(
                 request.user,
                 f'Bulk Attendance Approval: {updated_count} approved, {len(blocked_records)} blocked',
@@ -2222,38 +2185,87 @@ def bulk_approve_attendance(request):
 @login_required
 @admin_required
 def export_travel_requests(request):
-    """Export travel requests to CSV"""
+    """Export travel requests to CSV - Legacy function"""
+    return export_travel_requests_enhanced(request)
+
+@login_required
+@admin_required
+def export_travel_requests_enhanced(request):
+    """Export enhanced travel requests with all details to CSV"""
     try:
-        # Get ALL travel requests
-        travel_requests = TravelRequest.objects.all().select_related('user', 'request_to').order_by('-created_at')
+        from datetime import datetime, timedelta
+        
+        today = timezone.localdate()
+        default_from = today - timedelta(days=90)
+        
+        from_date_str = request.GET.get('from_date', default_from.isoformat())
+        to_date_str = request.GET.get('to_date', (today + timedelta(days=30)).isoformat())
+        
+        try:
+            from_date = datetime.strptime(from_date_str, '%Y-%m-%d').date()
+            to_date = datetime.strptime(to_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            from_date = default_from
+            to_date = today + timedelta(days=30)
+        
+        employee_id_filter = request.GET.get('employee_id', '')
+        dccb_filter = request.GET.get('dccb', '')
+        designation_filter = request.GET.get('designation', '')
+        status_filter = request.GET.get('status', '')
+        
+        travel_requests = TravelRequest.objects.all().select_related('user', 'approved_by').order_by('-created_at')
+        
+        if employee_id_filter:
+            travel_requests = travel_requests.filter(user__employee_id__icontains=employee_id_filter)
+        if dccb_filter:
+            travel_requests = travel_requests.filter(user__dccb=dccb_filter)
+        if designation_filter:
+            travel_requests = travel_requests.filter(user__designation=designation_filter)
+        if status_filter:
+            travel_requests = travel_requests.filter(status=status_filter)
+        
+        travel_requests = travel_requests.filter(created_at__date__range=[from_date, to_date])
         
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="travel_requests_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
         
         writer = csv.writer(response)
         
-        # Write header with DCCB column
         writer.writerow([
-            'Employee ID', 'DCCB', 'Designation', 'Travel Date', 'Approval Status', 'Comments'
+            'Employee ID', 'Name', 'DCCB', 'From Date', 'To Date', 'Duration', 'Days',
+            'ER ID', 'Distance (KM)', 'Address', 'Contact Person', 'Purpose',
+            'Status', 'Approved By', 'Remarks', 'Created At'
         ])
         
-        # Write data rows
         for travel in travel_requests:
+            approved_by_name = ''
+            if travel.approved_by:
+                approved_by_name = f"{travel.approved_by.first_name} {travel.approved_by.last_name} ({travel.approved_by.employee_id})"
+            
             writer.writerow([
                 travel.user.employee_id,
+                f"{travel.user.first_name} {travel.user.last_name}",
                 travel.user.dccb or '-',
-                travel.user.designation,
-                travel.from_date.strftime('%d %b %Y'),
+                travel.from_date.strftime('%Y-%m-%d'),
+                travel.to_date.strftime('%Y-%m-%d'),
+                travel.get_duration_display(),
+                float(travel.days_count),
+                travel.er_id,
+                travel.distance_km,
+                travel.address,
+                travel.contact_person,
+                travel.purpose,
                 travel.get_status_display(),
-                'Not Assigned' if not travel.request_to else 'View Details'
+                approved_by_name,
+                travel.remarks or '-',
+                travel.created_at.strftime('%Y-%m-%d %H:%M:%S')
             ])
         
         return response
         
     except Exception as e:
-        # Return error as CSV
         response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = f'attachment; filename="error_debug_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+        response['Content-Disposition'] = f'attachment; filename="error_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
         writer = csv.writer(response)
         writer.writerow(['Error', 'Details'])
         writer.writerow(['Export Error', str(e)])
