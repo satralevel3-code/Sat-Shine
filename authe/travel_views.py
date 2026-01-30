@@ -305,11 +305,21 @@ def approve_travel_request(request, travel_id):
 
 @login_required
 def export_travel_requests(request):
-    """Export travel request history with correct headers"""
-    travel_requests = TravelRequest.objects.filter(user=request.user).order_by('-created_at')
+    """Export travel request history with correct headers and data"""
+    # Get ALL travel requests like the admin screen shows, not just current user's
+    travel_requests = TravelRequest.objects.select_related('user', 'approved_by').all().order_by('-created_at')
+    
+    # Apply same filters as the admin screen
+    status_filter = request.GET.get('status', '')
+    dccb_filter = request.GET.get('dccb', '')
+    
+    if status_filter:
+        travel_requests = travel_requests.filter(status=status_filter)
+    if dccb_filter:
+        travel_requests = travel_requests.filter(user__dccb=dccb_filter)
     
     response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = f'attachment; filename="travel_requests_{timezone.now().strftime("%Y%m%d")}.csv"'
+    response['Content-Disposition'] = f'attachment; filename="travel_requests_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
     
     writer = csv.writer(response)
     writer.writerow([
@@ -318,6 +328,10 @@ def export_travel_requests(request):
     ])
     
     for tr in travel_requests:
+        approved_by_text = 'N/A'
+        if tr.approved_by:
+            approved_by_text = f"{tr.approved_by.employee_id} - {tr.approved_by.first_name} {tr.approved_by.last_name}"
+        
         writer.writerow([
             tr.user.employee_id,
             f"{tr.user.first_name} {tr.user.last_name}",
@@ -332,7 +346,7 @@ def export_travel_requests(request):
             tr.contact_person,
             tr.purpose,
             tr.get_status_display(),
-            tr.approved_by.employee_id if tr.approved_by else 'N/A',
+            approved_by_text,
             tr.remarks or 'N/A',
             tr.created_at.strftime('%d %b %Y %H:%M')
         ])
