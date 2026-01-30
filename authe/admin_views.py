@@ -2373,7 +2373,7 @@ def travel_approval_list(request):
 @login_required
 @admin_required
 def export_travel_requests(request):
-    """Export travel requests to CSV"""
+    """Export travel requests to CSV with debug info"""
     # Apply same filters as list view
     status_filter = request.GET.get('status', '')
     dccb_filter = request.GET.get('dccb', '')
@@ -2392,6 +2392,11 @@ def export_travel_requests(request):
     response['Content-Disposition'] = f'attachment; filename="travel_requests_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
     
     writer = csv.writer(response)
+    
+    # Debug info first
+    writer.writerow([f'Total Records: {travel_requests.count()}'])
+    writer.writerow([f'Generated: {timezone.now().strftime("%Y-%m-%d %H:%M:%S")}'])
+    writer.writerow([])  # Empty row
     
     # CSV Headers
     writer.writerow([
@@ -2413,25 +2418,28 @@ def export_travel_requests(request):
         'Created At'
     ])
     
-    # CSV Data
+    # CSV Data with error handling
     for request_obj in travel_requests:
-        writer.writerow([
-            request_obj.user.employee_id,
-            f"{request_obj.user.first_name} {request_obj.user.last_name}",
-            request_obj.user.dccb or 'N/A',
-            request_obj.from_date.strftime('%Y-%m-%d'),
-            request_obj.to_date.strftime('%Y-%m-%d'),
-            request_obj.get_duration_display() if hasattr(request_obj, 'get_duration_display') else (request_obj.duration or 'N/A'),
-            str(request_obj.days_count) if request_obj.days_count else 'N/A',
-            request_obj.er_id or 'N/A',
-            str(request_obj.distance_km) if request_obj.distance_km else 'N/A',
-            request_obj.address or 'N/A',
-            request_obj.contact_person or 'N/A',
-            request_obj.purpose or 'N/A',
-            request_obj.get_status_display() if hasattr(request_obj, 'get_status_display') else request_obj.status.title(),
-            f"{request_obj.approved_by.employee_id} - {request_obj.approved_by.first_name} {request_obj.approved_by.last_name}" if request_obj.approved_by else 'N/A',
-            request_obj.remarks or 'N/A',
-            request_obj.created_at.strftime('%Y-%m-%d %H:%M:%S')
-        ])
+        try:
+            writer.writerow([
+                request_obj.user.employee_id,
+                f"{request_obj.user.first_name} {request_obj.user.last_name}",
+                request_obj.user.dccb or 'N/A',
+                request_obj.from_date.strftime('%Y-%m-%d'),
+                request_obj.to_date.strftime('%Y-%m-%d'),
+                request_obj.get_duration_display() if hasattr(request_obj, 'get_duration_display') else (request_obj.duration or 'N/A'),
+                str(request_obj.days_count) if request_obj.days_count else 'N/A',
+                request_obj.er_id or 'N/A',
+                str(request_obj.distance_km) if request_obj.distance_km else 'N/A',
+                request_obj.address or 'N/A',
+                request_obj.contact_person or 'N/A',
+                request_obj.purpose or 'N/A',
+                request_obj.get_status_display() if hasattr(request_obj, 'get_status_display') else request_obj.status.title(),
+                f"{request_obj.approved_by.employee_id} - {request_obj.approved_by.first_name} {request_obj.approved_by.last_name}" if request_obj.approved_by else 'N/A',
+                request_obj.remarks or 'N/A',
+                request_obj.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            ])
+        except Exception as e:
+            writer.writerow([f'ERROR: {str(e)}', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
     
     return response
