@@ -31,8 +31,14 @@ if RAILWAY_ENVIRONMENT:
         ALLOWED_HOSTS = [railway_domain, '.railway.app', '.up.railway.app']
     else:
         ALLOWED_HOSTS = ['.railway.app', '.up.railway.app']
+    # CSRF trusted origins for Railway
+    CSRF_TRUSTED_ORIGINS = [
+        'https://*.railway.app',
+        'https://*.up.railway.app'
+    ]
 else:
     ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+    CSRF_TRUSTED_ORIGINS = []
 
 
 # Application definition
@@ -170,6 +176,10 @@ if not DEBUG:
     # Additional Security Headers
     X_FRAME_OPTIONS = 'DENY'
     SECURE_CROSS_ORIGIN_OPENER_POLICY = 'same-origin'
+    
+    # CSRF Configuration for Railway
+    CSRF_COOKIE_SAMESITE = 'Lax'
+    CSRF_COOKIE_HTTPONLY = False
 else:
     # Development settings - Force HTTP
     SECURE_SSL_REDIRECT = False
@@ -181,6 +191,7 @@ else:
     # Force local development to use HTTP
     USE_TZ = True
     ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '192.168.1.100']
+    CSRF_TRUSTED_ORIGINS = []
 
 # Session Configuration
 SESSION_COOKIE_AGE = 900  # 15 minutes
