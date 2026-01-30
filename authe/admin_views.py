@@ -2373,73 +2373,79 @@ def travel_approval_list(request):
 @login_required
 @admin_required
 def export_travel_requests(request):
-    """Export travel requests to CSV with debug info"""
-    # Apply same filters as list view
-    status_filter = request.GET.get('status', '')
-    dccb_filter = request.GET.get('dccb', '')
-    
-    travel_requests = TravelRequest.objects.select_related('user', 'approved_by').all()
-    
-    if status_filter:
-        travel_requests = travel_requests.filter(status=status_filter)
-    if dccb_filter:
-        travel_requests = travel_requests.filter(user__dccb=dccb_filter)
-    
-    travel_requests = travel_requests.order_by('-created_at')
-    
-    # Create CSV response
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = f'attachment; filename="travel_requests_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
-    
-    writer = csv.writer(response)
-    
-    # Debug info first
-    writer.writerow([f'Total Records: {travel_requests.count()}'])
-    writer.writerow([f'Generated: {timezone.now().strftime("%Y-%m-%d %H:%M:%S")}'])
-    writer.writerow([])  # Empty row
-    
-    # CSV Headers
-    writer.writerow([
-        'Employee ID',
-        'Name',
-        'DCCB',
-        'From Date',
-        'To Date',
-        'Duration',
-        'Days',
-        'ER ID',
-        'Distance (KM)',
-        'Address',
-        'Contact Person',
-        'Purpose',
-        'Status',
-        'Approved By',
-        'Remarks',
-        'Created At'
-    ])
-    
-    # CSV Data with error handling
-    for request_obj in travel_requests:
-        try:
+    """Simple CSV export for travel requests"""
+    try:
+        # Get all travel requests
+        travel_requests = TravelRequest.objects.select_related('user', 'approved_by').all().order_by('-created_at')
+        
+        # Apply filters if provided
+        status_filter = request.GET.get('status', '')
+        dccb_filter = request.GET.get('dccb', '')
+        
+        if status_filter:
+            travel_requests = travel_requests.filter(status=status_filter)
+        if dccb_filter:
+            travel_requests = travel_requests.filter(user__dccb=dccb_filter)
+        
+        # Create response
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="travel_requests_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+        
+        writer = csv.writer(response)
+        
+        # Write headers
+        writer.writerow([
+            'Employee ID',
+            'Name', 
+            'DCCB',
+            'From Date',
+            'To Date', 
+            'Duration',
+            'Days',
+            'ER ID',
+            'Distance (KM)',
+            'Address',
+            'Contact Person',
+            'Purpose',
+            'Status',
+            'Approved By',
+            'Remarks',
+            'Created At'
+        ])
+        
+        # Write data rows
+        for tr in travel_requests:
+            # Safe field access with defaults
+            employee_id = tr.user.employee_id if tr.user else 'N/A'
+            name = f"{tr.user.first_name} {tr.user.last_name}" if tr.user else 'N/A'
+            dccb = tr.user.dccb if tr.user and tr.user.dccb else 'N/A'
+            from_date = tr.from_date.strftime('%Y-%m-%d') if tr.from_date else 'N/A'
+            to_date = tr.to_date.strftime('%Y-%m-%d') if tr.to_date else 'N/A'
+            duration = tr.duration if tr.duration else 'N/A'
+            days = str(tr.days_count) if tr.days_count else 'N/A'
+            er_id = tr.er_id if tr.er_id else 'N/A'
+            distance = str(tr.distance_km) if tr.distance_km else 'N/A'
+            address = tr.address if tr.address else 'N/A'
+            contact = tr.contact_person if tr.contact_person else 'N/A'
+            purpose = tr.purpose if tr.purpose else 'N/A'
+            status = tr.status.title() if tr.status else 'N/A'
+            approved_by = f"{tr.approved_by.employee_id} - {tr.approved_by.first_name} {tr.approved_by.last_name}" if tr.approved_by else 'N/A'
+            remarks = tr.remarks if tr.remarks else 'N/A'
+            created_at = tr.created_at.strftime('%Y-%m-%d %H:%M:%S') if tr.created_at else 'N/A'
+            
             writer.writerow([
-                request_obj.user.employee_id,
-                f"{request_obj.user.first_name} {request_obj.user.last_name}",
-                request_obj.user.dccb or 'N/A',
-                request_obj.from_date.strftime('%Y-%m-%d'),
-                request_obj.to_date.strftime('%Y-%m-%d'),
-                request_obj.get_duration_display() if hasattr(request_obj, 'get_duration_display') else (request_obj.duration or 'N/A'),
-                str(request_obj.days_count) if request_obj.days_count else 'N/A',
-                request_obj.er_id or 'N/A',
-                str(request_obj.distance_km) if request_obj.distance_km else 'N/A',
-                request_obj.address or 'N/A',
-                request_obj.contact_person or 'N/A',
-                request_obj.purpose or 'N/A',
-                request_obj.get_status_display() if hasattr(request_obj, 'get_status_display') else request_obj.status.title(),
-                f"{request_obj.approved_by.employee_id} - {request_obj.approved_by.first_name} {request_obj.approved_by.last_name}" if request_obj.approved_by else 'N/A',
-                request_obj.remarks or 'N/A',
-                request_obj.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                employee_id, name, dccb, from_date, to_date, duration, days,
+                er_id, distance, address, contact, purpose, status, 
+                approved_by, remarks, created_at
             ])
-        except Exception as e:
-            writer.writerow([f'ERROR: {str(e)}', '', '', '', '', '', '', '', '', '', '', '', '', '', '', ''])
-    
-    return response
+        
+        return response
+        
+    except Exception as e:
+        # Return error CSV
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="error_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+        writer = csv.writer(response)
+        writer.writerow(['Error', str(e)])
+        writer.writerow(['Total Travel Requests', TravelRequest.objects.count()])
+        return response
