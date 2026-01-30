@@ -2373,79 +2373,50 @@ def travel_approval_list(request):
 @login_required
 @admin_required
 def export_travel_requests(request):
-    """Simple CSV export for travel requests"""
-    try:
-        # Get all travel requests
-        travel_requests = TravelRequest.objects.select_related('user', 'approved_by').all().order_by('-created_at')
-        
-        # Apply filters if provided
-        status_filter = request.GET.get('status', '')
-        dccb_filter = request.GET.get('dccb', '')
-        
-        if status_filter:
-            travel_requests = travel_requests.filter(status=status_filter)
-        if dccb_filter:
-            travel_requests = travel_requests.filter(user__dccb=dccb_filter)
-        
-        # Create response
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = f'attachment; filename="travel_requests_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
-        
-        writer = csv.writer(response)
-        
-        # Write headers
-        writer.writerow([
-            'Employee ID',
-            'Name', 
-            'DCCB',
-            'From Date',
-            'To Date', 
-            'Duration',
-            'Days',
-            'ER ID',
-            'Distance (KM)',
-            'Address',
-            'Contact Person',
-            'Purpose',
-            'Status',
-            'Approved By',
-            'Remarks',
-            'Created At'
-        ])
-        
-        # Write data rows
+    """Minimal CSV export for debugging"""
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="travel_debug_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+    
+    writer = csv.writer(response)
+    
+    # Debug info
+    total_count = TravelRequest.objects.count()
+    writer.writerow(['DEBUG INFO'])
+    writer.writerow(['Total TravelRequest records in database:', total_count])
+    writer.writerow(['Current user:', request.user.employee_id if request.user else 'None'])
+    writer.writerow(['Timestamp:', timezone.now().strftime('%Y-%m-%d %H:%M:%S')])
+    writer.writerow([])
+    
+    # Headers
+    writer.writerow([
+        'Employee ID', 'Name', 'DCCB', 'From Date', 'To Date', 
+        'Duration', 'Days', 'ER ID', 'Distance (KM)', 'Address',
+        'Contact Person', 'Purpose', 'Status', 'Approved By', 'Remarks', 'Created At'
+    ])
+    
+    # Get data
+    if total_count > 0:
+        travel_requests = TravelRequest.objects.all()[:10]  # First 10 records
         for tr in travel_requests:
-            # Safe field access with defaults
-            employee_id = tr.user.employee_id if tr.user else 'N/A'
-            name = f"{tr.user.first_name} {tr.user.last_name}" if tr.user else 'N/A'
-            dccb = tr.user.dccb if tr.user and tr.user.dccb else 'N/A'
-            from_date = tr.from_date.strftime('%Y-%m-%d') if tr.from_date else 'N/A'
-            to_date = tr.to_date.strftime('%Y-%m-%d') if tr.to_date else 'N/A'
-            duration = tr.duration if tr.duration else 'N/A'
-            days = str(tr.days_count) if tr.days_count else 'N/A'
-            er_id = tr.er_id if tr.er_id else 'N/A'
-            distance = str(tr.distance_km) if tr.distance_km else 'N/A'
-            address = tr.address if tr.address else 'N/A'
-            contact = tr.contact_person if tr.contact_person else 'N/A'
-            purpose = tr.purpose if tr.purpose else 'N/A'
-            status = tr.status.title() if tr.status else 'N/A'
-            approved_by = f"{tr.approved_by.employee_id} - {tr.approved_by.first_name} {tr.approved_by.last_name}" if tr.approved_by else 'N/A'
-            remarks = tr.remarks if tr.remarks else 'N/A'
-            created_at = tr.created_at.strftime('%Y-%m-%d %H:%M:%S') if tr.created_at else 'N/A'
-            
             writer.writerow([
-                employee_id, name, dccb, from_date, to_date, duration, days,
-                er_id, distance, address, contact, purpose, status, 
-                approved_by, remarks, created_at
+                tr.user.employee_id if tr.user else 'NO_USER',
+                f"{tr.user.first_name} {tr.user.last_name}" if tr.user else 'NO_NAME',
+                tr.user.dccb if tr.user and tr.user.dccb else 'NO_DCCB',
+                tr.from_date.strftime('%Y-%m-%d') if tr.from_date else 'NO_DATE',
+                tr.to_date.strftime('%Y-%m-%d') if tr.to_date else 'NO_DATE',
+                tr.duration or 'NO_DURATION',
+                str(tr.days_count) if tr.days_count else 'NO_DAYS',
+                tr.er_id or 'NO_ER_ID',
+                str(tr.distance_km) if tr.distance_km else 'NO_DISTANCE',
+                tr.address or 'NO_ADDRESS',
+                tr.contact_person or 'NO_CONTACT',
+                tr.purpose or 'NO_PURPOSE',
+                tr.status or 'NO_STATUS',
+                f"{tr.approved_by.employee_id}" if tr.approved_by else 'NO_APPROVER',
+                tr.remarks or 'NO_REMARKS',
+                tr.created_at.strftime('%Y-%m-%d %H:%M:%S') if tr.created_at else 'NO_CREATED'
             ])
-        
-        return response
-        
-    except Exception as e:
-        # Return error CSV
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = f'attachment; filename="error_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
-        writer = csv.writer(response)
-        writer.writerow(['Error', str(e)])
-        writer.writerow(['Total Travel Requests', TravelRequest.objects.count()])
-        return response
+    else:
+        writer.writerow(['NO TRAVEL REQUESTS FOUND IN DATABASE'])
+    
+    return response
