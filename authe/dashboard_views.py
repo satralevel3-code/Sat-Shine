@@ -452,26 +452,37 @@ def confirm_team_attendance(request):
             designation__in=['MT', 'Support']
         ).exclude(id=request.user.id)
         
+        print(f"DEBUG: Found {team_members.count()} team members for DC {request.user.employee_id}")
+        
         confirmed_count = 0
         blocked_records = []
+        total_processed = 0
         
         # Process each team member's attendance
         for member in team_members:
+            print(f"DEBUG: Processing member {member.employee_id}")
             current_date = start_date
             while current_date <= end_date:
-                # Get or skip attendance record
+                # Get attendance record - MUST exist and be present/half_day
                 attendance = Attendance.objects.filter(
                     user=member,
-                    date=current_date
+                    date=current_date,
+                    status__in=['present', 'half_day']  # ONLY confirm present/half_day
                 ).first()
                 
-                # Skip if no attendance record exists
+                print(f"DEBUG: {member.employee_id} on {current_date}: {'Found' if attendance else 'No'} attendance record")
+                
+                # Skip if no valid attendance record exists
                 if not attendance:
                     current_date += timedelta(days=1)
                     continue
                 
+                total_processed += 1
+                print(f"DEBUG: {member.employee_id} - Status: {attendance.status}, DC Confirmed: {attendance.is_confirmed_by_dc}")
+                
                 # Skip if already confirmed
                 if attendance.is_confirmed_by_dc:
+                    print(f"DEBUG: {member.employee_id} - Already confirmed, skipping")
                     current_date += timedelta(days=1)
                     continue
                 
@@ -480,6 +491,7 @@ def confirm_team_attendance(request):
                 
                 if not can_confirm:
                     # BLOCK DC CONFIRMATION
+                    print(f"DEBUG: {member.employee_id} - BLOCKED: {error_message}")
                     blocked_records.append({
                         'employee_id': member.employee_id,
                         'date': current_date.isoformat(),
@@ -493,6 +505,7 @@ def confirm_team_attendance(request):
                     continue
                 
                 # ALLOWED: Confirm attendance
+                print(f"DEBUG: {member.employee_id} - CONFIRMING attendance")
                 attendance.is_confirmed_by_dc = True
                 attendance.confirmed_by_dc = request.user
                 attendance.dc_confirmed_at = timezone.now()
@@ -501,6 +514,8 @@ def confirm_team_attendance(request):
                 
                 confirmed_count += 1
                 current_date += timedelta(days=1)
+        
+        print(f"DEBUG: Final results - Confirmed: {confirmed_count}, Blocked: {len(blocked_records)}, Total processed: {total_processed}")
         
         # Create audit log
         AttendanceAuditLog.objects.create(

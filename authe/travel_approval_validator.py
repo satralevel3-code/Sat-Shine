@@ -15,6 +15,7 @@ def validate_travel_approval_for_dc_confirmation(attendance):
     - Applies ONLY to Present and Half Day status
     - Blocks DC confirmation if travel request is PENDING (Associate hasn't acted)
     - Allows DC confirmation if Associate has taken action (approved OR rejected)
+    - Allows DC confirmation if NO travel request exists
     
     Returns:
         tuple: (can_confirm: bool, error_message: str or None)
@@ -53,7 +54,7 @@ def validate_travel_approval_for_dc_confirmation(attendance):
     # Check travel approval status
     if travel_request.status == 'pending':
         # Travel pending - Block DC confirmation until Associate takes action
-        return (False, "Travel Approval is Pending")
+        return (False, "Travel Request is pending")
     
     # Associate has taken action (approved OR rejected) - DC can confirm
     return (True, None)
