@@ -513,14 +513,24 @@ def confirm_team_attendance(request):
             details=f'Confirmed: {confirmed_count} records. Blocked: {len(blocked_records)} records due to travel approval dependency.'
         )
         
-        # Build response message
-        if confirmed_count > 0 and len(blocked_records) == 0:
-            response_message = f'Successfully confirmed {confirmed_count} attendance records'
+        # Build response - CRITICAL: Return error when ALL records blocked
+        if confirmed_count == 0 and len(blocked_records) > 0:
+            # ALL records blocked - return ERROR response
+            return JsonResponse({
+                'success': False,
+                'error': 'Travel Request is pending',
+                'message': f'{len(blocked_records)} records blocked due to pending travel requests',
+                'confirmed_records': 0,
+                'blocked_records': blocked_records
+            }, status=400)
         elif confirmed_count > 0 and len(blocked_records) > 0:
-            response_message = f'Confirmed {confirmed_count} records. {len(blocked_records)} records blocked due to pending/rejected travel requests'
-        elif confirmed_count == 0 and len(blocked_records) > 0:
-            response_message = f'No records confirmed. {len(blocked_records)} records blocked due to travel approval requirements'
+            # Partial success
+            response_message = f'Confirmed {confirmed_count} records. {len(blocked_records)} records blocked due to pending travel requests'
+        elif confirmed_count > 0:
+            # Full success
+            response_message = f'Successfully confirmed {confirmed_count} attendance records'
         else:
+            # No records to process
             response_message = 'No records to confirm'
         
         return JsonResponse({
