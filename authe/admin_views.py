@@ -2373,63 +2373,65 @@ def travel_approval_list(request):
 @login_required
 @admin_required
 def export_travel_requests(request):
-    """Fixed CSV export with proper column alignment"""
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = f'attachment; filename="travel_requests_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
-    
-    writer = csv.writer(response)
-    
-    # Write headers - EXACTLY as shown in template
-    writer.writerow([
-        'Employee ID',
-        'Name',
-        'DCCB', 
-        'From Date',
-        'To Date',
-        'Duration',
-        'Days',
-        'ER ID',
-        'Distance (KM)',
-        'Address',
-        'Contact Person',
-        'Purpose',
-        'Status',
-        'Approved By',
-        'Remarks',
-        'Created At'
-    ])
-    
-    # Get travel requests
-    travel_requests = TravelRequest.objects.select_related('user', 'approved_by').all().order_by('-created_at')
-    
-    # Apply filters
+    """Complete CSV export for travel requests"""
+    # Apply same filters as list view
     status_filter = request.GET.get('status', '')
     dccb_filter = request.GET.get('dccb', '')
+    
+    travel_requests = TravelRequest.objects.select_related('user', 'approved_by').all()
     
     if status_filter:
         travel_requests = travel_requests.filter(status=status_filter)
     if dccb_filter:
         travel_requests = travel_requests.filter(user__dccb=dccb_filter)
     
-    # Write data rows - EXACTLY matching template format
+    travel_requests = travel_requests.order_by('-created_at')
+    
+    # Create CSV response
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="travel_requests_{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+    
+    writer = csv.writer(response)
+    
+    # Write exact headers as specified
+    writer.writerow([
+        'Employee Id',
+        'Name (First name +Last Name )',
+        'DCCB',
+        'From Date',
+        'To Date',
+        'Duration',
+        'Days',
+        'ER ID',
+        'Distance (KM)',
+        'Address (Link to view address details mentioned by the MT, Support and DC Users)',
+        'Contact Person',
+        'Purpose (Link to view the details of purpose mentioned by MT, Support, and DC users)',
+        'Status (Pending/ Approved/Reject)',
+        'Approved By (Associates Name and employee ID)',
+        'Remarks (link Comment added by the Associate)',
+        'Created At(date and time when Travel request raised)'
+    ])
+    
+    # Write data rows
     for tr in travel_requests:
         writer.writerow([
             tr.user.employee_id,
             f"{tr.user.first_name} {tr.user.last_name}",
             tr.user.dccb or 'N/A',
-            tr.from_date.strftime('%d %b %Y'),  # Match template format: 30 Jan 2026
+            tr.from_date.strftime('%d %b %Y'),
             tr.to_date.strftime('%d %b %Y'),
-            tr.get_duration_display() if hasattr(tr, 'get_duration_display') else tr.duration,
-            str(tr.days_count),
-            tr.er_id,
-            str(tr.distance_km),
-            tr.address,
-            tr.contact_person,
-            tr.purpose,
-            tr.status.title(),
+            tr.get_duration_display() if hasattr(tr, 'get_duration_display') else (tr.duration or 'N/A'),
+            str(tr.days_count) if tr.days_count else 'N/A',
+            tr.er_id or 'N/A',
+            str(tr.distance_km) if tr.distance_km else 'N/A',
+            tr.address or 'N/A',
+            tr.contact_person or 'N/A',
+            tr.purpose or 'N/A',
+            tr.status.title() if tr.status else 'N/A',
             f"{tr.approved_by.employee_id} - {tr.approved_by.first_name} {tr.approved_by.last_name}" if tr.approved_by else 'N/A',
             tr.remarks or 'N/A',
-            tr.created_at.strftime('%d %b %Y\n%H:%M')  # Match template format: 30 Jan 2026 16:57
+            tr.created_at.strftime('%d %b %Y %H:%M') if tr.created_at else 'N/A'
         ])
     
     return response
