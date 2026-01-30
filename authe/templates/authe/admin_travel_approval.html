@@ -126,8 +126,8 @@
                     <td>{{ request.user.dccb|default:"N/A" }}</td>
                     <td>{{ request.from_date|date:"d M Y" }}</td>
                     <td>{{ request.to_date|date:"d M Y" }}</td>
-                    <td>{{ request.duration|default:"N/A" }}</td>
-                    <td>{{ request.days|default:"N/A" }}</td>
+                    <td>{{ request.get_duration_display|default:"N/A" }}</td>
+                    <td>{{ request.days_count|default:"N/A" }}</td>
                     <td>{{ request.er_id|default:"N/A" }}</td>
                     <td>{{ request.distance_km|default:"N/A" }}</td>
                     <td>
