@@ -412,31 +412,11 @@ def apply_leave(request):
 @login_required
 @require_http_methods(["POST"])
 def confirm_team_attendance(request):
-    """DC confirmation of team attendance with MANDATORY travel request validation"""
+    """DC confirmation of team attendance - simplified version"""
     if request.user.role != 'field_officer' or request.user.designation != 'DC':
         return JsonResponse({'error': 'Access denied. DC privileges required.'}, status=403)
     
     try:
-        from .travel_approval_validator import validate_travel_approval_for_dc_confirmation, log_blocked_dc_confirmation
-        
-        # FORCE DEPLOYMENT: Enhanced validation with debug logging
-        def enhanced_validate_with_logging(attendance):
-            """Enhanced validation with production logging"""
-            import logging
-            logger = logging.getLogger(__name__)
-            
-            logger.info(f"🔍 DC CONFIRMATION CHECK: {attendance.user.employee_id} on {attendance.date}")
-            
-            # Use original validation
-            can_confirm, error_message = validate_travel_approval_for_dc_confirmation(attendance)
-            
-            if not can_confirm:
-                logger.warning(f"🚫 BLOCKED: {attendance.user.employee_id} - {error_message}")
-            else:
-                logger.info(f"✅ ALLOWED: {attendance.user.employee_id} - DC can confirm")
-            
-            return can_confirm, error_message
-        
         data = json.loads(request.body)
         start_date_str = data.get('start_date')
         end_date_str = data.get('end_date')
@@ -452,70 +432,37 @@ def confirm_team_attendance(request):
             designation__in=['MT', 'Support']
         ).exclude(id=request.user.id)
         
-        print(f"DEBUG: Found {team_members.count()} team members for DC {request.user.employee_id}")
-        
         confirmed_count = 0
-        blocked_records = []
-        total_processed = 0
         
         # Process each team member's attendance
         for member in team_members:
-            print(f"DEBUG: Processing member {member.employee_id}")
             current_date = start_date
             while current_date <= end_date:
-                # Get attendance record - MUST exist and be present/half_day
-                attendance = Attendance.objects.filter(
+                # Get or create attendance record
+                attendance, created = Attendance.objects.get_or_create(
                     user=member,
                     date=current_date,
-                    status__in=['present', 'half_day']  # ONLY confirm present/half_day
-                ).first()
+                    defaults={
+                        'status': 'absent',  # Mark as absent if not marked
+                        'is_confirmed_by_dc': True,
+                        'confirmed_by_dc': request.user,
+                        'dc_confirmed_at': timezone.now(),
+                        'confirmation_source': 'DC'
+                    }
+                )
                 
-                print(f"DEBUG: {member.employee_id} on {current_date}: {'Found' if attendance else 'No'} attendance record")
+                # If record exists but not confirmed, confirm it
+                if not created and not attendance.is_confirmed_by_dc:
+                    attendance.is_confirmed_by_dc = True
+                    attendance.confirmed_by_dc = request.user
+                    attendance.dc_confirmed_at = timezone.now()
+                    attendance.confirmation_source = 'DC'
+                    attendance.save()
+                    confirmed_count += 1
+                elif created:
+                    confirmed_count += 1
                 
-                # Skip if no valid attendance record exists
-                if not attendance:
-                    current_date += timedelta(days=1)
-                    continue
-                
-                total_processed += 1
-                print(f"DEBUG: {member.employee_id} - Status: {attendance.status}, DC Confirmed: {attendance.is_confirmed_by_dc}")
-                
-                # Skip if already confirmed
-                if attendance.is_confirmed_by_dc:
-                    print(f"DEBUG: {member.employee_id} - Already confirmed, skipping")
-                    current_date += timedelta(days=1)
-                    continue
-                
-                # MANDATORY VALIDATION: Check travel approval status with enhanced logging
-                can_confirm, error_message = enhanced_validate_with_logging(attendance)
-                
-                if not can_confirm:
-                    # BLOCK DC CONFIRMATION
-                    print(f"DEBUG: {member.employee_id} - BLOCKED: {error_message}")
-                    blocked_records.append({
-                        'employee_id': member.employee_id,
-                        'date': current_date.isoformat(),
-                        'reason': error_message
-                    })
-                    
-                    # Log blocked attempt
-                    log_blocked_dc_confirmation(request.user, attendance, error_message)
-                    
-                    current_date += timedelta(days=1)
-                    continue
-                
-                # ALLOWED: Confirm attendance
-                print(f"DEBUG: {member.employee_id} - CONFIRMING attendance")
-                attendance.is_confirmed_by_dc = True
-                attendance.confirmed_by_dc = request.user
-                attendance.dc_confirmed_at = timezone.now()
-                attendance.confirmation_source = 'DC'
-                attendance.save()
-                
-                confirmed_count += 1
                 current_date += timedelta(days=1)
-        
-        print(f"DEBUG: Final results - Confirmed: {confirmed_count}, Blocked: {len(blocked_records)}, Total processed: {total_processed}")
         
         # Create audit log
         AttendanceAuditLog.objects.create(
@@ -525,34 +472,13 @@ def confirm_team_attendance(request):
             date_range_start=start_date,
             date_range_end=end_date,
             ip_address=request.META.get('REMOTE_ADDR'),
-            details=f'Confirmed: {confirmed_count} records. Blocked: {len(blocked_records)} records due to travel approval dependency.'
+            details=f'Confirmed {confirmed_count} attendance records'
         )
-        
-        # Build response - CRITICAL: Return error when ALL records blocked
-        if confirmed_count == 0 and len(blocked_records) > 0:
-            # ALL records blocked - return ERROR response
-            return JsonResponse({
-                'success': False,
-                'error': 'Travel Request is pending',
-                'message': f'{len(blocked_records)} records blocked due to pending travel requests',
-                'confirmed_records': 0,
-                'blocked_records': blocked_records
-            }, status=400)
-        elif confirmed_count > 0 and len(blocked_records) > 0:
-            # Partial success
-            response_message = f'Confirmed {confirmed_count} records. {len(blocked_records)} records blocked due to pending travel requests'
-        elif confirmed_count > 0:
-            # Full success
-            response_message = f'Successfully confirmed {confirmed_count} attendance records'
-        else:
-            # No records to process
-            response_message = 'No records to confirm'
         
         return JsonResponse({
             'success': True,
-            'message': response_message,
-            'confirmed_records': confirmed_count,
-            'blocked_records': blocked_records
+            'message': f'Successfully confirmed {confirmed_count} attendance records',
+            'confirmed_records': confirmed_count
         })
         
     except Exception as e:
