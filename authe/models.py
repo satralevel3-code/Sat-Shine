@@ -189,7 +189,9 @@ class Attendance(models.Model):
         ('ADMIN', 'Admin'),
     ]
     
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    # IMMUTABLE PRIMARY KEY - NEVER DELETE
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(CustomUser, on_delete=models.PROTECT)  # PROTECT prevents deletion
     date = models.DateField(default=timezone.now)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES)
     check_in_time = models.TimeField(null=True, blank=True)
@@ -203,7 +205,7 @@ class Attendance(models.Model):
     task = models.TextField(blank=True, null=True, default='')
     travel_reason = models.TextField(blank=True, null=True, default='')
     
-    # GPS Location fields
+    # GPS Location fields - PERMANENT STORAGE
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
     location_accuracy = models.FloatField(null=True, blank=True)
@@ -211,33 +213,63 @@ class Attendance(models.Model):
     is_location_valid = models.BooleanField(default=False)
     distance_from_office = models.FloatField(null=True, blank=True)
     
-    # Approval workflow
+    # Approval workflow - PERMANENT AUDIT TRAIL
     is_confirmed_by_dc = models.BooleanField(default=False)
-    confirmed_by_dc = models.ForeignKey(CustomUser, null=True, blank=True, on_delete=models.SET_NULL, related_name='dc_confirmations')
+    confirmed_by_dc = models.ForeignKey(CustomUser, null=True, blank=True, on_delete=models.PROTECT, related_name='dc_confirmations')
     dc_confirmed_at = models.DateTimeField(null=True, blank=True)
     is_approved_by_admin = models.BooleanField(default=False)
-    approved_by_admin = models.ForeignKey(CustomUser, null=True, blank=True, on_delete=models.SET_NULL, related_name='admin_approvals')
+    approved_by_admin = models.ForeignKey(CustomUser, null=True, blank=True, on_delete=models.PROTECT, related_name='admin_approvals')
     admin_approved_at = models.DateTimeField(null=True, blank=True)
     
+    # PERMANENT METADATA - NEVER DELETE
     remarks = models.TextField(null=True, blank=True)
     marked_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     confirmation_source = models.CharField(max_length=20, choices=CONFIRMATION_SOURCE_CHOICES, default='DC')
-    is_leave_day = models.BooleanField(default=False)  # Mark if this absence is due to approved leave
+    is_leave_day = models.BooleanField(default=False)
+    is_archived = models.BooleanField(default=False)  # For controlled archival only
+    
+    # TRAVEL DEPENDENCY VALIDATION FIELDS
+    has_pending_travel = models.BooleanField(default=False)
+    travel_dependency_status = models.CharField(max_length=50, blank=True, null=True)
     
     class Meta:
         unique_together = ['user', 'date']
         ordering = ['-date']
+        indexes = [
+            models.Index(fields=['user', 'date']),
+            models.Index(fields=['date']),
+            models.Index(fields=['is_archived']),
+        ]
     
     def save(self, *args, **kwargs):
-        """Override save to enforce role-based DC confirmation rules"""
+        """Override save with travel dependency validation"""
+        # CRITICAL: Check travel dependency before approval
+        if not self.pk:  # New record
+            self.check_travel_dependency()
+        
         # CRITICAL BUSINESS RULE: Associates and DCs NEVER need DC confirmation
         if self.user.designation in ['Associate', 'DC']:
-            # Set to True so they skip DC pipeline entirely
             self.is_confirmed_by_dc = True
             self.confirmed_by_dc = None
             self.dc_confirmed_at = None
         
         super().save(*args, **kwargs)
+    
+    def check_travel_dependency(self):
+        """Check for pending travel requests that block approval"""
+        pending_travel = TravelRequest.objects.filter(
+            user=self.user,
+            from_date__lte=self.date,
+            to_date__gte=self.date,
+            status__in=['pending', 'rejected']
+        ).exists()
+        
+        self.has_pending_travel = pending_travel
+        if pending_travel:
+            self.travel_dependency_status = 'Travel Approval Required'
+        else:
+            self.travel_dependency_status = None
     
     @property
     def timing_status(self):
@@ -314,7 +346,7 @@ class AttendanceAuditLog(models.Model):
         return f"{self.action_type} by {self.dc_user.employee_id} - {self.timestamp}"
 
 class TravelRequest(models.Model):
-    """Enhanced travel request workflow"""
+    """Enhanced travel request workflow with permanent storage"""
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('approved', 'Approved'),
@@ -326,28 +358,62 @@ class TravelRequest(models.Model):
         ('half_day', 'Half Day'),
     ]
     
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    # IMMUTABLE PRIMARY KEY - NEVER DELETE
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(CustomUser, on_delete=models.PROTECT)
     from_date = models.DateField()
     to_date = models.DateField()
     duration = models.CharField(max_length=10, choices=DURATION_CHOICES, default='full_day')
     days_count = models.DecimalField(max_digits=4, decimal_places=1, default=1.0)
-    request_to = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='travel_requests_to_approve', null=True, blank=True)
+    request_to = models.ForeignKey(CustomUser, on_delete=models.PROTECT, related_name='travel_requests_to_approve', null=True, blank=True)
     
-    # Travel details
+    # Travel details - PERMANENT STORAGE
     er_id = models.CharField(max_length=17, validators=[RegexValidator(r'^[A-Z0-9]{17}$', 'ER ID must be 17 characters')])
     distance_km = models.IntegerField()
     address = models.TextField()
     contact_person = models.CharField(max_length=100)
     purpose = models.TextField()
     
+    # APPROVAL WORKFLOW - PERMANENT AUDIT TRAIL
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
-    approved_by = models.ForeignKey(CustomUser, null=True, on_delete=models.SET_NULL, related_name='approved_travels')
+    approved_by = models.ForeignKey(CustomUser, null=True, on_delete=models.PROTECT, related_name='approved_travels')
     approved_at = models.DateTimeField(null=True, blank=True)
     remarks = models.TextField(null=True, blank=True)
+    
+    # PERMANENT METADATA - NEVER DELETE
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    is_archived = models.BooleanField(default=False)  # For controlled archival only
     
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'from_date', 'to_date']),
+            models.Index(fields=['status']),
+            models.Index(fields=['is_archived']),
+        ]
+    
+    def save(self, *args, **kwargs):
+        """Override save to update attendance dependency status"""
+        super().save(*args, **kwargs)
+        
+        # Update related attendance records when travel status changes
+        if self.status in ['approved', 'rejected']:
+            self.update_attendance_dependency()
+    
+    def update_attendance_dependency(self):
+        """Update attendance records with travel dependency status"""
+        from datetime import timedelta
+        current_date = self.from_date
+        
+        while current_date <= self.to_date:
+            try:
+                attendance = Attendance.objects.get(user=self.user, date=current_date)
+                attendance.check_travel_dependency()
+                attendance.save()
+            except Attendance.DoesNotExist:
+                pass
+            current_date += timedelta(days=1)
     
     def __str__(self):
         return f"{self.user.employee_id} - {self.from_date} to {self.to_date}"
