@@ -7,7 +7,7 @@ from django.contrib.auth import update_session_auth_hash
 from django.utils import timezone
 from django.db import transaction
 from .models import CustomUser, Attendance, TravelRequest, LeaveRequest
-from .notification_service import NotificationService
+from .notification_service import create_notification
 import json
 from datetime import datetime, date
 
@@ -47,11 +47,12 @@ def password_reset_management(request):
             user.save()
             
             # Create notification
-            NotificationService.create_notification(
-                user=user,
+            create_notification(
+                recipient=user,
+                notification_type='system',
                 title='Password Reset',
                 message=f'Your password has been reset by Super Admin.',
-                notification_type='system'
+                priority='high'
             )
             
             messages.success(request, f'Password reset successfully for {employee_id}')
@@ -102,11 +103,12 @@ def attendance_marking_interface(request):
                 attendance.save()
             
             # Create notification
-            NotificationService.create_notification(
-                user=user,
+            create_notification(
+                recipient=user,
+                notification_type='attendance',
                 title='Attendance Marked',
                 message=f'Your attendance for {attendance_date} has been marked as {status} by Super Admin.',
-                notification_type='attendance'
+                priority='medium'
             )
             
             messages.success(request, f'Attendance marked for {employee_id} on {attendance_date}')
@@ -162,11 +164,12 @@ def reverse_attendance_status(request):
             attendance.save()
             
             # Create notification
-            NotificationService.create_notification(
-                user=attendance.user,
+            create_notification(
+                recipient=attendance.user,
+                notification_type='attendance',
                 title='Attendance Status Changed',
                 message=f'Your attendance status for {attendance.date} has been updated by Super Admin.',
-                notification_type='attendance'
+                priority='medium'
             )
             
             return JsonResponse({'success': True, 'message': message})
@@ -194,11 +197,12 @@ def reverse_travel_status(request):
             travel_request.save()
             
             # Create notification
-            NotificationService.create_notification(
-                user=travel_request.user,
+            create_notification(
+                recipient=travel_request.user,
+                notification_type='travel',
                 title='Travel Request Status Changed',
                 message=f'Your travel request status changed from {old_status} to {new_status} by Super Admin.',
-                notification_type='travel'
+                priority='high'
             )
             
             return JsonResponse({'success': True, 'message': f'Travel status changed to {new_status}'})
@@ -229,11 +233,12 @@ def bulk_status_operations(request):
                     
                     # Create notifications
                     for attendance in attendances:
-                        NotificationService.create_notification(
-                            user=attendance.user,
+                        create_notification(
+                            recipient=attendance.user,
+                            notification_type='attendance',
                             title='Attendance Bulk Approved',
                             message=f'Your attendance for {attendance.date} has been bulk approved.',
-                            notification_type='attendance'
+                            priority='medium'
                         )
                     
                     return JsonResponse({'success': True, 'message': f'{count} attendance records approved'})
