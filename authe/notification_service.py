@@ -49,13 +49,19 @@ def send_check_in_reminder():
         )
 
 def notify_travel_request(travel_request):
-    """Notify Associate about new travel request"""
-    if travel_request.request_to:
+    """Notify ALL Associates about new travel request"""
+    # Notify ALL Associates since any can approve
+    associates = CustomUser.objects.filter(
+        designation='Associate',
+        is_active=True
+    )
+    
+    for associate in associates:
         create_notification(
-            recipient=travel_request.request_to,
+            recipient=associate,
             notification_type='travel_request',
             title='New Travel Request',
-            message=f'Travel request from {travel_request.user.employee_id} for {travel_request.from_date} requires your approval.',
+            message=f'Travel request from {travel_request.user.employee_id} ({travel_request.user.dccb}) for {travel_request.from_date} requires approval.',
             priority='high',
             related_object_id=f'travel_{travel_request.id}'
         )
@@ -165,3 +171,45 @@ def notify_admin_approval_to_user(user, admin_user):
             message=f'Your attendance has been approved by Admin {admin_user.employee_id}',
             priority='medium'
         )
+
+def notify_new_user_registration(new_user):
+    """Notify Admins about new user registration"""
+    admins = CustomUser.objects.filter(role_level__gte=10, is_active=True)
+    for admin in admins:
+        create_notification(
+            recipient=admin,
+            notification_type='system_alert',
+            title='New User Registration',
+            message=f'New user {new_user.employee_id} ({new_user.designation}) has registered and needs activation.',
+            priority='high'
+        )
+
+def notify_attendance_late_arrival(attendance):
+    """Notify DC and Admin about late arrivals"""
+    if attendance.check_in_time and attendance.check_in_time > timezone.now().time().replace(hour=9, minute=30):
+        # Notify DC
+        dcs = CustomUser.objects.filter(
+            designation='DC',
+            dccb=attendance.user.dccb,
+            is_active=True
+        )
+        
+        for dc in dcs:
+            create_notification(
+                recipient=dc,
+                notification_type='system_alert',
+                title='Late Arrival Alert',
+                message=f'{attendance.user.employee_id} arrived late at {attendance.check_in_time.strftime("%H:%M")}',
+                priority='medium'
+            )
+        
+        # Notify Admins
+        admins = CustomUser.objects.filter(role_level__gte=10, is_active=True)
+        for admin in admins:
+            create_notification(
+                recipient=admin,
+                notification_type='system_alert',
+                title='Late Arrival Alert',
+                message=f'{attendance.user.employee_id} ({attendance.user.dccb}) arrived late at {attendance.check_in_time.strftime("%H:%M")}',
+                priority='low'
+            )

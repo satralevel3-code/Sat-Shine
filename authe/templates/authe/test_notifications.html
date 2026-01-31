@@ -1,0 +1,158 @@
+{% extends 'main/base_unified.html' %}
+
+{% block title %}Test Notification System - SAT-SHINE{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Notification System Test</h3>
+    </div>
+    
+    <div class="card-body">
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i>
+            Use this page to test the notification system functionality.
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <h5>Test Personal Notification</h5>
+                <p>Send a test notification to yourself to verify the system is working.</p>
+                <button class="btn btn-primary" onclick="sendTestNotification()">
+                    <i class="fas fa-bell"></i> Send Test Notification
+                </button>
+            </div>
+            
+            {% if user.role == 'super_admin' %}
+            <div class="col-md-6">
+                <h5>Broadcast Notification</h5>
+                <div class="form-group">
+                    <label>Title</label>
+                    <input type="text" class="form-control" id="broadcastTitle" value="System Announcement">
+                </div>
+                <div class="form-group">
+                    <label>Message</label>
+                    <textarea class="form-control" id="broadcastMessage" rows="3">This is a system-wide announcement.</textarea>
+                </div>
+                <div class="form-group">
+                    <label>Priority</label>
+                    <select class="form-control" id="broadcastPriority">
+                        <option value="low">Low</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="high">High</option>
+                    </select>
+                </div>
+                <button class="btn btn-warning" onclick="sendBroadcast()">
+                    <i class="fas fa-broadcast-tower"></i> Send Broadcast
+                </button>
+            </div>
+            {% endif %}
+        </div>
+        
+        <hr>
+        
+        <div class="mt-4">
+            <h5>Notification System Status</h5>
+            <div id="systemStatus">
+                <div class="d-flex align-items-center">
+                    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                    Checking system status...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function sendTestNotification() {
+    fetch('/auth/test-notifications/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || '',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Test notification sent! Check the notification bell in the header.');
+            // Refresh notifications to show the new one
+            setTimeout(() => {
+                if (window.loadNotifications) {
+                    loadNotifications();
+                }
+            }, 1000);
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to send test notification');
+    });
+}
+
+{% if user.role == 'super_admin' %}
+function sendBroadcast() {
+    const title = document.getElementById('broadcastTitle').value;
+    const message = document.getElementById('broadcastMessage').value;
+    const priority = document.getElementById('broadcastPriority').value;
+    
+    if (!title || !message) {
+        alert('Please fill in both title and message');
+        return;
+    }
+    
+    fetch('/auth/broadcast-notification/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || '',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            title: title,
+            message: message,
+            priority: priority
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to send broadcast');
+    });
+}
+{% endif %}
+
+// Check system status
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('/auth/notifications/')
+        .then(response => response.json())
+        .then(data => {
+            const status = document.getElementById('systemStatus');
+            status.innerHTML = `
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle"></i>
+                    Notification system is working properly. 
+                    You have ${data.unread_count} unread notifications.
+                </div>
+            `;
+        })
+        .catch(error => {
+            const status = document.getElementById('systemStatus');
+            status.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Notification system error: ${error.message}
+                </div>
+            `;
+        });
+});
+</script>
+{% endblock %}

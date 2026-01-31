@@ -182,8 +182,12 @@ def mark_attendance(request):
             attendance = Attendance.objects.create(**attendance_data)
             
             # Send notification to DC and Admin
-            from .notification_service import notify_attendance_marked
+            from .notification_service import notify_attendance_marked, notify_attendance_late_arrival
             notify_attendance_marked(attendance)
+            
+            # Check for late arrival and send additional notification
+            if current_time and current_time > time(9, 30) and status != 'absent':
+                notify_attendance_late_arrival(attendance)
             
             # Create audit log
             create_audit_log(
@@ -474,6 +478,11 @@ def confirm_team_attendance(request):
             ip_address=request.META.get('REMOTE_ADDR'),
             details=f'Confirmed {confirmed_count} attendance records'
         )
+        
+        # Send notification to admins about DC confirmation
+        from .notification_service import notify_dc_confirmation
+        date_range = f"{start_date} to {end_date}"
+        notify_dc_confirmation(request.user, confirmed_count, date_range)
         
         return JsonResponse({
             'success': True,

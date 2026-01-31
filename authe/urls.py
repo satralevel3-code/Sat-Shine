@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, dashboard_views, admin_views, travel_views, associate_views, enterprise_admin_views, enhanced_attendance_views, super_admin_views, bulk_upload_views, simple_redirect, test_views, debug_views, notification_views, reports_views, travel_api_views
+from . import views, dashboard_views, admin_views, travel_views, associate_views, enterprise_admin_views, enhanced_attendance_views, super_admin_views, bulk_upload_views, simple_redirect, test_views, debug_views, notification_views, reports_views, travel_api_views, notification_test_views
 from django.shortcuts import redirect
 
 def signup_redirect(request):
@@ -100,6 +100,8 @@ urlpatterns = [
     path('notifications/', notification_views.get_notifications, name='get_notifications'),
     path('notifications/<int:notification_id>/read/', notification_views.mark_notification_read, name='mark_notification_read'),
     path('notifications/mark-all-read/', notification_views.mark_all_notifications_read, name='mark_all_notifications_read'),
+    path('test-notifications/', notification_test_views.test_notification_system, name='test_notifications'),
+    path('broadcast-notification/', notification_test_views.broadcast_notification, name='broadcast_notification'),
     
     # Reports & Analytics URLs
     path('reports/', reports_views.reports_analytics_dashboard, name='reports_analytics_dashboard'),

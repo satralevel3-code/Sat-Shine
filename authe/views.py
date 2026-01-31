@@ -102,6 +102,10 @@ def register_view(request):
             # Save user
             user = form.save()
             
+            # Send notification to admins about new user registration
+            from .notification_service import notify_new_user_registration
+            notify_new_user_registration(user)
+            
             # Create audit log
             create_audit_log(
                 request.user, 

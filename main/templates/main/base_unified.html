@@ -122,6 +122,12 @@
         background-color: rgba(255,255,255,0.1);
     }
 
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+        100% { transform: scale(1); }
+    }
+
     .notification-badge {
         position: absolute;
         top: 2px;
@@ -690,7 +696,7 @@
         .catch(error => console.error('Error marking all notifications as read:', error));
     }
 
-    // Auto-refresh notifications every 30 seconds
+    // Auto-refresh notifications every 15 seconds for real-time updates
     setInterval(() => {
         if (document.getElementById('notificationBadge')) {
             fetch('/auth/notifications/')
@@ -700,13 +706,20 @@
                     if (data.unread_count > 0) {
                         badge.textContent = data.unread_count;
                         badge.style.display = 'flex';
+                        
+                        // Flash notification bell for new notifications
+                        const bell = document.querySelector('.notification-bell');
+                        bell.style.animation = 'pulse 0.5s ease-in-out';
+                        setTimeout(() => {
+                            bell.style.animation = '';
+                        }, 500);
                     } else {
                         badge.style.display = 'none';
                     }
                 })
                 .catch(error => console.error('Error refreshing notifications:', error));
         }
-    }, 30000);
+    }, 15000); // 15 seconds
     </script>
 
     {% if user.is_authenticated %}
