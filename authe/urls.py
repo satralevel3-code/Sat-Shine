@@ -67,7 +67,7 @@ urlpatterns = [
     path('associate/mark-attendance-page/', associate_views.associate_mark_attendance_page, name='associate_mark_attendance_page'),
     path('associate/attendance-status/', associate_views.get_attendance_status, name='associate_attendance_status'),
     path('associate/travel-approvals/', travel_views.associate_travel_approvals, name='associate_travel_approvals'),
-    path('associate/approve-travel/<int:travel_id>/', travel_views.approve_travel_request, name='approve_travel_request'),
+    path('associate/approve-travel/<uuid:travel_id>/', travel_views.approve_travel_request, name='approve_travel_request'),
     path('travel-request-details/<int:request_id>/', associate_views.travel_request_details, name='travel_request_details'),
     path('auth/travel-request-details/<int:request_id>/', associate_views.travel_request_details, name='admin_travel_request_details'),
     

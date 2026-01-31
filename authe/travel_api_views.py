@@ -5,8 +5,8 @@ from .models import TravelRequest
 
 @login_required
 def travel_request_details_api(request, travel_id):
-    """API to get travel request details for Associates"""
-    if request.user.designation != 'Associate':
+    """API to get travel request details for Associates and Admins"""
+    if request.user.designation not in ['Associate'] and request.user.role_level < 10:
         return JsonResponse({'success': False, 'error': 'Access denied'})
     
     try:

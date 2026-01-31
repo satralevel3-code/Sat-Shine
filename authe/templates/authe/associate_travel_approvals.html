@@ -283,7 +283,7 @@
                         <td>{{ request.get_duration_display }}</td>
                         <td>{{ request.days_count }}</td>
                         <td>
-                            <button class="btn-action btn-details" onclick="viewTravelDetails({{ request.id }})">
+                            <button class="btn-action btn-details" onclick="viewTravelDetails('{{ request.id }}')">
                                 View Details
                             </button>
                         </td>
@@ -299,10 +299,10 @@
                         <td>
                             {% if request.status == 'pending' %}
                                 <div class="d-flex gap-1">
-                                    <button class="btn-action btn-approve" onclick="approveTravel({{ request.id }})">
+                                    <button class="btn-action btn-approve" onclick="approveTravel('{{ request.id }}')">
                                         Approve
                                     </button>
-                                    <button class="btn-action btn-reject" onclick="rejectTravel({{ request.id }})">
+                                    <button class="btn-action btn-reject" onclick="rejectTravel('{{ request.id }}')">
                                         Reject
                                     </button>
                                 </div>
@@ -389,10 +389,15 @@
 let currentTravelId = null;
 
 function viewTravelDetails(travelId) {
+    console.log('Travel ID:', travelId);
     // Fetch travel details via AJAX
     fetch(`/travel-request-details-api/${travelId}/`)
-        .then(response => response.json())
+        .then(response => {
+            console.log('Response status:', response.status);
+            return response.json();
+        })
         .then(data => {
+            console.log('Response data:', data);
             if (data.success) {
                 const travel = data.data;
                 document.getElementById('travelDetailsContent').innerHTML = `
@@ -454,6 +459,7 @@ function viewTravelDetails(travelId) {
             }
         })
         .catch(error => {
+            console.error('Fetch error:', error);
             document.getElementById('travelDetailsContent').innerHTML = `
                 <div class="alert alert-danger">Network error: ${error}</div>
             `;
