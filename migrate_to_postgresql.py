@@ -41,6 +41,7 @@ def migrate_to_postgresql():
     
     if not CustomUser.objects.filter(employee_id='MP0001').exists():
         admin_user = CustomUser.objects.create_user(
+            username='MP0001',
             employee_id='MP0001',
             email='admin@mpmt.com',
             password='admin123',
