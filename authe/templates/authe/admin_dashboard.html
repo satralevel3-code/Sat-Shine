@@ -632,12 +632,72 @@ body {
                 <a href="{% url 'export_master_employee_report' %}" class="btn btn-success">
                     <i class="fas fa-download"></i> Employee Master Report
                 </a>
-                <a href="{% url 'export_master_attendance_report' %}" class="btn btn-primary">
+                <button class="btn btn-primary" onclick="showAttendanceExportModal()">
                     <i class="fas fa-download"></i> Attendance Master Report
-                </a>
+                </button>
                 <a href="{% url 'export_employees' %}?format=csv" class="btn btn-secondary">
                     <i class="fas fa-file-csv"></i> Employee List CSV
                 </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Attendance Export Modal -->
+<div class="modal fade" id="attendanceExportModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Export Master Attendance Report</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="attendanceExportForm">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" class="form-control" id="startDate" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">End Date</label>
+                            <input type="date" class="form-control" id="endDate" required>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <label class="form-label">DCCB (Optional)</label>
+                            <select class="form-control" id="dccbFilter">
+                                <option value="">All DCCBs</option>
+                                <option value="AHMEDABAD">AHMEDABAD</option>
+                                <option value="BANASKANTHA">BANASKANTHA</option>
+                                <option value="BARODA">BARODA</option>
+                                <option value="MAHESANA">MAHESANA</option>
+                                <option value="SABARKANTHA">SABARKANTHA</option>
+                                <option value="BHARUCH">BHARUCH</option>
+                                <option value="KHEDA">KHEDA</option>
+                                <option value="PANCHMAHAL">PANCHMAHAL</option>
+                                <option value="SURENDRANAGAR">SURENDRANAGAR</option>
+                                <option value="JAMNAGAR">JAMNAGAR</option>
+                                <option value="JUNAGADH">JUNAGADH</option>
+                                <option value="KODINAR">KODINAR</option>
+                                <option value="KUTCH">KUTCH</option>
+                                <option value="VALSAD">VALSAD</option>
+                                <option value="AMRELI">AMRELI</option>
+                                <option value="BHAVNAGAR">BHAVNAGAR</option>
+                                <option value="RAJKOT">RAJKOT</option>
+                                <option value="SURAT">SURAT</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Employee ID (Optional)</label>
+                            <input type="text" class="form-control" id="employeeFilter" placeholder="Search specific employee">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="exportAttendanceReport()">Download Report</button>
             </div>
         </div>
     </div>
@@ -648,7 +708,50 @@ body {
 document.addEventListener('DOMContentLoaded', function() {
     updateDateTime();
     setInterval(updateDateTime, 1000);
+    
+    // Set default dates for export modal
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    
+    document.getElementById('startDate').value = firstDay.toISOString().split('T')[0];
+    document.getElementById('endDate').value = today.toISOString().split('T')[0];
 });
+
+// Show attendance export modal
+function showAttendanceExportModal() {
+    const modal = new bootstrap.Modal(document.getElementById('attendanceExportModal'));
+    modal.show();
+}
+
+// Export attendance report with parameters
+function exportAttendanceReport() {
+    const startDate = document.getElementById('startDate').value;
+    const endDate = document.getElementById('endDate').value;
+    const dccb = document.getElementById('dccbFilter').value;
+    const employee = document.getElementById('employeeFilter').value;
+    
+    if (!startDate || !endDate) {
+        alert('Please select both start and end dates');
+        return;
+    }
+    
+    // Build URL with parameters
+    let url = '{% url "export_master_attendance_report" %}';
+    const params = new URLSearchParams();
+    params.append('start_date', startDate);
+    params.append('end_date', endDate);
+    if (dccb) params.append('dccb', dccb);
+    if (employee) params.append('employee', employee);
+    
+    url += '?' + params.toString();
+    
+    // Download the file
+    window.location.href = url;
+    
+    // Close modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('attendanceExportModal'));
+    modal.hide();
+}
 
 // Update date and time display
 function updateDateTime() {

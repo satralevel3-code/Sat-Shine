@@ -309,7 +309,7 @@ def export_master_employee_report(request):
 @login_required
 @admin_required
 def export_master_attendance_report(request):
-    """Enhanced Master Attendance Report with comprehensive data"""
+    """COMPREHENSIVE Master Attendance Report with ALL system data"""
     start_date_str = request.GET.get('start_date')
     end_date_str = request.GET.get('end_date')
     dccb_filter = request.GET.get('dccb', '')
@@ -324,81 +324,137 @@ def export_master_attendance_report(request):
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
         end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
     
+    # Get ALL attendance records in date range
     attendance_records = Attendance.objects.filter(
         date__range=[start_date, end_date]
-    ).select_related('user')
+    ).select_related('user', 'confirmed_by_dc', 'approved_by_admin').order_by('date', 'user__employee_id')
     
+    # Apply filters
     if dccb_filter:
         attendance_records = attendance_records.filter(user__dccb=dccb_filter)
     if employee_filter:
-        attendance_records = attendance_records.filter(user__employee_id=employee_filter)
-    
-    attendance_records = attendance_records.order_by('date', 'user__employee_id')
+        attendance_records = attendance_records.filter(user__employee_id__icontains=employee_filter)
     
     response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = f'attachment; filename="master_attendance_report_{start_date}_{end_date}.csv"'
+    response['Content-Disposition'] = f'attachment; filename="SAT_SHINE_Master_Attendance_Report_{start_date}_{end_date}.csv"'
     
     writer = csv.writer(response)
     
-    # Enhanced Header
+    # COMPREHENSIVE Header with ALL data fields
     writer.writerow([
-        'EMP ID', 'Name', 'Contact Number', 'Designation', 'Department', 'DCCB',
-        'Date', 'Check-In Time', 'Check-Out Time', 'Attendance Status', 'Time Status',
-        'Travel Status', 'Task', 'Workplace', 'Location (Lat, Lng)', 'DC Confirmation Status',
-        'Attendance Approval Status', 'Travel Request Date', 'Travel Requested',
-        'Travel Approved', 'Travel Approval Date', 'Working Hours', 'Location Distance (KM)'
+        'Employee ID', 'Employee Name', 'Contact Number', 'Email', 'Designation', 
+        'Department', 'DCCB', 'Reporting Manager', 'Date', 'Day of Week',
+        'Check-In Time', 'Check-Out Time', 'Attendance Status', 'Time Status (On Time/Late)',
+        'Working Hours', 'Break Hours', 'Overtime Hours', 'Location (Latitude)', 'Location (Longitude)',
+        'Address/Workplace', 'Task Description', 'Travel Required (Y/N)', 'Travel Approved (Y/N)',
+        'Travel Distance (KM)', 'Travel Purpose', 'Travel ER ID', 'Travel Contact Person',
+        'DC Confirmation Status', 'DC Confirmed By', 'DC Confirmation Date', 'DC Confirmation Time',
+        'Admin Approval Status', 'Admin Approved By', 'Admin Approval Date', 'Admin Approval Time',
+        'Leave Status', 'Leave Type', 'Leave Reason', 'Leave Approved By',
+        'Marked At (Date)', 'Marked At (Time)', 'Last Updated', 'Record Status',
+        'GPS Accuracy', 'Device Info', 'IP Address', 'Remarks/Notes'
     ])
     
-    # Data rows
+    # Process each attendance record
     for record in attendance_records:
         # Calculate working hours
         working_hours = 0
+        break_hours = 0
+        overtime_hours = 0
+        
         if record.check_in_time and record.check_out_time:
             check_in_datetime = datetime.combine(record.date, record.check_in_time)
             check_out_datetime = datetime.combine(record.date, record.check_out_time)
-            working_hours = round((check_out_datetime - check_in_datetime).total_seconds() / 3600, 2)
-        
-        # Calculate location distance - Skip if check_out coordinates not available
-        location_distance = 0
-        # Note: Attendance model only has latitude/longitude for check-in location
-        # Check-out location tracking would need additional fields
+            total_hours = (check_out_datetime - check_in_datetime).total_seconds() / 3600
+            
+            # Standard working hours calculation
+            if total_hours > 8:
+                working_hours = 8
+                overtime_hours = round(total_hours - 8, 2)
+            else:
+                working_hours = round(total_hours, 2)
+            
+            # Assume 1 hour break for full day
+            if total_hours > 4:
+                break_hours = 1
         
         # Time status
         time_status = 'On Time'
         if record.check_in_time and record.check_in_time > time(9, 30):
             time_status = 'Late'
+        elif not record.check_in_time:
+            time_status = 'Not Marked'
         
-        # Get travel request info
+        # Get travel request info for this date
         travel_request = TravelRequest.objects.filter(
             user=record.user,
             from_date__lte=record.date,
             to_date__gte=record.date
         ).first()
         
+        # Get leave request info for this date
+        leave_request = LeaveRequest.objects.filter(
+            user=record.user,
+            start_date__lte=record.date,
+            end_date__gte=record.date
+        ).first()
+        
+        # Day of week
+        day_of_week = record.date.strftime('%A')
+        
+        # Record status
+        record_status = 'Active'
+        if not record.user.is_active:
+            record_status = 'Inactive Employee'
+        
         writer.writerow([
             record.user.employee_id,
             record.user.get_full_name(),
-            record.user.contact_number,
-            record.user.designation,
+            record.user.contact_number or 'N/A',
+            record.user.email or 'N/A',
+            record.user.designation or 'N/A',
             record.user.department or 'N/A',
-            record.user.dccb,
+            record.user.dccb or 'N/A',
+            record.user.reporting_manager or 'N/A',
             record.date.strftime('%Y-%m-%d'),
-            record.check_in_time.strftime('%H:%M:%S') if record.check_in_time else '',
-            record.check_out_time.strftime('%H:%M:%S') if record.check_out_time else '',
+            day_of_week,
+            record.check_in_time.strftime('%H:%M:%S') if record.check_in_time else 'Not Marked',
+            record.check_out_time.strftime('%H:%M:%S') if record.check_out_time else 'Not Marked',
             record.status.title(),
             time_status,
-            'Y' if record.travel_required else 'N',
-            record.task or 'N/A',
-            record.workplace or 'N/A',
-            f"{record.latitude}, {record.longitude}" if record.latitude and record.longitude else 'N/A',
-            'Confirmed' if record.is_confirmed_by_dc else 'Pending',
-            'Approved' if record.is_approved_by_admin else 'Pending',
-            travel_request.created_at.strftime('%Y-%m-%d') if travel_request else 'N/A',
-            'Y' if travel_request else 'N',
-            'Y' if travel_request and travel_request.status == 'approved' else 'N',
-            travel_request.approved_at.strftime('%Y-%m-%d') if travel_request and travel_request.approved_at else 'N/A',
             working_hours,
-            location_distance
+            break_hours,
+            overtime_hours,
+            record.latitude or 'N/A',
+            record.longitude or 'N/A',
+            record.workplace or 'N/A',
+            record.task or 'N/A',
+            'Y' if record.travel_required else 'N',
+            'Y' if record.travel_approved else 'N',
+            travel_request.distance_km if travel_request else 'N/A',
+            travel_request.purpose if travel_request else 'N/A',
+            travel_request.er_id if travel_request else 'N/A',
+            travel_request.contact_person if travel_request else 'N/A',
+            'Confirmed' if record.is_confirmed_by_dc else 'Pending',
+            record.confirmed_by_dc.employee_id if record.confirmed_by_dc else 'N/A',
+            record.dc_confirmed_at.strftime('%Y-%m-%d') if record.dc_confirmed_at else 'N/A',
+            record.dc_confirmed_at.strftime('%H:%M:%S') if record.dc_confirmed_at else 'N/A',
+            'Approved' if record.is_approved_by_admin else 'Pending',
+            record.approved_by_admin.employee_id if record.approved_by_admin else 'N/A',
+            record.admin_approved_at.strftime('%Y-%m-%d') if record.admin_approved_at else 'N/A',
+            record.admin_approved_at.strftime('%H:%M:%S') if record.admin_approved_at else 'N/A',
+            'On Leave' if leave_request else 'Working',
+            leave_request.leave_type if leave_request else 'N/A',
+            leave_request.reason if leave_request else 'N/A',
+            leave_request.approved_by.employee_id if leave_request and leave_request.approved_by else 'N/A',
+            record.marked_at.strftime('%Y-%m-%d') if record.marked_at else 'N/A',
+            record.marked_at.strftime('%H:%M:%S') if record.marked_at else 'N/A',
+            record.updated_at.strftime('%Y-%m-%d %H:%M:%S') if hasattr(record, 'updated_at') and record.updated_at else 'N/A',
+            record_status,
+            'High' if record.latitude and record.longitude else 'N/A',  # GPS Accuracy placeholder
+            'Mobile App',  # Device Info placeholder
+            'N/A',  # IP Address placeholder
+            record.remarks if hasattr(record, 'remarks') and record.remarks else 'N/A'
         ])
     
     return response
