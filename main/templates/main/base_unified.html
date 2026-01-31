@@ -562,7 +562,9 @@
         <a href="{% url 'home' %}" class="logo-text">
             MPMT<span class="logo-shine"></span>
         </a>
+        {% if user.is_authenticated %}
         <div class="logo-subtitle">Multi-Process Management Tracker</div>
+        {% endif %}
         <div class="header-nav">
             {% if user.is_authenticated %}
                 <div class="datetime-display" id="datetimeDisplay"></div>
