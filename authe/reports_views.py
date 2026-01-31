@@ -336,7 +336,7 @@ def export_master_attendance_report(request):
         attendance_records = attendance_records.filter(user__employee_id__icontains=employee_filter)
     
     response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = f'attachment; filename="SAT_SHINE_Master_Attendance_Report_{start_date}_{end_date}.csv"'
+    response['Content-Disposition'] = f'attachment; filename="MPMT_Master_Attendance_Report_{start_date}_{end_date}.csv"'
     
     writer = csv.writer(response)
     
