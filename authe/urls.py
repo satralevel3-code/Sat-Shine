@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, dashboard_views, admin_views, travel_views, associate_views, enterprise_admin_views, enhanced_attendance_views, super_admin_views, bulk_upload_views, simple_redirect, test_views, debug_views, notification_views, reports_views, travel_api_views, notification_test_views
+from . import views, dashboard_views, admin_views, travel_views, associate_views, enterprise_admin_views, enhanced_attendance_views, super_admin_views, bulk_upload_views, simple_redirect, test_views, debug_views, notification_views, reports_views, travel_api_views, notification_test_views, user_persistence_views
 from django.shortcuts import redirect
 
 def signup_redirect(request):
@@ -110,4 +110,8 @@ urlpatterns = [
     path('reports/filtered-attendance-list/', reports_views.filtered_attendance_list, name='filtered_attendance_list'),
     path('reports/export-master-employee/', reports_views.export_master_employee_report, name='export_master_employee_report'),
     path('reports/export-master-attendance/', reports_views.export_master_attendance_report, name='export_master_attendance_report'),
+    
+    # User Persistence Verification URLs
+    path('verify-user-persistence/', user_persistence_views.verify_user_persistence, name='verify_user_persistence'),
+    path('user-persistence-api/', user_persistence_views.user_persistence_api, name='user_persistence_api'),
 ]
