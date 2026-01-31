@@ -38,8 +38,13 @@ if RAILWAY_ENVIRONMENT:
         'https://*.up.railway.app'
     ]
 else:
-    ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
-    CSRF_TRUSTED_ORIGINS = []
+    ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,.railway.app,.up.railway.app').split(',')
+
+# CSRF trusted origins for Railway
+CSRF_TRUSTED_ORIGINS = [
+    'https://*.railway.app',
+    'https://*.up.railway.app'
+]
 
 
 # Application definition
@@ -93,9 +98,8 @@ WSGI_APPLICATION = 'Sat_Shine.wsgi.application'
 # Database - PERMANENT PostgreSQL (Railway Production)
 DATABASES = {
     'default': dj_database_url.config(
-        default=os.environ.get('DATABASE_URL', 'sqlite:///db.sqlite3'),
-        conn_max_age=600,
-        ssl_require=True
+        default='sqlite:///db.sqlite3',
+        conn_max_age=600
     )
 }
 
