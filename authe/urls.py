@@ -68,8 +68,8 @@ urlpatterns = [
     path('associate/attendance-status/', associate_views.get_attendance_status, name='associate_attendance_status'),
     path('associate/travel-approvals/', travel_views.associate_travel_approvals, name='associate_travel_approvals'),
     path('associate/approve-travel/<uuid:travel_id>/', travel_views.approve_travel_request, name='approve_travel_request'),
-    path('travel-request-details/<int:request_id>/', associate_views.travel_request_details, name='travel_request_details'),
-    path('auth/travel-request-details/<int:request_id>/', associate_views.travel_request_details, name='admin_travel_request_details'),
+    path('travel-request-details/<uuid:request_id>/', associate_views.travel_request_details, name='travel_request_details'),
+    path('auth/travel-request-details/<uuid:request_id>/', associate_views.travel_request_details, name='admin_travel_request_details'),
     
     # Enhanced attendance marking
     path('enhanced-mark-attendance/', enhanced_attendance_views.enhanced_mark_attendance, name='enhanced_mark_attendance'),

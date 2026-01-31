@@ -553,11 +553,11 @@
                             {% endif %}
                         </td>
                         <td>
-                            <a href="#" class="details-link" onclick="viewTravelDetails({{ request.id }})">View Details</a>
+                            <a href="#" class="details-link" onclick="viewTravelDetails('{{ request.id }}')">View Details</a>
                         </td>
                         <td>
                             {% if request.status == 'pending' %}
-                                <button class="action-btn btn-pending" onclick="showActionModal({{ request.id }})">Take Action</button>
+                                <button class="action-btn btn-pending" onclick="showActionModal('{{ request.id }}')">Take Action</button>
                             {% elif request.status == 'approved' %}
                                 <button class="action-btn btn-approved" disabled>Approved</button>
                             {% else %}
@@ -761,7 +761,7 @@ function rejectRequest() {
 function processRequest(action) {
     const remarks = document.getElementById('actionRemarks').value;
     
-    fetch(`{% url 'approve_travel_request' 0 %}`.replace('0', currentRequestId), {
+    fetch(`/auth/associate/approve-travel/${currentRequestId}/`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
