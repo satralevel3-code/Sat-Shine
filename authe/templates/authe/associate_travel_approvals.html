@@ -389,32 +389,75 @@
 let currentTravelId = null;
 
 function viewTravelDetails(travelId) {
-    // In a real implementation, fetch travel details via AJAX
-    // For now, show a placeholder
-    document.getElementById('travelDetailsContent').innerHTML = `
-        <div class="detail-grid">
-            <div class="detail-item">
-                <div class="detail-label">Employee</div>
-                <div class="detail-value">Loading...</div>
-            </div>
-            <div class="detail-item">
-                <div class="detail-label">ER ID</div>
-                <div class="detail-value">Loading...</div>
-            </div>
-            <div class="detail-item">
-                <div class="detail-label">Distance</div>
-                <div class="detail-value">Loading...</div>
-            </div>
-            <div class="detail-item">
-                <div class="detail-label">Address</div>
-                <div class="detail-value">Loading...</div>
-            </div>
-        </div>
-        <div class="detail-item">
-            <div class="detail-label">Purpose</div>
-            <div class="detail-value">Loading...</div>
-        </div>
-    `;
+    // Fetch travel details via AJAX
+    fetch(`/travel-request-details-api/${travelId}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const travel = data.data;
+                document.getElementById('travelDetailsContent').innerHTML = `
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <div class="detail-label">Employee</div>
+                            <div class="detail-value">${travel.employee_id} - ${travel.employee_name}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">DCCB</div>
+                            <div class="detail-value">${travel.dccb}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Designation</div>
+                            <div class="detail-value">${travel.designation}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Travel Dates</div>
+                            <div class="detail-value">${travel.from_date} to ${travel.to_date}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Duration</div>
+                            <div class="detail-value">${travel.duration} (${travel.days_count} days)</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">ER ID</div>
+                            <div class="detail-value">${travel.er_id}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Distance</div>
+                            <div class="detail-value">${travel.distance_km} KM</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Contact Person</div>
+                            <div class="detail-value">${travel.contact_person}</div>
+                        </div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Address</div>
+                        <div class="detail-value">${travel.address}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Purpose</div>
+                        <div class="detail-value">${travel.purpose}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Status</div>
+                        <div class="detail-value">${travel.status.toUpperCase()}</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">Created At</div>
+                        <div class="detail-value">${travel.created_at}</div>
+                    </div>
+                `;
+            } else {
+                document.getElementById('travelDetailsContent').innerHTML = `
+                    <div class="alert alert-danger">Error: ${data.error}</div>
+                `;
+            }
+        })
+        .catch(error => {
+            document.getElementById('travelDetailsContent').innerHTML = `
+                <div class="alert alert-danger">Network error: ${error}</div>
+            `;
+        });
     
     document.getElementById('travelDetailsModal').style.display = 'block';
 }

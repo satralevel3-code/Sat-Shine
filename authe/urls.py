@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, dashboard_views, admin_views, travel_views, associate_views, enterprise_admin_views, enhanced_attendance_views, super_admin_views, bulk_upload_views, simple_redirect, test_views, debug_views, notification_views, reports_views
+from . import views, dashboard_views, admin_views, travel_views, associate_views, enterprise_admin_views, enhanced_attendance_views, super_admin_views, bulk_upload_views, simple_redirect, test_views, debug_views, notification_views, reports_views, travel_api_views
 from django.shortcuts import redirect
 
 def signup_redirect(request):
@@ -60,6 +60,7 @@ urlpatterns = [
     path('create-travel-request/', travel_views.create_travel_request, name='create_travel_request'),
     path('export-travel-requests/', travel_views.export_travel_requests, name='export_travel_requests'),
     path('get-associate-for-dccb/', travel_views.get_associate_for_dccb, name='get_associate_for_dccb'),
+    path('travel-request-details-api/<uuid:travel_id>/', travel_api_views.travel_request_details_api, name='travel_request_details_api'),
     
     # Associate URLs
     path('associate/mark-attendance/', associate_views.associate_mark_attendance, name='associate_mark_attendance'),
