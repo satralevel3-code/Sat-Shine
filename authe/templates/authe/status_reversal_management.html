@@ -1,0 +1,410 @@
+{% extends 'main/base_unified.html' %}
+
+{% block title %}Status Reversal Management - MPMT{% endblock %}
+
+{% block extra_css %}
+<style>
+.reversal-card {
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.status-confirmed { background: #dcfce7; color: #166534; }
+.status-unconfirmed { background: #fee2e2; color: #991b1b; }
+.status-approved { background: #dbeafe; color: #1e40af; }
+.status-rejected { background: #fef3c7; color: #92400e; }
+.status-pending { background: #f3f4f6; color: #374151; }
+
+.action-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    margin: 2px;
+    transition: all 0.2s;
+}
+
+.btn-toggle { background: #f59e0b; color: white; }
+.btn-approve { background: #059669; color: white; }
+.btn-reject { background: #dc2626; color: white; }
+.btn-pending { background: #6b7280; color: white; }
+
+.bulk-actions {
+    background: var(--bg-light);
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.record-checkbox {
+    margin-right: 10px;
+}
+
+.tab-buttons {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.tab-btn {
+    padding: 10px 20px;
+    border: 2px solid var(--border-light);
+    background: white;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tab-btn.active {
+    background: var(--primary-navy);
+    color: white;
+    border-color: var(--primary-navy);
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title"><i class="fas fa-exchange-alt"></i> Status Reversal Management</h1>
+    <p class="page-subtitle">Reverse approval and confirmation status for all records</p>
+</div>
+
+<!-- Tab Navigation -->
+<div class="tab-buttons">
+    <button class="tab-btn active" onclick="showTab('attendance')">
+        <i class="fas fa-clock"></i> Attendance Records
+    </button>
+    <button class="tab-btn" onclick="showTab('travel')">
+        <i class="fas fa-plane"></i> Travel Requests
+    </button>
+    <button class="tab-btn" onclick="showTab('leave')">
+        <i class="fas fa-calendar-times"></i> Leave Requests
+    </button>
+</div>
+
+<!-- Attendance Records Tab -->
+<div id="attendance-tab" class="tab-content active">
+    <div class="reversal-card">
+        <h3>Attendance Records - Status Reversal</h3>
+        
+        <div class="bulk-actions">
+            <h4>Bulk Actions</h4>
+            <button onclick="bulkOperation('bulk_approve_attendance')" class="btn btn-success">
+                <i class="fas fa-check-double"></i> Bulk Approve Selected
+            </button>
+            <button onclick="bulkOperation('bulk_reject_attendance')" class="btn btn-danger">
+                <i class="fas fa-times-circle"></i> Bulk Reject Selected
+            </button>
+            <button onclick="selectAll('attendance')" class="btn btn-secondary">
+                <i class="fas fa-check-square"></i> Select All
+            </button>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="selectAllAttendance"></th>
+                        <th>Employee</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>DC Status</th>
+                        <th>Admin Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in attendance_records %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" class="record-checkbox attendance-checkbox" 
+                                   value="{{ record.id }}">
+                        </td>
+                        <td>{{ record.user.employee_id }}</td>
+                        <td>{{ record.date|date:"d M Y" }}</td>
+                        <td>
+                            <span class="status-badge">{{ record.status|title }}</span>
+                        </td>
+                        <td>
+                            <span class="status-badge {% if record.dc_confirmed %}status-confirmed{% else %}status-unconfirmed{% endif %}">
+                                {% if record.dc_confirmed %}Confirmed{% else %}Unconfirmed{% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="status-badge {% if record.admin_approved %}status-approved{% else %}status-rejected{% endif %}">
+                                {% if record.admin_approved %}Approved{% else %}Rejected{% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <button onclick="toggleDCStatus({{ record.id }})" class="action-btn btn-toggle">
+                                Toggle DC
+                            </button>
+                            <button onclick="toggleAdminStatus({{ record.id }})" class="action-btn btn-toggle">
+                                Toggle Admin
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Travel Requests Tab -->
+<div id="travel-tab" class="tab-content">
+    <div class="reversal-card">
+        <h3>Travel Requests - Status Reversal</h3>
+        
+        <div class="bulk-actions">
+            <h4>Bulk Actions</h4>
+            <button onclick="bulkOperation('bulk_approve_travel')" class="btn btn-success">
+                <i class="fas fa-check-double"></i> Bulk Approve Selected
+            </button>
+            <button onclick="bulkOperation('bulk_reject_travel')" class="btn btn-danger">
+                <i class="fas fa-times-circle"></i> Bulk Reject Selected
+            </button>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="selectAllTravel"></th>
+                        <th>Employee</th>
+                        <th>Travel Dates</th>
+                        <th>Duration</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for request in travel_requests %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" class="record-checkbox travel-checkbox" 
+                                   value="{{ request.id }}">
+                        </td>
+                        <td>{{ request.user.employee_id }}</td>
+                        <td>{{ request.from_date|date:"d M" }} - {{ request.to_date|date:"d M Y" }}</td>
+                        <td>{{ request.get_duration_display }}</td>
+                        <td>
+                            <span class="status-badge status-{{ request.status }}">
+                                {{ request.status|title }}
+                            </span>
+                        </td>
+                        <td>
+                            <button onclick="changeTravelStatus('{{ request.id }}', 'pending')" 
+                                    class="action-btn btn-pending">Pending</button>
+                            <button onclick="changeTravelStatus('{{ request.id }}', 'approved')" 
+                                    class="action-btn btn-approve">Approve</button>
+                            <button onclick="changeTravelStatus('{{ request.id }}', 'rejected')" 
+                                    class="action-btn btn-reject">Reject</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Leave Requests Tab -->
+<div id="leave-tab" class="tab-content">
+    <div class="reversal-card">
+        <h3>Leave Requests - Status Reversal</h3>
+        
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Leave Dates</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for request in leave_requests %}
+                    <tr>
+                        <td>{{ request.user.employee_id }}</td>
+                        <td>{{ request.from_date|date:"d M" }} - {{ request.to_date|date:"d M Y" }}</td>
+                        <td>{{ request.leave_type|title }}</td>
+                        <td>
+                            <span class="status-badge status-{{ request.status }}">
+                                {{ request.status|title }}
+                            </span>
+                        </td>
+                        <td>
+                            <button onclick="changeLeaveStatus('{{ request.id }}', 'pending')" 
+                                    class="action-btn btn-pending">Pending</button>
+                            <button onclick="changeLeaveStatus('{{ request.id }}', 'approved')" 
+                                    class="action-btn btn-approve">Approve</button>
+                            <button onclick="changeLeaveStatus('{{ request.id }}', 'rejected')" 
+                                    class="action-btn btn-reject">Reject</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+function showTab(tabName) {
+    // Hide all tabs
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    
+    // Remove active class from all buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Show selected tab
+    document.getElementById(tabName + '-tab').classList.add('active');
+    
+    // Add active class to clicked button
+    event.target.classList.add('active');
+}
+
+function toggleDCStatus(attendanceId) {
+    if (confirm('Are you sure you want to toggle DC confirmation status?')) {
+        fetch('/auth/reverse-attendance-status/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                attendance_id: attendanceId,
+                action: 'toggle_dc'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        });
+    }
+}
+
+function toggleAdminStatus(attendanceId) {
+    if (confirm('Are you sure you want to toggle Admin approval status?')) {
+        fetch('/auth/reverse-attendance-status/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                attendance_id: attendanceId,
+                action: 'toggle_admin'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        });
+    }
+}
+
+function changeTravelStatus(travelId, newStatus) {
+    if (confirm(`Are you sure you want to change travel status to ${newStatus}?`)) {
+        fetch('/auth/reverse-travel-status/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                travel_id: travelId,
+                new_status: newStatus
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        });
+    }
+}
+
+function bulkOperation(operation) {
+    const checkboxes = document.querySelectorAll('.record-checkbox:checked');
+    const recordIds = Array.from(checkboxes).map(cb => cb.value);
+    
+    if (recordIds.length === 0) {
+        alert('Please select at least one record!');
+        return;
+    }
+    
+    if (confirm(`Are you sure you want to perform ${operation} on ${recordIds.length} records?`)) {
+        fetch('/auth/bulk-status-operations/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                operation: operation,
+                record_ids: recordIds
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        });
+    }
+}
+
+function selectAll(type) {
+    const checkboxes = document.querySelectorAll(`.${type}-checkbox`);
+    const selectAllCheckbox = document.getElementById(`selectAll${type.charAt(0).toUpperCase() + type.slice(1)}`);
+    
+    checkboxes.forEach(cb => {
+        cb.checked = selectAllCheckbox.checked;
+    });
+}
+</script>
+{% endblock %}

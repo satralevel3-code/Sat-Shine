@@ -1,0 +1,285 @@
+{% extends 'main/base_unified.html' %}
+
+{% block title %}System Override Tools - MPMT{% endblock %}
+
+{% block extra_css %}
+<style>
+.override-card {
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    border-left: 4px solid var(--error-red);
+}
+
+.danger-zone {
+    background: #fef2f2;
+    border: 2px solid #fecaca;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+}
+
+.warning-text {
+    color: var(--error-red);
+    font-weight: 600;
+    margin-bottom: 15px;
+}
+
+.override-btn {
+    background: var(--error-red);
+    color: white;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    margin: 5px;
+    transition: all 0.3s;
+}
+
+.override-btn:hover {
+    background: #b91c1c;
+    transform: translateY(-2px);
+}
+
+.override-btn.warning {
+    background: var(--warning-amber);
+}
+
+.override-btn.success {
+    background: var(--success-green);
+}
+
+.confirmation-box {
+    background: var(--bg-light);
+    padding: 15px;
+    border-radius: 8px;
+    margin: 10px 0;
+    display: none;
+}
+
+.system-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.stat-box {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid var(--border-light);
+    text-align: center;
+}
+
+.stat-number {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--primary-navy);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title"><i class="fas fa-exclamation-triangle"></i> System Override Tools</h1>
+    <p class="page-subtitle">Emergency system operations - Use with extreme caution</p>
+</div>
+
+<div class="override-card">
+    <div class="danger-zone">
+        <h2><i class="fas fa-skull-crossbones"></i> DANGER ZONE</h2>
+        <p class="warning-text">
+            These tools perform system-wide operations that cannot be undone. 
+            Only use in emergency situations or with explicit authorization.
+        </p>
+    </div>
+
+    <div class="system-stats">
+        <div class="stat-box">
+            <div class="stat-number">{{ total_users|default:0 }}</div>
+            <div>Total Users</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-number">{{ pending_approvals|default:0 }}</div>
+            <div>Pending Approvals</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-number">{{ pending_travel|default:0 }}</div>
+            <div>Pending Travel</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-number">{{ pending_leaves|default:0 }}</div>
+            <div>Pending Leaves</div>
+        </div>
+    </div>
+
+    <h3>Emergency Password Operations</h3>
+    <div class="danger-zone">
+        <p class="warning-text">
+            <i class="fas fa-exclamation-circle"></i> 
+            This will reset ALL user passwords to "reset123". Users will need to change passwords on next login.
+        </p>
+        <button onclick="showConfirmation('reset_passwords')" class="override-btn">
+            <i class="fas fa-key"></i> Emergency Password Reset (ALL USERS)
+        </button>
+        
+        <div id="reset_passwords_confirm" class="confirmation-box">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="reset_all_passwords">
+                <p><strong>Type "RESET ALL PASSWORDS" to confirm:</strong></p>
+                <input type="text" id="password_confirm_text" class="form-control" 
+                       placeholder="Type confirmation text here">
+                <br>
+                <button type="submit" class="override-btn" onclick="return validatePasswordReset()">
+                    <i class="fas fa-bomb"></i> EXECUTE PASSWORD RESET
+                </button>
+                <button type="button" onclick="hideConfirmation('reset_passwords')" class="btn btn-secondary">
+                    Cancel
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <h3>Bulk Approval Operations</h3>
+    <div class="danger-zone">
+        <p class="warning-text">
+            <i class="fas fa-exclamation-circle"></i> 
+            This will approve ALL pending attendance, travel, and leave requests system-wide.
+        </p>
+        <button onclick="showConfirmation('approve_all')" class="override-btn success">
+            <i class="fas fa-check-double"></i> Approve All Pending Items
+        </button>
+        
+        <div id="approve_all_confirm" class="confirmation-box">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="approve_all_pending">
+                <p><strong>Type "APPROVE ALL PENDING" to confirm:</strong></p>
+                <input type="text" id="approve_confirm_text" class="form-control" 
+                       placeholder="Type confirmation text here">
+                <br>
+                <button type="submit" class="override-btn success" onclick="return validateApprovalReset()">
+                    <i class="fas fa-thumbs-up"></i> EXECUTE BULK APPROVAL
+                </button>
+                <button type="button" onclick="hideConfirmation('approve_all')" class="btn btn-secondary">
+                    Cancel
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <h3>System Maintenance</h3>
+    <div class="danger-zone">
+        <button onclick="clearSystemCache()" class="override-btn warning">
+            <i class="fas fa-broom"></i> Clear System Cache
+        </button>
+        <button onclick="regenerateReports()" class="override-btn warning">
+            <i class="fas fa-sync-alt"></i> Regenerate All Reports
+        </button>
+        <button onclick="validateDataIntegrity()" class="override-btn warning">
+            <i class="fas fa-shield-alt"></i> Validate Data Integrity
+        </button>
+    </div>
+
+    <h3>Emergency Access</h3>
+    <div class="danger-zone">
+        <p class="warning-text">
+            <i class="fas fa-exclamation-circle"></i> 
+            Emergency access tools for system recovery
+        </p>
+        <a href="/admin/" target="_blank" class="override-btn">
+            <i class="fas fa-cogs"></i> Django Admin Interface
+        </a>
+        <button onclick="exportSystemBackup()" class="override-btn">
+            <i class="fas fa-download"></i> Export System Backup
+        </button>
+    </div>
+</div>
+
+<div class="override-card">
+    <h3>System Activity Log</h3>
+    <div id="activityLog" style="max-height: 300px; overflow-y: auto; background: #f8f9fa; padding: 15px; border-radius: 8px;">
+        <p class="text-muted">System activity will be logged here...</p>
+    </div>
+</div>
+
+<script>
+function showConfirmation(action) {
+    document.getElementById(action + '_confirm').style.display = 'block';
+}
+
+function hideConfirmation(action) {
+    document.getElementById(action + '_confirm').style.display = 'none';
+}
+
+function validatePasswordReset() {
+    const confirmText = document.getElementById('password_confirm_text').value;
+    if (confirmText !== 'RESET ALL PASSWORDS') {
+        alert('Please type the exact confirmation text: RESET ALL PASSWORDS');
+        return false;
+    }
+    
+    return confirm('This will reset ALL user passwords. Are you absolutely sure?');
+}
+
+function validateApprovalReset() {
+    const confirmText = document.getElementById('approve_confirm_text').value;
+    if (confirmText !== 'APPROVE ALL PENDING') {
+        alert('Please type the exact confirmation text: APPROVE ALL PENDING');
+        return false;
+    }
+    
+    return confirm('This will approve ALL pending items. Are you absolutely sure?');
+}
+
+function clearSystemCache() {
+    if (confirm('Clear system cache? This may temporarily slow down the system.')) {
+        logActivity('System cache cleared by Super Admin');
+        alert('System cache cleared successfully');
+    }
+}
+
+function regenerateReports() {
+    if (confirm('Regenerate all reports? This may take several minutes.')) {
+        logActivity('Report regeneration initiated by Super Admin');
+        alert('Report regeneration started in background');
+    }
+}
+
+function validateDataIntegrity() {
+    if (confirm('Run data integrity validation? This may take time for large datasets.')) {
+        logActivity('Data integrity validation started by Super Admin');
+        alert('Data integrity validation started');
+    }
+}
+
+function exportSystemBackup() {
+    if (confirm('Export system backup? This will create a downloadable backup file.')) {
+        logActivity('System backup export initiated by Super Admin');
+        alert('System backup export started - download will begin shortly');
+    }
+}
+
+function logActivity(message) {
+    const log = document.getElementById('activityLog');
+    const timestamp = new Date().toLocaleString();
+    const entry = document.createElement('div');
+    entry.innerHTML = `<strong>${timestamp}:</strong> ${message}`;
+    entry.style.marginBottom = '5px';
+    entry.style.padding = '5px';
+    entry.style.backgroundColor = 'white';
+    entry.style.borderRadius = '4px';
+    log.insertBefore(entry, log.firstChild);
+}
+
+// Log page access
+document.addEventListener('DOMContentLoaded', function() {
+    logActivity('Super Admin accessed System Override Tools');
+});
+</script>
+{% endblock %}

@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, dashboard_views, admin_views, travel_views, associate_views, enterprise_admin_views, enhanced_attendance_views, super_admin_views, bulk_upload_views, simple_redirect, test_views, debug_views, notification_views, reports_views, travel_api_views, notification_test_views, user_persistence_views
+from . import views, dashboard_views, admin_views, travel_views, associate_views, enterprise_admin_views, enhanced_attendance_views, super_admin_views, bulk_upload_views, simple_redirect, test_views, debug_views, notification_views, reports_views, travel_api_views, notification_test_views, user_persistence_views, enhanced_super_admin_views
 from django.shortcuts import redirect
 
 def signup_redirect(request):
@@ -76,6 +76,14 @@ urlpatterns = [
     
     # Super Admin URLs
     path('super-admin-dashboard/', super_admin_views.super_admin_dashboard, name='super_admin_dashboard'),
+    path('enhanced-super-admin-dashboard/', enhanced_super_admin_views.enhanced_super_admin_dashboard, name='enhanced_super_admin_dashboard'),
+    path('password-reset-management/', enhanced_super_admin_views.password_reset_management, name='password_reset_management'),
+    path('attendance-marking-interface/', enhanced_super_admin_views.attendance_marking_interface, name='attendance_marking_interface'),
+    path('status-reversal-management/', enhanced_super_admin_views.status_reversal_management, name='status_reversal_management'),
+    path('system-override-tools/', enhanced_super_admin_views.system_override_tools, name='system_override_tools'),
+    path('reverse-attendance-status/', enhanced_super_admin_views.reverse_attendance_status, name='reverse_attendance_status'),
+    path('reverse-travel-status/', enhanced_super_admin_views.reverse_travel_status, name='reverse_travel_status'),
+    path('bulk-status-operations/', enhanced_super_admin_views.bulk_status_operations, name='bulk_status_operations'),
     path('employee-management/', simple_redirect.employee_management_redirect, name='employee_management'),
     path('create-user/', views.register_view, name='create_user'),
     

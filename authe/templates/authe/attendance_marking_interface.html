@@ -1,0 +1,198 @@
+{% extends 'main/base_unified.html' %}
+
+{% block title %}Attendance Marking Interface - MPMT{% endblock %}
+
+{% block extra_css %}
+<style>
+.attendance-marking-card {
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.time-input {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.status-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.status-btn {
+    padding: 8px 16px;
+    border: 2px solid var(--border-light);
+    background: white;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.status-btn.active {
+    background: var(--primary-navy);
+    color: white;
+    border-color: var(--primary-navy);
+}
+
+.status-btn:hover {
+    border-color: var(--accent-blue);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title"><i class="fas fa-user-clock"></i> Attendance Marking Interface</h1>
+    <p class="page-subtitle">Mark attendance for any employee in the system</p>
+</div>
+
+<div class="attendance-marking-card">
+    <h3>Mark Attendance for Employee</h3>
+    
+    <form method="post" id="attendanceForm">
+        {% csrf_token %}
+        <div class="form-group">
+            <label class="form-label">Select Employee</label>
+            <select name="employee_id" class="form-control" required>
+                <option value="">Choose Employee...</option>
+                {% for user in users %}
+                <option value="{{ user.employee_id }}">
+                    {{ user.employee_id }} - {{ user.first_name }} {{ user.last_name }} ({{ user.designation }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Attendance Date</label>
+            <input type="date" name="attendance_date" class="form-control" required 
+                   value="{{ today|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}">
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Attendance Status</label>
+            <div class="status-buttons">
+                <button type="button" class="status-btn" data-status="present">
+                    <i class="fas fa-check"></i> Present
+                </button>
+                <button type="button" class="status-btn" data-status="absent">
+                    <i class="fas fa-times"></i> Absent
+                </button>
+                <button type="button" class="status-btn" data-status="half_day">
+                    <i class="fas fa-clock"></i> Half Day
+                </button>
+            </div>
+            <input type="hidden" name="status" required>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Check-in Time (Optional)</label>
+            <input type="time" name="check_in_time" class="form-control">
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Check-out Time (Optional)</label>
+            <input type="time" name="check_out_time" class="form-control">
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Admin Remarks</label>
+            <textarea name="admin_remarks" class="form-control" rows="3" 
+                      placeholder="Optional remarks about this attendance marking..."></textarea>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save"></i> Mark Attendance
+        </button>
+        <a href="{% url 'enhanced_super_admin_dashboard' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </form>
+</div>
+
+<div class="attendance-marking-card">
+    <h3>Recent Attendance Markings</h3>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Check-in</th>
+                    <th>Check-out</th>
+                    <th>Marked By</th>
+                </tr>
+            </thead>
+            <tbody id="recentAttendance">
+                <!-- Recent attendance records will be loaded here -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+// Status button selection
+document.querySelectorAll('.status-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        // Remove active class from all buttons
+        document.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
+        
+        // Add active class to clicked button
+        this.classList.add('active');
+        
+        // Set hidden input value
+        document.querySelector('input[name="status"]').value = this.dataset.status;
+    });
+});
+
+// Form validation
+document.getElementById('attendanceForm').addEventListener('submit', function(e) {
+    const status = document.querySelector('input[name="status"]').value;
+    const employeeId = document.querySelector('select[name="employee_id"]').value;
+    const date = document.querySelector('input[name="attendance_date"]').value;
+    
+    if (!status) {
+        e.preventDefault();
+        alert('Please select an attendance status!');
+        return false;
+    }
+    
+    if (!employeeId || !date) {
+        e.preventDefault();
+        alert('Please fill in all required fields!');
+        return false;
+    }
+    
+    return confirm(`Are you sure you want to mark ${status} attendance for ${employeeId} on ${date}?`);
+});
+
+// Auto-set current time for check-in when present is selected
+document.querySelector('[data-status="present"]').addEventListener('click', function() {
+    const now = new Date();
+    const timeString = now.toTimeString().slice(0, 5);
+    document.querySelector('input[name="check_in_time"]').value = timeString;
+});
+
+// Load recent attendance records
+function loadRecentAttendance() {
+    // This would typically fetch from an API endpoint
+    // For now, we'll show a placeholder
+    document.getElementById('recentAttendance').innerHTML = `
+        <tr>
+            <td colspan="6" class="text-center text-muted">
+                Recent attendance records will appear here after marking
+            </td>
+        </tr>
+    `;
+}
+
+// Load on page load
+document.addEventListener('DOMContentLoaded', loadRecentAttendance);
+</script>
+{% endblock %}

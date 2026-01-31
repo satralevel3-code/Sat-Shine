@@ -1,0 +1,233 @@
+{% extends 'main/base_unified.html' %}
+
+{% block title %}Enhanced Super Admin Dashboard - MPMT{% endblock %}
+
+{% block extra_css %}
+<style>
+.super-admin-header {
+    background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+    color: white;
+    padding: 30px;
+    border-radius: 12px;
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+.admin-card {
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    border-left: 4px solid var(--primary-navy);
+}
+
+.admin-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.stat-card {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    text-align: center;
+    border-top: 4px solid var(--accent-blue);
+}
+
+.stat-number {
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--primary-navy);
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.admin-tool-btn {
+    display: inline-block;
+    background: var(--primary-navy);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    margin: 5px;
+    transition: all 0.3s;
+}
+
+.admin-tool-btn:hover {
+    background: var(--accent-blue);
+    color: white;
+    transform: translateY(-2px);
+}
+
+.admin-tool-btn.danger {
+    background: var(--error-red);
+}
+
+.admin-tool-btn.warning {
+    background: var(--warning-amber);
+}
+
+.admin-tool-btn.success {
+    background: var(--success-green);
+}
+
+.tool-section {
+    margin-bottom: 30px;
+}
+
+.tool-section h3 {
+    color: var(--primary-navy);
+    margin-bottom: 15px;
+    font-weight: 700;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="super-admin-header">
+    <h1><i class="fas fa-crown"></i> Enhanced Super Admin Dashboard</h1>
+    <p>Complete system control and management tools</p>
+</div>
+
+<!-- System Statistics -->
+<div class="admin-grid">
+    <div class="stat-card">
+        <div class="stat-number">{{ total_users }}</div>
+        <div class="stat-label">Total Users</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">{{ active_users }}</div>
+        <div class="stat-label">Active Users</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">{{ pending_approvals }}</div>
+        <div class="stat-label">Pending Approvals</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-number">{{ pending_travel }}</div>
+        <div class="stat-label">Pending Travel</div>
+    </div>
+</div>
+
+<!-- Enhanced Management Tools -->
+<div class="admin-card">
+    <div class="tool-section">
+        <h3><i class="fas fa-key"></i> Password Management</h3>
+        <a href="{% url 'password_reset_management' %}" class="admin-tool-btn">
+            <i class="fas fa-unlock-alt"></i> Reset User Passwords
+        </a>
+        <a href="{% url 'system_override_tools' %}" class="admin-tool-btn danger">
+            <i class="fas fa-exclamation-triangle"></i> Emergency Password Reset
+        </a>
+    </div>
+
+    <div class="tool-section">
+        <h3><i class="fas fa-clock"></i> Attendance Management</h3>
+        <a href="{% url 'attendance_marking_interface' %}" class="admin-tool-btn">
+            <i class="fas fa-user-clock"></i> Mark Attendance for Others
+        </a>
+        <a href="{% url 'admin_attendance_daily' %}" class="admin-tool-btn">
+            <i class="fas fa-calendar-day"></i> View Daily Attendance
+        </a>
+        <a href="{% url 'bulk_approve_attendance' %}" class="admin-tool-btn success">
+            <i class="fas fa-check-double"></i> Bulk Approve Attendance
+        </a>
+    </div>
+
+    <div class="tool-section">
+        <h3><i class="fas fa-exchange-alt"></i> Status Reversal Tools</h3>
+        <a href="{% url 'status_reversal_management' %}" class="admin-tool-btn warning">
+            <i class="fas fa-undo"></i> Reverse Approval Status
+        </a>
+        <a href="{% url 'status_reversal_management' %}" class="admin-tool-btn warning">
+            <i class="fas fa-sync-alt"></i> Change Confirmation Status
+        </a>
+    </div>
+
+    <div class="tool-section">
+        <h3><i class="fas fa-tasks"></i> Bulk Operations</h3>
+        <button onclick="bulkApproveAll()" class="admin-tool-btn success">
+            <i class="fas fa-thumbs-up"></i> Bulk Approve All Pending
+        </button>
+        <button onclick="bulkRejectSelected()" class="admin-tool-btn danger">
+            <i class="fas fa-thumbs-down"></i> Bulk Reject Selected
+        </button>
+    </div>
+
+    <div class="tool-section">
+        <h3><i class="fas fa-users-cog"></i> User Management</h3>
+        <a href="{% url 'admin_employee_list' %}" class="admin-tool-btn">
+            <i class="fas fa-users"></i> Manage Employees
+        </a>
+        <a href="{% url 'bulk_upload' %}" class="admin-tool-btn">
+            <i class="fas fa-upload"></i> Bulk Upload Users
+        </a>
+        <a href="{% url 'create_user' %}" class="admin-tool-btn">
+            <i class="fas fa-user-plus"></i> Create New User
+        </a>
+    </div>
+
+    <div class="tool-section">
+        <h3><i class="fas fa-chart-bar"></i> Reports & Analytics</h3>
+        <a href="{% url 'reports_analytics_dashboard' %}" class="admin-tool-btn">
+            <i class="fas fa-analytics"></i> Analytics Dashboard
+        </a>
+        <a href="{% url 'export_master_attendance_report' %}" class="admin-tool-btn">
+            <i class="fas fa-download"></i> Export Master Report
+        </a>
+    </div>
+
+    <div class="tool-section">
+        <h3><i class="fas fa-cogs"></i> System Tools</h3>
+        <a href="{% url 'verify_user_persistence' %}" class="admin-tool-btn">
+            <i class="fas fa-database"></i> Verify Data Persistence
+        </a>
+        <a href="{% url 'test_notifications' %}" class="admin-tool-btn">
+            <i class="fas fa-bell"></i> Test Notifications
+        </a>
+        <a href="{% url 'system_override_tools' %}" class="admin-tool-btn danger">
+            <i class="fas fa-exclamation-circle"></i> Emergency Override
+        </a>
+    </div>
+</div>
+
+<script>
+function bulkApproveAll() {
+    if (confirm('Are you sure you want to approve ALL pending items? This action cannot be undone.')) {
+        fetch('/auth/bulk-status-operations/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                operation: 'bulk_approve_all',
+                record_ids: []
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('All pending items approved successfully!');
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        });
+    }
+}
+
+function bulkRejectSelected() {
+    alert('Please use the Status Reversal Management page to select specific items for bulk rejection.');
+}
+</script>
+{% endblock %}
