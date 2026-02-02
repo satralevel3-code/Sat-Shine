@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, dashboard_views, admin_views, travel_views, associate_views, enterprise_admin_views, enhanced_attendance_views, super_admin_views, bulk_upload_views, simple_redirect, test_views, debug_views, notification_views, reports_views, travel_api_views, notification_test_views, user_persistence_views, enhanced_super_admin_views
+from . import views, dashboard_views, admin_views, travel_views, associate_views, enterprise_admin_views, enhanced_attendance_views, super_admin_views, bulk_upload_views, simple_redirect, test_views, debug_views, notification_views, reports_views, travel_api_views, notification_test_views, user_persistence_views, enhanced_super_admin_views, backup_views
 from django.shortcuts import redirect
 
 def signup_redirect(request):
@@ -122,4 +122,11 @@ urlpatterns = [
     # User Persistence Verification URLs
     path('verify-user-persistence/', user_persistence_views.verify_user_persistence, name='verify_user_persistence'),
     path('user-persistence-api/', user_persistence_views.user_persistence_api, name='user_persistence_api'),
+    
+    # Database Backup URLs
+    path('backup-dashboard/', backup_views.backup_dashboard, name='backup_dashboard'),
+    path('download-database-backup/', backup_views.download_database_backup, name='download_database_backup'),
+    path('download-django-backup/', backup_views.download_django_backup, name='download_django_backup'),
+    path('backup-statistics-api/', backup_views.backup_statistics_api, name='backup_statistics_api'),
+    path('emergency-backup-now/', backup_views.emergency_backup_now, name='emergency_backup_now'),
 ]

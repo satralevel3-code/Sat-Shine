@@ -1,0 +1,1035 @@
+[
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "admin",
+    "model": "logentry"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "auth",
+    "model": "group"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "auth",
+    "model": "permission"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "contenttypes",
+    "model": "contenttype"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "sessions",
+    "model": "session"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "authe",
+    "model": "auditlog"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "authe",
+    "model": "customuser"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "authe",
+    "model": "attendance"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "authe",
+    "model": "leaverequest"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "authe",
+    "model": "holiday"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "authe",
+    "model": "attendanceauditlog"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "authe",
+    "model": "systemauditlog"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "authe",
+    "model": "travelrequest"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "fields": {
+    "app_label": "authe",
+    "model": "notification"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "0lqp9fluzr65seqoecpvcdzheq66unso",
+  "fields": {
+    "session_data": ".eJxVjMsKgzAURP8l6xIS8zBx2b3fEO7NjTWtKJhYKKX_XgUXLbObOXPeLMBWx7CVtIZMrGNKsMtviRAfaT4WusN8W3hc5rpm5AfCz7XwfqE0XU_2TzBCGfe3B7KAA6H0ClGRIZ9wULhHaw-Nc4gJkZz04KI0SRsZZZOs1g21FnbpBKUGiDU_c32xTrbWC6e81VxYYZRzny_UzkL2:1vitYL:0tm1Vjq9gSew7G5giIzmPP-X6fAiYGkt7Mj-GkdDRYg",
+    "expire_date": "2026-01-22T12:27:45.194Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "29q739hkrqpnpar3ahiuwrzu6lwqliow",
+  "fields": {
+    "session_data": ".eJxVjMsOwiAQRf-FtSEMlFeX7v0GMsBgq02bFGpijP-uTbrQ7T3nnhcLuLUhbJXWMGbWM8VOv1vEdKd5B_mG83XhaZnbOka-K_yglV-WTNP5cP8CA9bh--6iilaTM-iKJ-G8RwE6edJK6uRUdFBSB8WJbIwUBXxHEhV5602EskcnrC1gauNjbE_WgzVeGGWs4VKCAqneHzATQVc:1viomv:5FUhWpCkqUhJT_x82e4D9-AN3ylOSUmglBc9rk4DP5A",
+    "expire_date": "2026-01-22T07:22:29.170Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "3idmbe5e3pzy4tgovd9fe8owy8cxx64p",
+  "fields": {
+    "session_data": ".eJxVjMsOgjAQRf-la9P0RWFYuvcbmul0KqiBhBYTY_x3IWGh23vOPW8RcK1DWAsvYUyiF1acfreIdOdpB-mG03WWNE91GaPcFXnQIi9z4sf5cP8CA5Zhe1OCLhkCTzkTYUJjGyan2ecYG86YaRMgkWatjVFMmiACULbKNgBb9IGlBqQ6Psf6Er1ufeuscspK13mnwXy-2i9DXQ:1vbxO1:-K9cYjcaaP7lUo4S6yQJoT04PPJM8pc91sd8FKHf-XQ",
+    "expire_date": "2026-01-03T09:08:25.156Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "5hy44mbnyo7v9j8czwh4pw9tpq81lrdo",
+  "fields": {
+    "session_data": ".eJxVjMsKwjAQRf8lawlJ85wu3fsNYZJMbLW00KSCiP-uhS50e8-558UCbm0IW6U1jJn1TLHT7xYx3WneQb7hfF14Wua2jpHvCj9o5Zcl03Q-3L_AgHX4vnVU0RnyFn0BEh4AhTQJyKjOJK-ilyVpWbzI1naiSNDUoSJwYKMse3TC2gKmNj7G9mS9dBaEtV5r7ry0Wr0_719BNg:1vip7I:2ESrNL9xBxogKjAd4yWEPmmnSgMe5fvztNVmfN0iPZs",
+    "expire_date": "2026-01-22T07:43:32.427Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "7j5cho078u5tlqnyzc6wjyv4xtw3zq81",
+  "fields": {
+    "session_data": ".eJxVjMsOwiAQRf-FtSG8y7h07zeQAQapGkhKuzL-uzbpQrf3nHNfLOC21rANWsKc2ZlpdvrdIqYHtR3kO7Zb56m3dZkj3xV-0MGvPdPzcrh_BxVH_dYm6jhZ8g59ARIeAIW0CchqZZPX0cuSjCxeZOeUKBIMKdQEE7goS2bvD9ZPN44:1vioij:YskY3pTegSmM2aqApNPfzQrx_aN4xq5d6h75RhNmJVs",
+    "expire_date": "2026-01-22T07:18:09.548Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "7wg9kbv0to74ngypb7ed82demebgkc9n",
+  "fields": {
+    "session_data": ".eJxVjMsKwjAUBf8lawl5J7dL935DuHnZaGmhSQUR_10LXej2zJx5EY9bH_3W8uprIgOR5PS7BYz3PO8g3XC-LjQuc19roLtCD9roZUl5Oh_uX2DENn7fKshgdXYGXYHMHAAyriNkLYWOTgbHS1S8OJaMEaxwUFmgzGDBBF726ISte4y9Pmp_koFbA1yBY0CNE0JZ8f4AMKFBaw:1vjAgM:VDkvIeANGCOjYmvUn0PahKB2-jLZ965U7fswq-cdqxw",
+    "expire_date": "2026-01-23T06:45:10.971Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "8b3bi4ddm2fnhngj3x3r10qcls8sjapj",
+  "fields": {
+    "session_data": ".eJxVjMsOwiAQRf-FtSFQYGC6dO83kOFlq02bFGpijP-uTbrQ7T3nnhfztLXBbzWvfkysZ4qdfrdA8Z7nHaQbzdeFx2Vu6xj4rvCDVn5ZUp7Oh_sXGKgO37cOKliTHZArmIVDJCFNxGxUZ6JTwckStSxOJIBOFIk6d6QyWoQgyx6dqDZPsY2PsT1ZLy2gBA1guXLQoXt_AO90QT8:1vjEg8:UyK8aV-nrCnG5a0caR1zz8MTcwUfhkOsY9OXYUcu5jw",
+    "expire_date": "2026-01-23T11:01:12.342Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "aosn0mebzlmhewnmalgc4hs3bb5vrd68",
+  "fields": {
+    "session_data": ".eJxVjDsOwjAQBe_iGln-xV4o6TmDtWt7cQA5UpxUiLuTSCmgnZn33iLiutS49jLHMYuLMFqcfiFhepa2m_zAdp9kmtoyjyT3RB62y9uUy-t6tH8HFXvd1qB9YDcYQ5DAsbIMyigO2oDHs4JCXMACh2AtsU6sMAO6YUOgfCDx-QLnbTeK:1vjDUW:VvgE6xVI7fSDM0pOfZhctyB36wO_ZauTibxDN98FAOI",
+    "expire_date": "2026-01-23T09:45:08.321Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "c8qqxsxnalavozftah60x0d4y1pu5pxy",
+  "fields": {
+    "session_data": ".eJxVjEsKwjAUAO_y1iXk5Wu6dO8ZwsvPRqWFJhVEvLsUutDtzDBv8LT1yW8tr74mGEHC8MsCxXued5FuNF8XFpe5rzWwPWGHbeyypPw4H-3fYKI2wQgxGMWFJRW05IhJp5TFqQQusCiDpFwmZ3ksVDTyEBwmk5XNnEc0WgoY4EGte4q9Pmt_wYjWGOe0kJZxFFKrzxf_g0FN:1va8BB:XgMpftxvbnWNZVNMb6y2RWb5CjkFccO3hz8fqYgfkpw",
+    "expire_date": "2025-12-29T08:30:37.012Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "cuaceqgfptn6fqc3oa31sj1zyvz39udd",
+  "fields": {
+    "session_data": ".eJxVjMsOgjAQRf-la9P0xbSwdO83NNPOIKiBhBYTY_x3IWGh23vOPW8Rca1DXAsvcSTRCWvF6XdMmO887YRuOF1nmeepLmOSuyIPWuRlJn6cD_cvMGAZtrfWkBUp4w0RpMABjcu6JZWYjcq6cZhJAbFroO-DQ28d-b5lsBoUpC36wFIj5jo-x_oSnfbQam-DsTK4xlkIny98EEIF:1vjH47:4GrhlGFHi97O2W5kqqW6a-XtlDkmx5J5WWPSnUDFw3I",
+    "expire_date": "2026-01-23T13:34:07.104Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "cz0cvqs2fhaba1uoilqkhqrcrbjs6tom",
+  "fields": {
+    "session_data": ".eJxVjEsOwjAMBe-SNYqqJnYSluw5Q2XHDimgVOpnhbg7VOoCtm9m3ssMtK112Badh1HM2Thz-t2Y8kPbDuRO7TbZPLV1Htnuij3oYq-T6PNyuH8HlZb6rSF6H0AL9klD512BoCgAnDJpSRHRRQjs2HfKfUZEEBIPktBhIjbvD9A5N6A:1vkfWp:YgL6O_dWnsqRcrC9LQ7KSUdO3QJFUbNZCrRGYM-4-5k",
+    "expire_date": "2026-01-27T09:53:31.862Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "d8ecfec80xbtt3jj92vbdyudt14endgj",
+  "fields": {
+    "session_data": ".eJxVjMsKwjAQRf8lawmZ5tFMl-79hjB52WhpoUkFEf9dC13o9p5zz4s52trotppWVyIbmGSn381TuKd5B_FG83XhYZnbWjzfFX7Qyi9LTNP5cP8CI9Xx-1Ze-l4na8hmTMIikgAdMGnZ6WClt5CDgmxFNKYTGVCljmTCHo2HvEcnqs1RaOVR2pMN0BsE3WmFXEsQIPX7AzAPQVk:1vjBPp:LFWmPFRFMZUwY1uEI2-wfD_3j6CAjRJrZB68nP6h2qI",
+    "expire_date": "2026-01-23T07:32:09.015Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "dw1mr93n8wcuzqk8z25frzw1oua642d3",
+  "fields": {
+    "session_data": ".eJxVjMEOwiAQBf-FsyFLoUB79O43EJYFi5o2KdTEGP9dmvSg15l5782c3-rkthJXl4mNTLLTL0Mf7nHeBd38fF14WOa6ZuR7wg9b-GWh-Dgf7d_B5MvU1kGiUdYYoGigs0lBFBotooakegAhPHVAXaI0YN8Kaqj1AhEkominD1-q86HmZ64vNgqj7TD0VmsulQQw8vMFIWNBKg:1viWde:yiLp5o0WIefFJj3MQILx31l9J3nARGQBguYWiMNOynM",
+    "expire_date": "2026-01-21T11:59:42.036Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "i5xwptxsqzd2uyojqe4qgnhaxc5822zi",
+  "fields": {
+    "session_data": ".eJxVjMsOwiAQRf-FtSG8y7h07zeQAQapGkhKuzL-uzbpQrf3nHNfLOC21rANWsKc2ZlpdvrdIqYHtR3kO7Zb56m3dZkj3xV-0MGvPdPzcrh_BxVH_dYm6jhZ8g59ARIeAIW0CchqZZPX0cuSjCxeZOeUKBIMKdQEE7goS2bvD9ZPN44:1vjDUW:vzsAQxhJoxpEdjaKPzK6jmfAXeFzeFQ8ZuVTOH8Fo6s",
+    "expire_date": "2026-01-23T09:45:08.388Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "it2aroeugy6rtd0wc0xyce657julbn06",
+  "fields": {
+    "session_data": ".eJxVjMsOwiAQRf-FtSFQCsx06d5vIMPLok2bFGpijP-uTbrQ7T3nnhdztLXRbTWtrkQ2MMVOv5uncE_zDuKN5uvCwzK3tXi-K_yglV-WmKbz4f4FRqrj99175a1OYAgyJgGIJKQOmLTqdADlQebQywwiGtOJLLFPHamEFo2XeY9OVJuj0MqjtCcbpDUowKC0HJRGKeD9ATCzQW4:1viuK4:oGA-idMYlEq5fZ4ZOeS094K5HKDLONpeTViMaXntBRY",
+    "expire_date": "2026-01-22T13:17:04.633Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "j5zjbifpwnwce9d0hwrfwhggsxi4qkd3",
+  "fields": {
+    "session_data": ".eJxVjM0OgjAQhN-lZ9Nsu8C2HL37DM32B6kaSGgxMcZ3FxIOepyZb763cLzW0a0lLS5H0QulxOm39BzuadqXeOPpOsswT3XJXu6IPNYiL3NMj_PB_glGLuP21oTaEKkUfJOYYoLIPnjQoBGxVY2JpFgDkLWaEpJXXbPllnnAAewmfXCpjkPNz1xfolfUEZkWFEprCNB0ny9D60Ev:1vdRdY:kCp7cF4WCB791y6TExGiJl_WH7n-eVzCNj3_jOJp7fU",
+    "expire_date": "2026-01-07T11:38:36.011Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "mf5odvq0oyqz9mov4m1on6fvaaf8q316",
+  "fields": {
+    "session_data": ".eJxVjMsOwiAQRf-FtSGUNy7d-w1kGAapGkhKuzL-uzbpQrf3nHNfLMK21rgNWuKc2ZkpdvrdEuCD2g7yHdqtc-xtXebEd4UfdPBrz_S8HO7fQYVRv_XknTKpSGER0TsJdjIhaxRFKrJaB4AiXHAJk8gSjNcYjBcEJL0KCtn7A9atN6c:1vkd0W:mKx6X2hi1vNs_3Of5ucczH2-_wptl6WHenuueKYo9LM",
+    "expire_date": "2026-01-27T07:12:00.665Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "rtdnphf47lppy1ibr5dulhp7hdo968yc",
+  "fields": {
+    "session_data": ".eJxVjMsKwjAUBf8lawl5J7dL935DuHnZaGmhSQUR_10LXej2zJx5EY9bH_3W8uprIgOR5PS7BYz3PO8g3XC-LjQuc19roLtCD9roZUl5Oh_uX2DENn7fKshgdXYGXYHMHAAyriNkLYWOTgbHS1S8OJaMEaxwUFmgzGDBBF726ISte4y9Pmp_koFbA8wKrRVVYLRT9v0BMHFBbw:1viqhW:mZGg7pp3fUEw2z4vEMYOInzJqKO-Azj1ox_JRxyKiMk",
+    "expire_date": "2026-01-22T09:25:02.069Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "saabollcz0rhli1zesg37wau1ctk1gq0",
+  "fields": {
+    "session_data": ".eJxVjMsKwjAQRf8lawmZpnlMl-79hjB52WhpoUkFEf9dC13o9p5zz4s52trotppWVyIbmGSn381TuKd5B_FG83XhYZnbWjzfFX7Qyi9LTNP5cP8CI9Xx--699EYlq8lmTMIikgAVMCnZqWClt5BDD9mKqHUnMmCfOpIJDWoPeY9OVJuj0MqjtCcbwGgURnQCOSgEg-8P7tRBLw:1vipzR:eNwYJ00a8d8VAKLJiK3pEMy8MYbJ5YRSoB4kblvX4mo",
+    "expire_date": "2026-01-22T08:39:29.382Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "szchhza4wmfbhgyhku3vscz3tvezoxeu",
+  "fields": {
+    "session_data": ".eJxVjMsOgjAQRf-la9Mw9jGFpXu_oZm2g1QJJLSYGOO_CwkL3d5z7nkLT2sd_Fp48TmJThhx-t0CxQdPO0h3mm6zjPNUlxzkrsiDFnmdE4-Xw_0LDFSG7Y2RwIA2zjmj-hacCqRc5N4hQwgu9gjRRtOkllmbFDQGaxtGDpoAzlt0pFI9xZqfub5EB2jRgtbQStUqherzBQvsQbM:1vcjFz:VzXxJT4vOj-12IYGqmAHNjgvmTBCB3LS8vBcHNKZT98",
+    "expire_date": "2026-01-05T12:15:19.547Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "v6rgw9dvtc0h6a4swiompeo158qad1qf",
+  "fields": {
+    "session_data": ".eJxVjEEOwiAQRe_C2pBSSmG6dO8ZyDAMFjVtUqiJMd7dNulCt_-9_97C41pHvxZefI5iEFqcfreAdOdpB_GG03WWNE91yUHuijxokZc58uN8uH-BEcu4vSmCiy1BTykRYcRWG6ZOcZ9CMJww0SZAJMVKtW3DpAgCACXdaAOwRR9Yqkeq-ZnrSwzK9rbTxmklwXXWWfv5Atr4Q3c:1vbynz:isKizVYEx880_G9BaElcGJUuihhoLt30HKbEnzaBqyU",
+    "expire_date": "2026-01-03T10:39:19.085Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "w2m4sxc5jqi5xjvtchc21yh3q1jla7ry",
+  "fields": {
+    "session_data": ".eJxVjEsKwjAUAO_y1iWk-adL954hvLykNlpaaFJBxLtLoQvdzgzzhoB7m8Je8xZKggF66H5ZRHrk5RDpjsttZbQubSuRHQk7bWXXNeX5crZ_gwnrBAPoXqK00iBx0nqUwllltU_ZS0XS85yM4zkJGQmJuLCefDQu-tFmRO6ggxlrC0itPEt7wdBbY7wXThlmuJJCiM8XMapBsQ:1va7Yc:CV46380Moq67tlhJkHyzZK6hExIU2FC1gnkewsiHBfE",
+    "expire_date": "2025-12-29T07:50:46.604Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "xaxo974mzbsjoiufellrbm9we45w9dtt",
+  "fields": {
+    "session_data": ".eJxVjMsKwjAQRf8lawl5NMlMl-79hjB52WppoUkFEf9dC13o9p5zz4t52trgt5pXPybWM81Ov1ugeM_zDtKN5uvC4zK3dQx8V_hBK78sKU_nw_0LDFSH77sLOjiTwRIUzAIQSUgTMRutTAQdQJbYyQIiWatEkdhlRTqjQxtk2aMT1eYptvExtifrpbMojVOgOYAQSsH7AzBYQWM:1vjCmv:-sjuxfPKa1py4I0-8laXe4bBkzIXBOPj2gBY5dDw28Y",
+    "expire_date": "2026-01-23T09:00:05.005Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "z01eiyqifabxqqi6id2zb4tq9vcnam9i",
+  "fields": {
+    "session_data": ".eJxVjMsKwjAUBf8lawl5J7dL935DuHnZaGmhSQUR_10LXej2zJx5EY9bH_3W8uprIgOR5PS7BYz3PO8g3XC-LjQuc19roLtCD9roZUl5Oh_uX2DENn7fKshgdXYGXYHMHAAyriNkLYWOTgbHS1S8OJaMEaxwUFmgzGDBBF726ISte4y9Pmp_koFbA8xY5xQVwBiAeX8AMK1BcQ:1vipVh:TWMmlrUpvhn02YbpSsS2GLXP9lFIiHFL9RIh-qgp--0",
+    "expire_date": "2026-01-22T08:08:45.781Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "zewgc8726m6uagxcqbtlfype2z5n0vva",
+  "fields": {
+    "session_data": ".eJxVjMsKwjAQRf8lawmZpHlMl-79hjB52WppoUkFEf9dC13o9p5zz4t52trgt5pXPybWM8VOv1ugeM_zDtKN5uvC4zK3dQx8V_hBK78sKU_nw_0LDFSH77sLKlidnSFXMAuHSAJ0xKyV1NGp4KDEDooTyRgpCmCXJamMFk2Askcnqs1TbONjbE_WgzUowEqwHJQBKe37Ay-4QVU:1vicLv:j2wNdDXjiNJ3_zp3sM4mIKQUAr9vNdVVstIw3d66Lsw",
+    "expire_date": "2026-01-21T18:05:47.542Z"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add log entry",
+    "content_type": [
+      "admin",
+      "logentry"
+    ],
+    "codename": "add_logentry"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change log entry",
+    "content_type": [
+      "admin",
+      "logentry"
+    ],
+    "codename": "change_logentry"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete log entry",
+    "content_type": [
+      "admin",
+      "logentry"
+    ],
+    "codename": "delete_logentry"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view log entry",
+    "content_type": [
+      "admin",
+      "logentry"
+    ],
+    "codename": "view_logentry"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add permission",
+    "content_type": [
+      "auth",
+      "permission"
+    ],
+    "codename": "add_permission"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change permission",
+    "content_type": [
+      "auth",
+      "permission"
+    ],
+    "codename": "change_permission"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete permission",
+    "content_type": [
+      "auth",
+      "permission"
+    ],
+    "codename": "delete_permission"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view permission",
+    "content_type": [
+      "auth",
+      "permission"
+    ],
+    "codename": "view_permission"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add group",
+    "content_type": [
+      "auth",
+      "group"
+    ],
+    "codename": "add_group"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change group",
+    "content_type": [
+      "auth",
+      "group"
+    ],
+    "codename": "change_group"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete group",
+    "content_type": [
+      "auth",
+      "group"
+    ],
+    "codename": "delete_group"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view group",
+    "content_type": [
+      "auth",
+      "group"
+    ],
+    "codename": "view_group"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add content type",
+    "content_type": [
+      "contenttypes",
+      "contenttype"
+    ],
+    "codename": "add_contenttype"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change content type",
+    "content_type": [
+      "contenttypes",
+      "contenttype"
+    ],
+    "codename": "change_contenttype"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete content type",
+    "content_type": [
+      "contenttypes",
+      "contenttype"
+    ],
+    "codename": "delete_contenttype"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view content type",
+    "content_type": [
+      "contenttypes",
+      "contenttype"
+    ],
+    "codename": "view_contenttype"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add session",
+    "content_type": [
+      "sessions",
+      "session"
+    ],
+    "codename": "add_session"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change session",
+    "content_type": [
+      "sessions",
+      "session"
+    ],
+    "codename": "change_session"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete session",
+    "content_type": [
+      "sessions",
+      "session"
+    ],
+    "codename": "delete_session"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view session",
+    "content_type": [
+      "sessions",
+      "session"
+    ],
+    "codename": "view_session"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add user",
+    "content_type": [
+      "authe",
+      "customuser"
+    ],
+    "codename": "add_customuser"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change user",
+    "content_type": [
+      "authe",
+      "customuser"
+    ],
+    "codename": "change_customuser"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete user",
+    "content_type": [
+      "authe",
+      "customuser"
+    ],
+    "codename": "delete_customuser"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view user",
+    "content_type": [
+      "authe",
+      "customuser"
+    ],
+    "codename": "view_customuser"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add audit log",
+    "content_type": [
+      "authe",
+      "auditlog"
+    ],
+    "codename": "add_auditlog"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change audit log",
+    "content_type": [
+      "authe",
+      "auditlog"
+    ],
+    "codename": "change_auditlog"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete audit log",
+    "content_type": [
+      "authe",
+      "auditlog"
+    ],
+    "codename": "delete_auditlog"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view audit log",
+    "content_type": [
+      "authe",
+      "auditlog"
+    ],
+    "codename": "view_auditlog"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add leave request",
+    "content_type": [
+      "authe",
+      "leaverequest"
+    ],
+    "codename": "add_leaverequest"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change leave request",
+    "content_type": [
+      "authe",
+      "leaverequest"
+    ],
+    "codename": "change_leaverequest"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete leave request",
+    "content_type": [
+      "authe",
+      "leaverequest"
+    ],
+    "codename": "delete_leaverequest"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view leave request",
+    "content_type": [
+      "authe",
+      "leaverequest"
+    ],
+    "codename": "view_leaverequest"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add attendance",
+    "content_type": [
+      "authe",
+      "attendance"
+    ],
+    "codename": "add_attendance"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change attendance",
+    "content_type": [
+      "authe",
+      "attendance"
+    ],
+    "codename": "change_attendance"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete attendance",
+    "content_type": [
+      "authe",
+      "attendance"
+    ],
+    "codename": "delete_attendance"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view attendance",
+    "content_type": [
+      "authe",
+      "attendance"
+    ],
+    "codename": "view_attendance"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add holiday",
+    "content_type": [
+      "authe",
+      "holiday"
+    ],
+    "codename": "add_holiday"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change holiday",
+    "content_type": [
+      "authe",
+      "holiday"
+    ],
+    "codename": "change_holiday"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete holiday",
+    "content_type": [
+      "authe",
+      "holiday"
+    ],
+    "codename": "delete_holiday"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view holiday",
+    "content_type": [
+      "authe",
+      "holiday"
+    ],
+    "codename": "view_holiday"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add attendance audit log",
+    "content_type": [
+      "authe",
+      "attendanceauditlog"
+    ],
+    "codename": "add_attendanceauditlog"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change attendance audit log",
+    "content_type": [
+      "authe",
+      "attendanceauditlog"
+    ],
+    "codename": "change_attendanceauditlog"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete attendance audit log",
+    "content_type": [
+      "authe",
+      "attendanceauditlog"
+    ],
+    "codename": "delete_attendanceauditlog"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view attendance audit log",
+    "content_type": [
+      "authe",
+      "attendanceauditlog"
+    ],
+    "codename": "view_attendanceauditlog"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add system audit log",
+    "content_type": [
+      "authe",
+      "systemauditlog"
+    ],
+    "codename": "add_systemauditlog"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change system audit log",
+    "content_type": [
+      "authe",
+      "systemauditlog"
+    ],
+    "codename": "change_systemauditlog"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete system audit log",
+    "content_type": [
+      "authe",
+      "systemauditlog"
+    ],
+    "codename": "delete_systemauditlog"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view system audit log",
+    "content_type": [
+      "authe",
+      "systemauditlog"
+    ],
+    "codename": "view_systemauditlog"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add travel request",
+    "content_type": [
+      "authe",
+      "travelrequest"
+    ],
+    "codename": "add_travelrequest"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change travel request",
+    "content_type": [
+      "authe",
+      "travelrequest"
+    ],
+    "codename": "change_travelrequest"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete travel request",
+    "content_type": [
+      "authe",
+      "travelrequest"
+    ],
+    "codename": "delete_travelrequest"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view travel request",
+    "content_type": [
+      "authe",
+      "travelrequest"
+    ],
+    "codename": "view_travelrequest"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can add notification",
+    "content_type": [
+      "authe",
+      "notification"
+    ],
+    "codename": "add_notification"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can change notification",
+    "content_type": [
+      "authe",
+      "notification"
+    ],
+    "codename": "change_notification"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can delete notification",
+    "content_type": [
+      "authe",
+      "notification"
+    ],
+    "codename": "delete_notification"
+  }
+},
+{
+  "model": "auth.permission",
+  "fields": {
+    "name": "Can view notification",
+    "content_type": [
+      "authe",
+      "notification"
+    ],
+    "codename": "view_notification"
+  }
+},
+{
+  "model": "authe.customuser",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$byV41C5sdAfLRfsLYseVZf$q8dpsLRAchZ36gcEH3mLbJER9zlpDhnuo8cQNdcUvtA=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "MGJ00001",
+    "email": "associate@satshine.com",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-01-27T10:54:15.474Z",
+    "employee_id": "MGJ00001",
+    "first_name": "PRODUCTION",
+    "last_name": "ASSOCIATE",
+    "contact_number": "9000000001",
+    "role": "field_officer",
+    "designation": "Associate",
+    "dccb": null,
+    "reporting_manager": null,
+    "role_level": 1,
+    "can_approve_attendance": false,
+    "can_approve_travel": true,
+    "department": "Field Support",
+    "multiple_dccb": [
+      "AHMEDABAD",
+      "SURAT",
+      "RAJKOT"
+    ],
+    "date_of_joining": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "authe.customuser",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$YCRTCQFl7eTN5mOI1JtA5t$GVP4viVOKbgVx4A1xHiUda/KYnN9vfhDD7uFORWfYEs=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "MGJ00002",
+    "email": "mgj00002@satshine.com",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-01-27T10:54:16.560Z",
+    "employee_id": "MGJ00002",
+    "first_name": "FIELD OFFICER",
+    "last_name": "ONE",
+    "contact_number": "900000002",
+    "role": "field_officer",
+    "designation": "MT",
+    "dccb": "AHMEDABAD",
+    "reporting_manager": "PRODUCTION MANAGER",
+    "role_level": 1,
+    "can_approve_attendance": false,
+    "can_approve_travel": false,
+    "department": "Field Support",
+    "multiple_dccb": [],
+    "date_of_joining": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "authe.customuser",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$tPBV0DOYJP82NbqPSrOMwK$dt3xVcxyFdbzmyiMiF+SdHKUssnnBquOGlxlHs54wA0=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "MGJ00003",
+    "email": "mgj00003@satshine.com",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-01-27T10:54:17.521Z",
+    "employee_id": "MGJ00003",
+    "first_name": "FIELD OFFICER",
+    "last_name": "TWO",
+    "contact_number": "900000003",
+    "role": "field_officer",
+    "designation": "DC",
+    "dccb": "SURAT",
+    "reporting_manager": "PRODUCTION MANAGER",
+    "role_level": 1,
+    "can_approve_attendance": false,
+    "can_approve_travel": false,
+    "department": "Field Support",
+    "multiple_dccb": [],
+    "date_of_joining": null,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "authe.customuser",
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$hcOn1OBYAKlOQYfWCHPTWy$GTMRXDJ/uEUEo0udYw85Ko2fV2WBgVH7kGcnCQogjNQ=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "MGJ00004",
+    "email": "mgj00004@satshine.com",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-01-27T10:54:18.505Z",
+    "employee_id": "MGJ00004",
+    "first_name": "FIELD OFFICER",
+    "last_name": "THREE",
+    "contact_number": "900000004",
+    "role": "field_officer",
+    "designation": "Support",
+    "dccb": "RAJKOT",
+    "reporting_manager": "PRODUCTION MANAGER",
+    "role_level": 1,
+    "can_approve_attendance": false,
+    "can_approve_travel": false,
+    "department": "Field Support",
+    "multiple_dccb": [],
+    "date_of_joining": null,
+    "groups": [],
+    "user_permissions": []
+  }
+}

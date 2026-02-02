@@ -1,0 +1,270 @@
+{% extends 'main/base_unified.html' %}
+
+{% block title %}Database Backup - MPMT{% endblock %}
+
+{% block extra_css %}
+<style>
+.backup-card {
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.backup-header {
+    background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+    color: white;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.stat-box {
+    background: #f8fafc;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    border: 1px solid #e5e7eb;
+}
+
+.stat-number {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--primary-navy);
+}
+
+.backup-btn {
+    background: var(--success-green);
+    color: white;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    margin: 5px;
+    transition: all 0.3s;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.backup-btn:hover {
+    background: #047857;
+    color: white;
+    transform: translateY(-2px);
+}
+
+.backup-btn.emergency {
+    background: var(--error-red);
+}
+
+.backup-btn.emergency:hover {
+    background: #b91c1c;
+}
+
+.backup-log {
+    background: #1f2937;
+    color: #f9fafb;
+    padding: 15px;
+    border-radius: 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    max-height: 300px;
+    overflow-y: auto;
+    margin-top: 15px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="backup-header">
+    <h1><i class="fas fa-database"></i> Production Database Backup</h1>
+    <p>Create and download complete database backups</p>
+</div>
+
+<div class="backup-card">
+    <h3>Database Statistics</h3>
+    <div class="stat-grid" id="statsGrid">
+        <div class="stat-box">
+            <div class="stat-number">{{ total_users }}</div>
+            <div>Total Users</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-number">{{ total_attendance }}</div>
+            <div>Attendance Records</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-number">{{ total_travel }}</div>
+            <div>Travel Requests</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-number">{{ total_leaves }}</div>
+            <div>Leave Requests</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-number">{{ total_notifications }}</div>
+            <div>Notifications</div>
+        </div>
+    </div>
+    <button onclick="refreshStats()" class="btn btn-secondary">
+        <i class="fas fa-sync-alt"></i> Refresh Statistics
+    </button>
+</div>
+
+<div class="backup-card">
+    <h3>Backup Options</h3>
+    <p>Choose your backup format and download method:</p>
+    
+    <div class="d-flex flex-wrap gap-3">
+        <a href="{% url 'download_database_backup' %}" class="backup-btn">
+            <i class="fas fa-download"></i> Download JSON Backup
+        </a>
+        
+        <a href="{% url 'download_django_backup' %}" class="backup-btn">
+            <i class="fas fa-file-code"></i> Download Django Format
+        </a>
+        
+        <button onclick="createEmergencyBackup()" class="backup-btn emergency">
+            <i class="fas fa-exclamation-triangle"></i> Emergency Backup Now
+        </button>
+        
+        <button onclick="scheduleBackup()" class="backup-btn" style="background: var(--warning-amber);">
+            <i class="fas fa-clock"></i> Schedule Daily Backup
+        </button>
+    </div>
+</div>
+
+<div class="backup-card">
+    <h3>Backup Instructions</h3>
+    <div class="alert alert-info">
+        <h4><i class="fas fa-info-circle"></i> Important Notes:</h4>
+        <ul>
+            <li><strong>JSON Backup:</strong> Complete data in readable format</li>
+            <li><strong>Django Format:</strong> Can be restored using Django loaddata</li>
+            <li><strong>Emergency Backup:</strong> Creates server-side backup files</li>
+            <li><strong>Current Database:</strong> SQLite (resets on deployment)</li>
+        </ul>
+    </div>
+    
+    <div class="alert alert-warning">
+        <h4><i class="fas fa-exclamation-triangle"></i> Critical Warning:</h4>
+        <p>Your production database is currently using SQLite which <strong>resets on every deployment</strong>. 
+        Add PostgreSQL plugin to Railway for permanent data storage.</p>
+    </div>
+</div>
+
+<div class="backup-card">
+    <h3>Backup Log</h3>
+    <div id="backupLog" class="backup-log">
+        Ready to create backup...
+    </div>
+</div>
+
+<script>
+function refreshStats() {
+    logMessage('Refreshing database statistics...');
+    
+    fetch('/auth/backup-statistics-api/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            updateStatsDisplay(data.statistics);
+            logMessage('Statistics refreshed successfully');
+        } else {
+            logMessage('Error refreshing statistics: ' + data.error);
+        }
+    })
+    .catch(error => {
+        logMessage('Network error: ' + error);
+    });
+}
+
+function updateStatsDisplay(stats) {
+    const grid = document.getElementById('statsGrid');
+    grid.innerHTML = `
+        <div class="stat-box">
+            <div class="stat-number">${stats.users.total}</div>
+            <div>Total Users</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-number">${stats.attendance.total}</div>
+            <div>Attendance Records</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-number">${stats.travel.total}</div>
+            <div>Travel Requests</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-number">${stats.leaves.total}</div>
+            <div>Leave Requests</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-number">${stats.notifications.total}</div>
+            <div>Notifications</div>
+        </div>
+    `;
+}
+
+function createEmergencyBackup() {
+    if (!confirm('Create emergency backup now? This will generate backup files on the server.')) {
+        return;
+    }
+    
+    logMessage('Creating emergency backup...');
+    
+    fetch('/auth/emergency-backup-now/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            logMessage('Emergency backup created successfully!');
+            logMessage(data.output);
+        } else {
+            logMessage('Emergency backup failed: ' + data.error);
+        }
+    })
+    .catch(error => {
+        logMessage('Network error: ' + error);
+    });
+}
+
+function scheduleBackup() {
+    logMessage('Daily backup scheduling is not yet implemented.');
+    logMessage('Recommendation: Add PostgreSQL plugin and set up automated backups.');
+}
+
+function logMessage(message) {
+    const log = document.getElementById('backupLog');
+    const timestamp = new Date().toLocaleTimeString();
+    log.innerHTML += `\n[${timestamp}] ${message}`;
+    log.scrollTop = log.scrollHeight;
+}
+
+// Auto-refresh stats every 30 seconds
+setInterval(refreshStats, 30000);
+
+// Log initial message
+document.addEventListener('DOMContentLoaded', function() {
+    logMessage('Backup dashboard loaded successfully');
+    logMessage('Database: SQLite (temporary storage)');
+    logMessage('Recommendation: Add PostgreSQL plugin for permanent storage');
+});
+</script>
+{% endblock %}
