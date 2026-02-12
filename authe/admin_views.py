@@ -2310,8 +2310,8 @@ def admin_direct_approval(request):
                     updated_count += 1
                     
                     # Create notification for the DC
-                    from .notification_service import NotificationService
-                    NotificationService.create_notification(
+                    from .notification_service import create_notification
+                    create_notification(
                         recipient=attendance.user,
                         notification_type='system_alert',
                         title='Attendance Directly Approved by Admin',
