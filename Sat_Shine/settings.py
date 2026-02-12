@@ -174,7 +174,7 @@ else:
     SECURE_HSTS_PRELOAD = False
     # Force local development to use HTTP
     USE_TZ = True
-    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '192.168.1.100']
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '192.168.1.100', 'testserver']
     CSRF_TRUSTED_ORIGINS = []
 
 # Session Configuration
